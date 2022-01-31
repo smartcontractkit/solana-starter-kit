@@ -13,7 +13,7 @@ const CHAINLINK_PROGRAM_ID = "DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g";
 
 // Data feed account address
 // Default is SOL / USD
-const default_feed = "7ndYj66ec3yPS58kRpodch3n8TEkCiaiy8tZ8Szb3BjP";
+const default_feed = "EdWr4ww1Dq82vPe8GFjjcVPo2Qno3Nhn6baCgM3dCy28";
 const CHAINLINK_FEED = args['feed'] || default_feed;
 
 async function main() {

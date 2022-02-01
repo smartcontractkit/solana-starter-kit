@@ -4,9 +4,9 @@ import { Program, BN } from '@project-serum/anchor';
 import { ChainlinkSolanaDemo } from '../target/types/chainlink_solana_demo';
 const assert = require("assert");
 
-const CHAINLINK_PROGRAM_ID = "DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g";
+const CHAINLINK_PROGRAM_ID = "CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT";
 // SOL/USD feed account
-const CHAINLINK_FEED = "7ndYj66ec3yPS58kRpodch3n8TEkCiaiy8tZ8Szb3BjP";
+const CHAINLINK_FEED = "EdWr4ww1Dq82vPe8GFjjcVPo2Qno3Nhn6baCgM3dCy28";
 
 describe('chainlink-solana-demo', () => {
   const provider = anchor.Provider.env();

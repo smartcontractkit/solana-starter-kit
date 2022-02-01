@@ -49,13 +49,13 @@ The build process generates the keypair for your program's account. Before you d
 solana address -k ./target/deploy/chainlink_solana_demo-keypair.json
 ```
 
-The next step is to edit the [./programs/chainlink_solana_demo/src/lib.rs](lib.rs) file and replace the keypair in the declare_id!() definition with the value you obtained from the previous step:
+The next step is to edit the [lib.rs](./programs/chainlink_solana_demo/src/lib.rs) file and replace the keypair in the declare_id!() definition with the value you obtained from the previous step:
 
 ```
 declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");
 ```
 
-Next, you also need to insert the deployed Program ID value into the [./Anchor.toml](Anchor.toml) file in the `chainlink_solana_demo` devnet defintion
+Next, you also need to insert the deployed Program ID value into the [Anchor.toml](./Anchor.toml) file in the `chainlink_solana_demo` devnet defintion
 
 ```
 [programs.devnet]
@@ -122,12 +122,12 @@ Fetching transaction logs...
   'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm consumed 2332 of 172986 compute units',
   'Program return: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm CA==',
   'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm success',
-  'Program log: SOL / USD price is 89.60000000',
+  'Program log: SOL / USD price is 105.520000000',
   'Program EsYPTcY4Be6GvxojV5kwZ7W2tK2hoVkm9XSN7Lk8HAs8 consumed 32730 of 200000 compute units',
   'Program return: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm CA==',
   'Program EsYPTcY4Be6GvxojV5kwZ7W2tK2hoVkm9XSN7Lk8HAs8 success'
 ]
-Price Is: 10193000000
+Price Is: 105.52
 Success
 ```
 
@@ -142,7 +142,7 @@ The integration test will check that the value of the SOL/USD price feed on Devn
 ```bash
  solana-starter-kit
 
-Price Is: 10585000000
+Price Is: 105.52
     ✔ Query SOL/USD Price Feed! (4521ms)
 
 

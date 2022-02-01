@@ -9,7 +9,7 @@ const provider = anchor.Provider.env();
 // Configure the cluster.
 anchor.setProvider(provider);
 
-const CHAINLINK_PROGRAM_ID = "DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g";
+const CHAINLINK_PROGRAM_ID = "CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT";
 
 // Data feed account address
 // Default is SOL / USD

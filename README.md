@@ -37,39 +37,53 @@ Next, airdrop some SOL tokens into your new account. We will need to call this t
 solana airdrop 2 <RECIPIENT_ACCOUNT_ADDRESS> --url https://api.devnet.solana.com && solana airdrop 2 <RECIPIENT_ACCOUNT_ADDRESS> --url https://api.devnet.solana.com
 ```
 
-Next, build and deploy the program:
+Next, build the program:
+
+```
+anchor build
+```
+
+The build process generates the keypair for your program's account. Before you deploy your program, you must add this public key to the lib.rs file. To do this, you need to get the keypair from the ./target/deploy/chainlink_solana_demo-keypair.json file that Anchor generated:
+
+```
+solana address -k ./target/deploy/chainlink_solana_demo-keypair.json
+```
+
+The next step is to edit the [./programs/chainlink_solana_demo/src/lib.rs](lib.rs) file and replace the keypair in the declare_id!() definition with the value you obtained from the previous step:
+
+```
+declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");
+```
+
+Next, you also need to insert the deployed Program ID value into the [./Anchor.toml](Anchor.toml) file in the `chainlink_solana_demo` devnet defintion
+
+```
+[programs.devnet]
+chainlink_solana_demo = "JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm"
+```
+
+Finally, because you updated the source code with the generated program ID, you need to rebuild the program again, and then it can be deployed to devnet
 
 ```
 anchor build
 anchor deploy --provider.cluster devnet
 ```
 
-Once you have successfully deployed the program, the terminal output will specify the program ID of the program. Take note of this, as it will be required in the client:
+Once you have successfully deployed the program, the terminal output will specify the program ID of the program, it should match the value you inserted into the lib.rs file and the Anchor.toml file. Once again, take note of this Program ID, as it will be required when executing the client:
 
 ```
 Deploying workspace: https://api.devnet.solana.com
 Upgrade authority: ./id.json
 Deploying program "chainlink_solana_demo"...
 Program path: ./target/deploy/chainlink_solana_demo.so...
-Program Id: 39zEiws4s9ffMkr4hK84nqF2nLQFGP8aQpPPgN6H2hWu
+Program Id: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm
 ```
 
 ### Running the Client
-Copy the `program_id` from the previous step, or alternatively you can get the deployed program ID with the following command:
-```
-solana-keygen pubkey target/deploy/chainlink_solana_demo-keypair.json
-```
-
-Once you have the deployed program ID, insert it into `client.js`, replacing the <DEPLOYED_PROGRAM_ID_GOES_HERE> string with the program ID.
+First step is to ensure the `CHAINLINK_FEED` variable in `client.js` contains the [account of the price feed you want to query](https://docs.chain.link/docs/solana/data-feeds-solana/). In the demo it's defaulted to the Devnet [SOL/USD feed](https://solscan.io/account/EdWr4ww1Dq82vPe8GFjjcVPo2Qno3Nhn6baCgM3dCy28?cluster=devnet).
 
 ```
-const programId = new anchor.web3.PublicKey("<DEPLOYED_PROGRAM_ID_GOES_HERE>");
-```
-
-Next, ensure the `CHAINLINK_FEED` variable in `client.js` contains the [account of the price feed you want to query](https://docs.chain.link/docs/solana/data-feeds-solana/). In the demo it's defaulted to the Devnet [SOL/USD feed](https://solscan.io/account/7ndYj66ec3yPS58kRpodch3n8TEkCiaiy8tZ8Szb3BjP?cluster=devnet).
-
-```
-const CHAINLINK_FEED = "7ndYj66ec3yPS58kRpodch3n8TEkCiaiy8tZ8Szb3BjP";
+const CHAINLINK_FEED = "EdWr4ww1Dq82vPe8GFjjcVPo2Qno3Nhn6baCgM3dCy28";
 ```
 
 The next step is to set the Anchor [environment variables](https://www.twilio.com/blog/2017/01/how-to-set-environment-variables.html). These are required by the Anchor framework to determine which Provider to use, as well as which Wallet to use for interacting with the deployed program:
@@ -78,10 +92,10 @@ export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
 export ANCHOR_WALLET='./id.json'
 ```
 
-Now you are ready to run the Node.JS client:
+Now you are ready to run the Node.JS client. Be sure to pass the program ID obtained from the previous steps by using the --program flag. linking to the json file containing the account that owns the program:
 
 ```
-node client.js
+node client.js --program $(solana address -k ./target/deploy/chainlink_solana_demo-keypair.json)
 ```
 
 The client will generate a new account and pass it to the deployed program, which will then populate the account with the current price from the specified price feed. The client will then read the price from the account, and output the value to the console.
@@ -93,38 +107,32 @@ Fetching transaction logs...
   'Program log: Instruction: Execute',
   'Program 11111111111111111111111111111111 invoke [2]',
   'Program 11111111111111111111111111111111 success',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g invoke [2]',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm invoke [2]',
   'Program log: Instruction: Query',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g consumed 2916 of 186595 compute units',
-  'Program return: DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g qpoFAMBI82EAAAAAAMAOFgIAAAAAAAAAAAAAAA==',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g success',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g invoke [2]',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm consumed 2916 of 186595 compute units',
+  'Program return: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm qpoFAMBI82EAAAAAAMAOFgIAAAAAAAAAAAAAAA==',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm success',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm invoke [2]',
   'Program log: Instruction: Query',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g consumed 2910 of 179949 compute units',
-  'Program return: DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g CQAAAFNPTCAvIFVTRA==',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g success',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g invoke [2]',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm consumed 2910 of 179949 compute units',
+  'Program return: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm CQAAAFNPTCAvIFVTRA==',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm success',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm invoke [2]',
   'Program log: Instruction: Query',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g consumed 2332 of 172986 compute units',
-  'Program return: DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g CA==',
-  'Program DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g success',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm consumed 2332 of 172986 compute units',
+  'Program return: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm CA==',
+  'Program JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm success',
   'Program log: SOL / USD price is 89.60000000',
   'Program EsYPTcY4Be6GvxojV5kwZ7W2tK2hoVkm9XSN7Lk8HAs8 consumed 32730 of 200000 compute units',
-  'Program return: DWqYEinRbZWtuq1DiDYvmexAKFoyjSyazZZUvdgPHT5g CA==',
+  'Program return: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm CA==',
   'Program EsYPTcY4Be6GvxojV5kwZ7W2tK2hoVkm9XSN7Lk8HAs8 success'
 ]
-Price Is: 8960000000
+Price Is: 10193000000
 Success
 ```
 
 ### Testing
-Before executing the integration test, first you need to extract the `program ID` from the deploying the program step, and insert it into the test script `chainlink-solana-demo-int-test.js`, replacing the <DEPLOYED_PROGRAM_ID_GOES_HERE> string with the program ID:
-
-```
-const programId = new anchor.web3.PublicKey("<DEPLOYED_PROGRAM_ID_GOES_HERE>");
-```
-
-Now you can execute the [integration test](./tests/chainlink-solana-demo-int-test.ts) with the following command
+You can execute the [integration test](./tests/chainlink-solana-demo-int-test.ts) with the following command
 
 ```bash
 anchor test
@@ -134,7 +142,7 @@ The integration test will check that the value of the SOL/USD price feed on Devn
 ```bash
  solana-starter-kit
 
-Price Is: 8948181871
+Price Is: 10585000000
     ✔ Query SOL/USD Price Feed! (4521ms)
 
 

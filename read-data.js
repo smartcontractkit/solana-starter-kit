@@ -83,7 +83,7 @@ async function main() {
   //First we create a connection to the store program for Chainlink feeds on devnet
   let storeIdl = JSON.parse(require("fs").readFileSync('./store.json'));
   const storeProgram = new anchor.Program(storeIdl, CHAINLINK_PROGRAM_ID, provider);
-/*
+
   console.log('trying with getAccountInfo')
   const publicKey = new web3.PublicKey(
     CHAINLINK_FEED
@@ -166,7 +166,7 @@ async function main() {
   console.log('timestamp  is: ' + resultTransmission.timestamp)
   console.log('latest price is: ' + resultTransmission.answer)
 
-*/
+
   console.log('------------------------------------------------------')
   console.log('now trying with streams/events')
 

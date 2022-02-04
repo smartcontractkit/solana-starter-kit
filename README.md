@@ -12,17 +12,20 @@ The Chainlink Solana Demo is an [Anchor](https://project-serum.github.io/anchor/
 ### Building and Deploying the Consumer Program
 
 First, ensure that you're in the `solana-starter-kit` directory in this repository
+
 ```
 cd ./solana-starter-kit
 ```
 
 Next step is to install all of the required dependencies:
+
 ```
 npm install
 ```
 
 
 Next, generate a new wallet:
+
 ```
 solana-keygen new -o id.json
 ```
@@ -34,6 +37,7 @@ solana-keygen pubkey id.json
 ```
 
 Next, airdrop some SOL tokens into your new account. We will need to call this twice, because the Devnet faucet is limited to 2 SOL, and we need approximately 4 SOL. Be sure to replace both instances of <RECIPIENT_ACCOUNT_ADDRESS> with your wallet's public key from the previous step:
+
 ```
 solana airdrop 2 $(solana-keygen pubkey ./id.json) --url https://api.devnet.solana.com && solana airdrop 2 $(solana-keygen pubkey ./id.json) --url https://api.devnet.solana.com
 ```
@@ -81,20 +85,22 @@ Program Id: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm
 ```
 
 ### Running the Client
-First step is set the Anchor [environment variables](https://www.twilio.com/blog/2017/01/how-to-set-environment-variables.html). These are required by the Anchor framework to determine which Provider to use, as well as which Wallet to use for interacting with the deployed program:
+
+The first step is to set the Anchor [environment variables](https://www.twilio.com/blog/2017/01/how-to-set-environment-variables.html). These are required by the Anchor framework to determine which provider to use and which wallet to use for interacting with the deployed program:
+
 ```
 export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
 export ANCHOR_WALLET='./id.json'
 ```
 
-Now you are ready to run the JavaScript client. Be sure to pass the program ID obtained from the previous steps by using the --program flag. linking to the json file containing the account that owns the program, as well as the chainlink feed address that you wish to query. This can be taken from the [Chainlink Solana Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we’re specifying the ETH/USD feed:
-
+Now you are ready to run the JavaScript client. Be sure to pass the program ID obtained from the previous steps by using the `--program` flag pointing to the JSON file containing the account that owns the program, as well as the Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we specified the ETH/USD feed:
 
 ```
 node client.js --program $(solana address -k ./target/deploy/chainlink_solana_demo-keypair.json) --feed 5zxs8888az8dgB5KauGEFoPuMANtrKtkpFiFRmo3cSa9
 ```
 
 The client will generate a new account and pass it to the deployed program, which will then populate the account with the current price from the specified price feed. The client will then read the price from the account, and output the value to the console.
+
 ```
 Running client...
 priceFeedAccount public key: DNQBqwGijKix2EmKhMMaftZgSywcbfnQZSzfDyEMEfLf
@@ -130,6 +136,7 @@ Success
 ```
 
 ### Running the Read Only Client
+
 To facilitate the scenario of purely requiring Chainlink Price Feed data off-chain, we have also included a second `read-data` client that queries a specified price feed and returns the latest price data. This version of the client does not generate a transaction, and therefore requires no accounts created or transaction fees. To run the read-data client, first you should ensure you have set the required Anchor environment variables. You can skip this step if you already did it earlier before running the normal client:
 
 ```
@@ -197,12 +204,14 @@ latest price is: 2,795.2
 
 
 ### Testing
+
 You can execute the [integration test](./tests/chainlink-solana-demo-int-test.ts) with the following command
 
 ```bash
 anchor test
 ```
-The integration test will check that the value of the specieid price feed account (defaulted to SOL/USD) on Devnet is greater than 0
+
+The integration test checks that the value of the specified price feed account (defaulted to SOL/USD) on Devnet is greater than 0.
 
 ```bash
  solana-starter-kit

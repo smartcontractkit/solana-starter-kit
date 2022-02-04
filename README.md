@@ -7,6 +7,7 @@ The Chainlink Solana Demo is an [Anchor](https://project-serum.github.io/anchor/
 - [NodeJS 12](https://nodejs.org/en/download/) or higher
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Solana CLI](https://github.com/solana-labs/solana/releases)
+- A C compiler such as the one included in [GCC](https://gcc.gnu.org/install/).
 
 ### Building and Deploying the Consumer Program
 

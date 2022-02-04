@@ -1,0 +1,1176 @@
+{
+    "version": "0.1.0",
+    "name": "ocr2",
+    "constants": [
+      {
+        "name": "MAX_ORACLES",
+        "type": {
+          "defined": "usize"
+        },
+        "value": "19"
+      }
+    ],
+    "instructions": [
+      {
+        "name": "initialize",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "transmissions",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "payer",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "owner",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "tokenMint",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenVault",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "vaultAuthority",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "requesterAccessController",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "billingAccessController",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "rent",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "systemProgram",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenProgram",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "associatedTokenProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "nonce",
+            "type": "u8"
+          },
+          {
+            "name": "minAnswer",
+            "type": "i128"
+          },
+          {
+            "name": "maxAnswer",
+            "type": "i128"
+          }
+        ]
+      },
+      {
+        "name": "close",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "receiver",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "transferOwnership",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": [
+          {
+            "name": "proposedOwner",
+            "type": "publicKey"
+          }
+        ]
+      },
+      {
+        "name": "acceptOwnership",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "beginOffchainConfig",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": [
+          {
+            "name": "offchainConfigVersion",
+            "type": "u64"
+          }
+        ]
+      },
+      {
+        "name": "writeOffchainConfig",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": [
+          {
+            "name": "offchainConfig",
+            "type": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "commitOffchainConfig",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "resetPendingOffchainConfig",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "setConfig",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": [
+          {
+            "name": "newOracles",
+            "type": {
+              "vec": {
+                "defined": "NewOracle"
+              }
+            }
+          },
+          {
+            "name": "f",
+            "type": "u8"
+          }
+        ]
+      },
+      {
+        "name": "setRequesterAccessController",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "requestNewRound",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "setBillingAccessController",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "setBilling",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "observationPaymentGjuels",
+            "type": "u32"
+          },
+          {
+            "name": "transmissionPaymentGjuels",
+            "type": "u32"
+          }
+        ]
+      },
+      {
+        "name": "withdrawFunds",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenVault",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "vaultAuthority",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "recipient",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "tokenProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      },
+      {
+        "name": "withdrawPayment",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "tokenVault",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "vaultAuthority",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "payee",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "tokenProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "payRemaining",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenVault",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "vaultAuthority",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "payOracles",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenVault",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "vaultAuthority",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "setPayees",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": [
+          {
+            "name": "payees",
+            "type": {
+              "vec": "publicKey"
+            }
+          }
+        ]
+      },
+      {
+        "name": "transferPayeeship",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "transmitter",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "payee",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "proposedPayee",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "acceptPayeeship",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "transmitter",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "proposedPayee",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      }
+    ],
+    "accounts": [
+      {
+        "name": "LatestConfig",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "configCount",
+              "type": "u32"
+            },
+            {
+              "name": "configDigest",
+              "type": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            },
+            {
+              "name": "blockNumber",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "LinkAvailableForPayment",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "availableBalance",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "OracleObservationCount",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "count",
+              "type": "u32"
+            }
+          ]
+        }
+      },
+      {
+        "name": "State",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "version",
+              "type": "u8"
+            },
+            {
+              "name": "nonce",
+              "type": "u8"
+            },
+            {
+              "name": "padding0",
+              "type": "u16"
+            },
+            {
+              "name": "padding1",
+              "type": "u32"
+            },
+            {
+              "name": "config",
+              "type": {
+                "defined": "Config"
+              }
+            },
+            {
+              "name": "oracles",
+              "type": {
+                "defined": "Oracles"
+              }
+            },
+            {
+              "name": "leftoverPayments",
+              "type": {
+                "defined": "LeftoverPayments"
+              }
+            },
+            {
+              "name": "transmissions",
+              "type": "publicKey"
+            }
+          ]
+        }
+      }
+    ],
+    "types": [
+      {
+        "name": "NewOracle",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "signer",
+              "type": {
+                "array": [
+                  "u8",
+                  20
+                ]
+              }
+            },
+            {
+              "name": "transmitter",
+              "type": "publicKey"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Billing",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "observationPaymentGjuels",
+              "type": "u32"
+            },
+            {
+              "name": "transmissionPaymentGjuels",
+              "type": "u32"
+            }
+          ]
+        }
+      },
+      {
+        "name": "LeftoverPayment",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "payee",
+              "type": "publicKey"
+            },
+            {
+              "name": "amount",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Oracles",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "xs",
+              "type": {
+                "array": [
+                  {
+                    "defined": "Oracle"
+                  },
+                  19
+                ]
+              }
+            },
+            {
+              "name": "len",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "LeftoverPayments",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "xs",
+              "type": {
+                "array": [
+                  {
+                    "defined": "LeftoverPayment"
+                  },
+                  19
+                ]
+              }
+            },
+            {
+              "name": "len",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "OffchainConfig",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "version",
+              "type": "u64"
+            },
+            {
+              "name": "xs",
+              "type": {
+                "array": [
+                  "u8",
+                  4096
+                ]
+              }
+            },
+            {
+              "name": "len",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Config",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "owner",
+              "type": "publicKey"
+            },
+            {
+              "name": "proposedOwner",
+              "type": "publicKey"
+            },
+            {
+              "name": "tokenMint",
+              "type": "publicKey"
+            },
+            {
+              "name": "tokenVault",
+              "type": "publicKey"
+            },
+            {
+              "name": "requesterAccessController",
+              "type": "publicKey"
+            },
+            {
+              "name": "billingAccessController",
+              "type": "publicKey"
+            },
+            {
+              "name": "minAnswer",
+              "type": "i128"
+            },
+            {
+              "name": "maxAnswer",
+              "type": "i128"
+            },
+            {
+              "name": "f",
+              "type": "u8"
+            },
+            {
+              "name": "round",
+              "type": "u8"
+            },
+            {
+              "name": "padding0",
+              "type": "u16"
+            },
+            {
+              "name": "epoch",
+              "type": "u32"
+            },
+            {
+              "name": "latestAggregatorRoundId",
+              "type": "u32"
+            },
+            {
+              "name": "latestTransmitter",
+              "type": "publicKey"
+            },
+            {
+              "name": "configCount",
+              "type": "u32"
+            },
+            {
+              "name": "latestConfigDigest",
+              "type": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            },
+            {
+              "name": "latestConfigBlockNumber",
+              "type": "u64"
+            },
+            {
+              "name": "billing",
+              "type": {
+                "defined": "Billing"
+              }
+            },
+            {
+              "name": "offchainConfig",
+              "type": {
+                "defined": "OffchainConfig"
+              }
+            },
+            {
+              "name": "pendingOffchainConfig",
+              "type": {
+                "defined": "OffchainConfig"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "SigningKey",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "key",
+              "type": {
+                "array": [
+                  "u8",
+                  20
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "Oracle",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "transmitter",
+              "type": "publicKey"
+            },
+            {
+              "name": "signer",
+              "type": {
+                "defined": "SigningKey"
+              }
+            },
+            {
+              "name": "payee",
+              "type": "publicKey"
+            },
+            {
+              "name": "proposedPayee",
+              "type": "publicKey"
+            },
+            {
+              "name": "fromRoundId",
+              "type": "u32"
+            },
+            {
+              "name": "payment",
+              "type": "u64"
+            }
+          ]
+        }
+      }
+    ],
+    "events": [
+      {
+        "name": "SetConfig",
+        "fields": [
+          {
+            "name": "configDigest",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "f",
+            "type": "u8",
+            "index": false
+          },
+          {
+            "name": "signers",
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  20
+                ]
+              }
+            },
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "SetBilling",
+        "fields": [
+          {
+            "name": "observationPaymentGjuels",
+            "type": "u32",
+            "index": false
+          },
+          {
+            "name": "transmissionPaymentGjuels",
+            "type": "u32",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "RoundRequested",
+        "fields": [
+          {
+            "name": "configDigest",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "requester",
+            "type": "publicKey",
+            "index": false
+          },
+          {
+            "name": "epoch",
+            "type": "u32",
+            "index": false
+          },
+          {
+            "name": "round",
+            "type": "u8",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "NewTransmission",
+        "fields": [
+          {
+            "name": "roundId",
+            "type": "u32",
+            "index": true
+          },
+          {
+            "name": "configDigest",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "answer",
+            "type": "i128",
+            "index": false
+          },
+          {
+            "name": "transmitter",
+            "type": "u8",
+            "index": false
+          },
+          {
+            "name": "observationsTimestamp",
+            "type": "u32",
+            "index": false
+          },
+          {
+            "name": "observers",
+            "type": {
+              "array": [
+                "u8",
+                19
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "juelsPerLamport",
+            "type": "u64",
+            "index": false
+          },
+          {
+            "name": "reimbursement",
+            "type": "u64",
+            "index": false
+          }
+        ]
+      }
+    ],
+    "errors": [
+      {
+        "code": 6000,
+        "name": "Unauthorized",
+        "msg": "Unauthorized"
+      },
+      {
+        "code": 6001,
+        "name": "InvalidInput",
+        "msg": "Invalid input"
+      },
+      {
+        "code": 6002,
+        "name": "TooManyOracles",
+        "msg": "Too many oracles"
+      },
+      {
+        "code": 6003,
+        "name": "StaleReport",
+        "msg": "Stale report"
+      },
+      {
+        "code": 6004,
+        "name": "DigestMismatch",
+        "msg": "Digest mismatch"
+      },
+      {
+        "code": 6005,
+        "name": "WrongNumberOfSignatures",
+        "msg": "Wrong number of signatures"
+      },
+      {
+        "code": 6006,
+        "name": "Overflow",
+        "msg": "Overflow"
+      },
+      {
+        "code": 6007,
+        "name": "MedianOutOfRange",
+        "msg": "Median out of range"
+      },
+      {
+        "code": 6008,
+        "name": "DuplicateSigner",
+        "msg": "Duplicate signer"
+      },
+      {
+        "code": 6009,
+        "name": "DuplicateTransmitter",
+        "msg": "Duplicate transmitter"
+      },
+      {
+        "code": 6010,
+        "name": "PayeeAlreadySet",
+        "msg": "Payee already set"
+      },
+      {
+        "code": 6011,
+        "name": "PaymentsRemaining",
+        "msg": "Leftover payments remaining, please call payRemaining first"
+      },
+      {
+        "code": 6012,
+        "name": "PayeeOracleMismatch",
+        "msg": "Payee and Oracle lenght mismatch"
+      },
+      {
+        "code": 6013,
+        "name": "InvalidTokenAccount",
+        "msg": "Invalid Token Account"
+      },
+      {
+        "code": 6014,
+        "name": "UnauthorizedSigner",
+        "msg": "Oracle signer key not found"
+      },
+      {
+        "code": 6015,
+        "name": "UnauthorizedTransmitter",
+        "msg": "Oracle transmitter key not found"
+      }
+    ]
+  }

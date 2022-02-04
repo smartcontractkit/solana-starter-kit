@@ -10,6 +10,7 @@ const provider = anchor.Provider.env();
 anchor.setProvider(provider);
 
 const CHAINLINK_PROGRAM_ID = "CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT";
+const DIVISOR = 100000000;
 
 // Data feed account address
 // Default is SOL / USD
@@ -54,7 +55,7 @@ async function main() {
 
   // Fetch the account details of the account containing the price data
   const latestPrice = await program.account.decimal.fetch(priceFeedAccount.publicKey);
-  console.log('Price Is: ' + latestPrice.value)
+  console.log('Price Is: ' + latestPrice.value / DIVISOR)
 }
 
 console.log("Running client...");

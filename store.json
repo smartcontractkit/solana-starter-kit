@@ -1,0 +1,476 @@
+{
+    "version": "0.1.0",
+    "name": "store",
+    "instructions": [
+      {
+        "name": "initialize",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "owner",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "loweringAccessController",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "createFeed",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "feed",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": [
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "decimals",
+            "type": "u8"
+          },
+          {
+            "name": "granularity",
+            "type": "u8"
+          },
+          {
+            "name": "liveLength",
+            "type": "u32"
+          }
+        ]
+      },
+      {
+        "name": "closeFeed",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "feed",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "receiver",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "setValidatorConfig",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "feed",
+            "isMut": true,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "flaggingThreshold",
+            "type": "u32"
+          }
+        ]
+      },
+      {
+        "name": "setWriter",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "feed",
+            "isMut": true,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "writer",
+            "type": "publicKey"
+          }
+        ]
+      },
+      {
+        "name": "transferOwnership",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": [
+          {
+            "name": "proposedOwner",
+            "type": "publicKey"
+          }
+        ]
+      },
+      {
+        "name": "acceptOwnership",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "submit",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "feed",
+            "isMut": true,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "round",
+            "type": {
+              "defined": "Transmission"
+            }
+          }
+        ]
+      },
+      {
+        "name": "lowerFlags",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "flags",
+            "type": {
+              "vec": "publicKey"
+            }
+          }
+        ]
+      },
+      {
+        "name": "setLoweringAccessController",
+        "accounts": [
+          {
+            "name": "store",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          },
+          {
+            "name": "accessController",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "query",
+        "accounts": [
+          {
+            "name": "feed",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "scope",
+            "type": {
+              "defined": "Scope"
+            }
+          }
+        ]
+      }
+    ],
+    "accounts": [
+      {
+        "name": "Store",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "owner",
+              "type": "publicKey"
+            },
+            {
+              "name": "proposedOwner",
+              "type": "publicKey"
+            },
+            {
+              "name": "raisingAccessController",
+              "type": "publicKey"
+            },
+            {
+              "name": "loweringAccessController",
+              "type": "publicKey"
+            },
+            {
+              "name": "flags",
+              "type": {
+                "defined": "Flags"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "Transmissions",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "version",
+              "type": "u8"
+            },
+            {
+              "name": "store",
+              "type": "publicKey"
+            },
+            {
+              "name": "writer",
+              "type": "publicKey"
+            },
+            {
+              "name": "description",
+              "type": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            },
+            {
+              "name": "decimals",
+              "type": "u8"
+            },
+            {
+              "name": "flaggingThreshold",
+              "type": "u32"
+            },
+            {
+              "name": "latestRoundId",
+              "type": "u32"
+            },
+            {
+              "name": "granularity",
+              "type": "u8"
+            },
+            {
+              "name": "liveLength",
+              "type": "u32"
+            },
+            {
+              "name": "liveCursor",
+              "type": "u32"
+            },
+            {
+              "name": "historicalCursor",
+              "type": "u32"
+            }
+          ]
+        }
+      }
+    ],
+    "types": [
+      {
+        "name": "Round",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "roundId",
+              "type": "u32"
+            },
+            {
+              "name": "timestamp",
+              "type": "u64"
+            },
+            {
+              "name": "answer",
+              "type": "i128"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Flags",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "xs",
+              "type": {
+                "array": [
+                  "publicKey",
+                  128
+                ]
+              }
+            },
+            {
+              "name": "len",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Transmission",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "timestamp",
+              "type": "u64"
+            },
+            {
+              "name": "answer",
+              "type": "i128"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Scope",
+        "type": {
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "Version"
+            },
+            {
+              "name": "Decimals"
+            },
+            {
+              "name": "Description"
+            },
+            {
+              "name": "RoundData",
+              "fields": [
+                {
+                  "name": "round_id",
+                  "type": "u32"
+                }
+              ]
+            },
+            {
+              "name": "LatestRoundData"
+            },
+            {
+              "name": "Aggregator"
+            }
+          ]
+        }
+      }
+    ],
+    "errors": [
+      {
+        "code": 6000,
+        "name": "Unauthorized",
+        "msg": "Unauthorized"
+      },
+      {
+        "code": 6001,
+        "name": "InvalidInput",
+        "msg": "Invalid input"
+      },
+      {
+        "code": 6002,
+        "name": "Full",
+        "msg": "Flags list is full"
+      },
+      {
+        "code": 6003,
+        "name": "NotFound"
+      }
+    ]
+  }

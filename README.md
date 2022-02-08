@@ -23,6 +23,12 @@ Next step is to install all of the required dependencies:
 npm install
 ```
 
+**Note for [Apple M1](https://en.wikipedia.org/wiki/Apple_M1) chipsets**: You will need to perform an extra step to get the Anchor framework installed manully from source, as the NPM package only support x86_64 chipsets currently, please run the following command to install it manually:
+
+```
+cargo install --git https://github.com/project-serum/anchor --tag v0.20.1 anchor-cli --locked
+```
+
 
 Next, generate a new wallet:
 

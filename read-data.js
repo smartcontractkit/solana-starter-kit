@@ -41,11 +41,8 @@ const transmissionSchema = new Map([[Transmission, {
 async function main() {
 
   // First we create a connection to the store program for Chainlink feeds on devnet
-  let storeIdl = JSON.parse(fs.readFileSync('./store.json'));
-  const storeProgram = new anchor.Program(storeIdl, CHAINLINK_STORE_PROGRAM_ID, provider);
-
-  let ocr2Idl = JSON.parse(fs.readFileSync('./ocr2.json'));
-  const ocr2Program = new anchor.Program(ocr2Idl, CHAINLINK_OCR2_PROGRAM_ID, provider);
+  const storeProgram = await anchor.Program.at(CHAINLINK_STORE_PROGRAM_ID, provider);
+  const ocr2Program = await anchor.Program.at(CHAINLINK_OCR2_PROGRAM_ID, provider);
 
   console.log('trying with getAccountInfo')
 

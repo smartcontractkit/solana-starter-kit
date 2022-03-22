@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
 <a href="https://chain.link" target="_blank">
-<img src="./solana-logo.png" width="225" alt="Chainlink Hardhat logo">
+<img src="./solana_logo.png" width="225" alt="Chainlink Solana logo">
 </a>
 </p>
 <br/>

@@ -2,5 +2,4 @@ image:
   file: .gitpod.Dockerfile
 tasks: 
   - name: ◎ SOLANA ◎ 
-    init: npm install
-    command: solana-keygen new -o id.json
+    command: npm install

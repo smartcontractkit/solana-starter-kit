@@ -400,9 +400,9 @@ dependencies = [
 
 [[package]]
 name = "chainlink_solana"
-version = "0.1.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de4dd9377ec4a91041eed7b6164aab25a88d9109b1e423852c46aeefe88eeb81"
+checksum = "a1bc07ff7987366d193e8e1913b4aafcb83f919ad71be8c040b420bcedb6339b"
 dependencies = [
  "borsh",
  "borsh-derive",

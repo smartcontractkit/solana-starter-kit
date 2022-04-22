@@ -1,9 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
 
 use chainlink_solana as chainlink;
 
-declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");
+declare_id!("L2ormt7enqtxZQvbWFpEEGhEN6MLBNZsLheNQdzWuxX");
 
 #[account]
 pub struct Decimal {
@@ -70,8 +69,10 @@ pub struct Execute<'info> {
     pub decimal: Account<'info, Decimal>,
     #[account(mut)]
     pub user: Signer<'info>,
+    /// CHECK: We're reading data from this specified chainlink feed
     pub chainlink_feed: AccountInfo<'info>,
+    /// CHECK: This is the Chainlink program library on Devnet
     pub chainlink_program: AccountInfo<'info>,
-    #[account(address = system_program::ID)]
-    pub system_program: AccountInfo<'info>,
+    /// CHECK: This is the devnet system program
+    pub system_program: Program<'info, System>,
 }

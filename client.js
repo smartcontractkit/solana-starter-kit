@@ -9,12 +9,12 @@ const provider = anchor.Provider.env();
 // Configure the cluster.
 anchor.setProvider(provider);
 
-const CHAINLINK_PROGRAM_ID = "CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT";
+const CHAINLINK_PROGRAM_ID = "HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny";
 const DIVISOR = 100000000;
 
 // Data feed account address
 // Default is SOL / USD
-const default_feed = "EdWr4ww1Dq82vPe8GFjjcVPo2Qno3Nhn6baCgM3dCy28";
+const default_feed = "HgTtcbcmp5BeThax5AU8vg4VwK79qAvAKKFMs8txMLW6";
 const CHAINLINK_FEED = args['feed'] || default_feed;
 
 async function main() {

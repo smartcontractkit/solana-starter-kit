@@ -74,13 +74,6 @@ The next step is to edit the [lib.rs](./programs/chainlink_solana_demo/src/lib.r
 declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");
 ```
 
-Next, you also need to insert the deployed Program ID value into the [Anchor.toml](./Anchor.toml) file in the `chainlink_solana_demo` devnet defintion
-
-```
-[programs.devnet]
-chainlink_solana_demo = "JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm"
-```
-
 Finally, because you updated the source code with the generated program ID, you need to rebuild the program again, and then it can be deployed to devnet
 
 ```
@@ -110,7 +103,7 @@ export ANCHOR_WALLET='./id.json'
 Now you are ready to run the JavaScript client. Be sure to pass the program ID obtained from the previous steps by using the `--program` flag pointing to the JSON file containing the account that owns the program, as well as the Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we specified the ETH/USD feed:
 
 ```
-node client.js --program $(solana address -k ./target/deploy/chainlink_solana_demo-keypair.json) --feed 5zxs8888az8dgB5KauGEFoPuMANtrKtkpFiFRmo3cSa9
+node client.js --program $(solana address -k ./target/deploy/chainlink_solana_demo-keypair.json) --feed 	2ypeVyYnZaW2TNYXXTaZq9YhYvnqcjCiifW1C6n8b7Go
 ```
 
 The client will generate a new account and pass it to the deployed program, which will then populate the account with the current price from the specified price feed. The client will then read the price from the account, and output the value to the console.
@@ -121,31 +114,31 @@ priceFeedAccount public key: DNQBqwGijKix2EmKhMMaftZgSywcbfnQZSzfDyEMEfLf
 user public key: GWKzUMdSF8Y4xQ3JANTChkaJDFE4UdkvAkHCknmJtJUX
 Fetching transaction logs...
 [
-  'Program FuwdLhVynFfsA3uLtYkixyFsabY3Qu31w3KhPcd1QJ8Z invoke [1]',
+  'Program BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY invoke [1]',
   'Program log: Instruction: Execute',
   'Program 11111111111111111111111111111111 invoke [2]',
   'Program 11111111111111111111111111111111 success',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT invoke [2]',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny invoke [2]',
   'Program log: Instruction: Query',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT consumed 2916 of 186595 compute units',
-  'Program return: CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT NX8BAFDJ/GEAAAAAQOCfIUEAAAAAAAAAAAAAAA==',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT success',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT invoke [2]',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny consumed 2551 of 1360424 compute units',
+  'Program return: HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny RZ0GABn5swcAAAAA3ltiYgAVg8dFAAAAAAAAAAAAAAA=',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny success',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny invoke [2]',
   'Program log: Instruction: Query',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT consumed 2910 of 179949 compute units',
-  'Program return: CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT CQAAAEVUSCAvIFVTRA==',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT success',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT invoke [2]',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny consumed 2245 of 1328033 compute units',
+  'Program return: HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny CQAAAEVUSCAvIFVTRA==',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny success',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny invoke [2]',
   'Program log: Instruction: Query',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT consumed 2332 of 172986 compute units',
-  'Program return: CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT CA==',
-  'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT success',
-  'Program log: ETH / USD price is 2797.37000000',
-  'Program FuwdLhVynFfsA3uLtYkixyFsabY3Qu31w3KhPcd1QJ8Z consumed 32795 of 200000 compute units',
-  'Program return: CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT CA==',
-  'Program FuwdLhVynFfsA3uLtYkixyFsabY3Qu31w3KhPcd1QJ8Z success'
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny consumed 1826 of 1295650 compute units',
+  'Program return: HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny CA==',
+  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny success',
+  'Program log: ETH / USD price is 2997.00000000',
+  'Program BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY consumed 109699 of 1400000 compute units',
+  'Program return: BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY CA==',
+  'Program BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY success'
 ]
-Price Is: 2797.37
+Price Is: 2997
 Success
 ```
 
@@ -158,62 +151,31 @@ export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
 export ANCHOR_WALLET='./id.json'
 ```
 
-Next, you can run the read-data client, passing in the [Price Feed account address](https://docs.chain.link/docs/solana/data-feeds-solana/) that you wish to query. This example queries the ETH/USD feed:
+Next, you can set the value of the `CHAINLINK_FEED_ADDRESS` static variable to the value of the [Price Feed account address](https://docs.chain.link/docs/solana/data-feeds-solana/) that you wish to query. This example queries the ETH/USD feed:
 
 
 ```
-node read-data.js --feed 5zxs8888az8dgB5KauGEFoPuMANtrKtkpFiFRmo3cSa9
+const CHAINLINK_FEED_ADDRESS="2ypeVyYnZaW2TNYXXTaZq9YhYvnqcjCiifW1C6n8b7Go"
 ```
 
-The client will query the specified price feed using two methods. The first method returns price data by directly reading the account of the specified price feed, and is suited for scenarios of when a single price value is required. The second method obtains price data from the `NewTransmission` event emitted by the Price Feed on-chain program, and is more suited to front-ends and dApps that require constant price updates.
+Once you save your file, you can then execute the client:
 
 ```
-Running client...
-trying with getAccountInfo
-5zxs8888az8dgB5KauGEFoPuMANtrKtkpFiFRmo3cSa9
-Feed: ETH / USD
-timestamp  is: 1643957706
-latest price is: 2,795.55
-------------------------------------------------------
-now getting price data with streams/events
-{
-  signature: '3415SKx9pdFRyYiMxEqRUvF6DuqobfUAWoQ4pTymRdYPXGDXHyuPuxcsiRf91bhcRBUe6DKNSNvLbEjwXC657bAe',
-  err: null,
-  logs: [
-    'Program HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v invoke [1]',
-    'Program log: gjbLTR5rT6i6gAEAAAO0yW6pYD5plNHCZu1SwDAMsuXx2mG4ubp6E+F9DOAAuLAUQQAAAAAAAAAAAAAAA9/N/GEgAwABAgAAAAAAAAAAAAAAAAAAAOiqOQkAAAAAQANSLrQAAAA=',
-    'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT invoke [2]',
-    'Program log: Instruction: Submit',
-    'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT consumed 5981 of 131061 compute units',
-    'Program CaH12fwNTKJAG8PxEvo9R96Zc2j8qNHZaFj8ZW49yZNT success',
-    'Program HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v consumed 76000 of 200000 compute units',
-    'Program HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v success'
-  ]
-}
-{
-  data: {
-    roundId: 98490,
-    configDigest: [
-        0,   3, 180, 201, 110, 169, 96,  62,
-      105, 148, 209, 194, 102, 237, 82, 192,
-       48,  12, 178, 229, 241, 218, 97, 184,
-      185, 186, 122,  19, 225, 125, 12, 224
-    ],
-    answer: <BN: 4114b0b800>,
-    transmitter: 3,
-    observationsTimestamp: 1643957727,
-    observers: [
-      32, 3, 0, 1, 2, 0, 0,
-       0, 0, 0, 0, 0, 0, 0,
-       0, 0, 0, 0, 0
-    ],
-    juelsPerLamport: <BN: 939aae800>,
-    reimbursement: <BN: b42e52034000>
-  },
-  name: 'NewTransmission'
-}
-timestamp  is: 1643957727
-latest price is: 2,795.2
+npm run read-data
+```
+
+The client will query the specified price feed using the published [Chainlink Solana NPM package](https://www.npmjs.com/package/@chainlink/solana-sdk), and will then continously just print the latest price to the console.
+
+```
+pappas99@Pappas solana-starter-kit % npm run read-data
+> @ read-data /Users/pappas99/GitHub/22-hackathon/solana-starter-kit
+> ts-node ./read-data.ts
+
+301296000000
+301250000000
+301215000000
+301205000000
+301331000000
 ```
 
 

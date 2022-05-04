@@ -142,7 +142,7 @@ Price Is: 2997
 Success
 ```
 
-### Running the Read Only Client
+### Running the Read Only Clients
 
 To facilitate the scenario of purely requiring Chainlink Price Feed data off-chain, we have also included a second `read-data` client that queries a specified price feed and returns the latest price data. This version of the client does not generate a transaction, and therefore requires no accounts created or transaction fees. To run the read-data client, first you should ensure you have set the required Anchor environment variables. You can skip this step if you already did it earlier before running the normal client:
 
@@ -151,17 +151,24 @@ export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
 export ANCHOR_WALLET='./id.json'
 ```
 
-Next, you can set the value of the `CHAINLINK_FEED_ADDRESS` static variable to the value of the [Price Feed account address](https://docs.chain.link/docs/solana/data-feeds-solana/) that you wish to query. This example queries the ETH/USD feed:
+Next, you can set the value of the `CHAINLINK_FEED_ADDRESS` static variable to the value of the [Price Feed account address](https://docs.chain.link/docs/solana/data-feeds-solana/) that you wish to query. This example queries the ETH/USD feed on Devnet:
 
 
 ```
 const CHAINLINK_FEED_ADDRESS="2ypeVyYnZaW2TNYXXTaZq9YhYvnqcjCiifW1C6n8b7Go"
 ```
 
-Once you save your file, you can then execute the client:
+Once you save your file, you can then execute the client. There is a [Typescript](https://github.com/smartcontractkit/solana-starter-kit/blob/main/read-data.ts) and a [JavaScript](https://github.com/smartcontractkit/solana-starter-kit/blob/main/read-data.js) version:
+
+Typescript:
 
 ```
 npm run read-data
+```
+
+JavaScript:
+```
+node read-data.js
 ```
 
 The client will query the specified price feed using the published [Chainlink Solana NPM package](https://www.npmjs.com/package/@chainlink/solana-sdk), and will then continously just print the latest price to the console.

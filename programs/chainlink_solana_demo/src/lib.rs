@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use chainlink_solana as chainlink;
 
-declare_id!("L2ormt7enqtxZQvbWFpEEGhEN6MLBNZsLheNQdzWuxX");
+declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");;
 
 #[account]
 pub struct Decimal {

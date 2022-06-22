@@ -1,0 +1,5 @@
+image:
+  file: .gitpod.Dockerfile
+tasks: 
+  - name: ◎ SOLANA ◎ 
+    command: npm install && npm i -g @project-serum/anchor-cli

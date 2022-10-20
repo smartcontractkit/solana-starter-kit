@@ -18,7 +18,7 @@ The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/
 - [NodeJS 12](https://nodejs.org/en/download/) or higher
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Solana CLI](https://github.com/solana-labs/solana/releases)
-- [Anchor])(https://www.anchor-lang.com/docs/installation)
+- [Anchor](https://book.anchor-lang.com/getting_started/installation.html)
 - A C compiler such as the one included in [GCC](https://gcc.gnu.org/install/).
 
 ### Building and Deploying the Consumer Program

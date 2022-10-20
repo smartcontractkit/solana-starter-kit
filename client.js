@@ -5,7 +5,7 @@ const args = require('minimist')(process.argv.slice(2));
 
 // Initialize Anchor and provider
 const anchor = require("@project-serum/anchor");
-const provider = anchor.Provider.env();
+const provider = anchor.AnchorProvider.env();
 // Configure the cluster.
 anchor.setProvider(provider);
 

@@ -14,7 +14,7 @@ const DIVISOR = 100000000;
 
 // Data feed account address
 // Default is SOL / USD
-const default_feed = "HgTtcbcmp5BeThax5AU8vg4VwK79qAvAKKFMs8txMLW6";
+const default_feed = "99B2bTijsU6f1GCT73HmdR7HCFFjGMBcPZY6jZ96ynrR";
 const CHAINLINK_FEED = args['feed'] || default_feed;
 
 async function main() {

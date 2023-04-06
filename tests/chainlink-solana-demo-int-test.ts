@@ -6,7 +6,7 @@ const assert = require("assert");
 
 const CHAINLINK_PROGRAM_ID = "HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny";
 // SOL/USD feed account
-const CHAINLINK_FEED = "2ypeVyYnZaW2TNYXXTaZq9YhYvnqcjCiifW1C6n8b7Go";
+const CHAINLINK_FEED = "669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P";
 const DIVISOR = 100000000;
 
 describe('chainlink-solana-demo', () => {

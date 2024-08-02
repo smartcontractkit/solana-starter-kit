@@ -10,15 +10,11 @@ chainlink-solana-demo = "Gwdjt5fAZfhUyxXSrCKE5uGiHnbfx5ZhueEbnZToMRNJ"
 [programs.localnet]
 chainlink-solana-demo = "6CedoTJCV5S1jLDrhhyhhtanC56YiKD96bU34iwuPR2j"
 
-# [provider]
-# cluster = "devnet"
-# wallet = "./id.json"
-
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "https://devnet.helius-rpc.com/?api-key=514bf620-c12f-4eb3-ac4f-21433d9a133f"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

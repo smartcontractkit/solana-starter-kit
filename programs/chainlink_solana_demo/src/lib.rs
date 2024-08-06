@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use chainlink_solana as chainlink;
 
-declare_id!("GEgDWT7Cc8H5S1o2YnTp3umiciazQj5fKbftPXkc2TsL");
+declare_id!("CnrgKig7fjYfWkxNVWkNwNMziuarP1Aiu7MkJuXRWEY5");
 
 #[program]
 pub mod chainlink_solana_demo {

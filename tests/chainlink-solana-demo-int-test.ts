@@ -1,7 +1,4 @@
-import * as anchor from '@project-serum/anchor';
-import * as fs from 'fs';
-import { Program, BN } from '@project-serum/anchor';
-import { ChainlinkSolanaDemo } from '../target/types/chainlink_solana_demo';
+import * as anchor from '@coral-xyz/anchor';
 const assert = require("assert");
 
 const CHAINLINK_PROGRAM_ID = "HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny";
@@ -10,13 +7,9 @@ const CHAINLINK_FEED = "669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P";
 const DIVISOR = 100000000;
 
 describe('chainlink-solana-demo', () => {
-  const provider = anchor.Provider.env();
-
-  // Configure the client to use the local cluster.
-  anchor.setProvider(provider);
 
   it('Query SOL/USD Price Feed!', async () => {
-
+    anchor.setProvider(anchor.AnchorProvider.env());
 
     // Generate the program client from the saved workspace
     const program = anchor.workspace.ChainlinkSolanaDemo;
@@ -25,17 +18,15 @@ describe('chainlink-solana-demo', () => {
     const priceFeedAccount = anchor.web3.Keypair.generate();
 
     // Execute the RPC.
-    let tx = await program.rpc.execute({
-      accounts: {
+    let transactionSignature = await program.methods
+      .execute()
+      .accounts({
         decimal: priceFeedAccount.publicKey,
-        user: provider.wallet.publicKey,
         chainlinkFeed: CHAINLINK_FEED,
         chainlinkProgram: CHAINLINK_PROGRAM_ID,
-        systemProgram: anchor.web3.SystemProgram.programId
-      },
-      options: { commitment: "confirmed" },
-      signers: [priceFeedAccount],
-    });
+      })
+      .signers([priceFeedAccount])
+      .rpc()
 
     // Fetch the account details of the account containing the price data
     const latestPrice = await program.account.decimal.fetch(priceFeedAccount.publicKey);

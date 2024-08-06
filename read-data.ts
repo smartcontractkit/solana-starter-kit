@@ -1,4 +1,4 @@
-import * as anchor from "@project-serum/anchor";
+import * as anchor from "@coral-xyz/anchor";
 import { OCR2Feed } from "@chainlink/solana-sdk";
 
 async function main() {

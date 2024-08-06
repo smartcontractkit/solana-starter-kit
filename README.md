@@ -17,7 +17,7 @@ The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/
 ### Requirements
 - [NodeJS 12](https://nodejs.org/en/download/) or higher
 - [Rust](https://www.rust-lang.org/tools/install)
-- [Solana CLI](https://github.com/solana-labs/solana/releases)
+- [Solana CLI](https://docs.solanalabs.com/cli/install)
 - [Anchor](https://book.anchor-lang.com/getting_started/installation.html)
 - A C compiler such as the one included in [GCC](https://gcc.gnu.org/install/).
 
@@ -38,7 +38,7 @@ npm install
 **Note for [Apple M1](https://en.wikipedia.org/wiki/Apple_M1) chipsets**: You will need to perform an extra step to get the Anchor framework installed manually from source, as the NPM package only support x86_64 chipsets currently, please run the following command to install it manually:
 
 ```
-cargo install --git https://github.com/project-serum/anchor --tag v0.20.1 anchor-cli --locked
+cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
 ```
 
 
@@ -54,10 +54,10 @@ You should see the public key in the terminal output. Alternatively, you can fin
 solana-keygen pubkey id.json
 ```
 
-Next, airdrop some SOL tokens into your new account. We will need to call this twice, because the Devnet faucet is limited to 2 SOL, and we need approximately 4 SOL. Be sure to replace both instances of <RECIPIENT_ACCOUNT_ADDRESS> with your wallet's public key from the previous step:
+Next, airdrop 5 SOL tokens into your new account. Be sure to replace both instances of <RECIPIENT_ACCOUNT_ADDRESS> with your wallet's public key from the previous step:
 
 ```
-solana airdrop 2 $(solana-keygen pubkey ./id.json) --url https://api.devnet.solana.com && solana airdrop 2 $(solana-keygen pubkey ./id.json) --url https://api.devnet.solana.com
+solana airdrop 5 $(solana-keygen pubkey ./id.json) --url https://api.devnet.solana.com
 ```
 
 Next, build the program:
@@ -66,26 +66,29 @@ Next, build the program:
 anchor build
 ```
 
-The build process generates the keypair for your program's account. Before you deploy your program, you must add this public key to the lib.rs file. To do this, you need to get the keypair from the ./target/deploy/chainlink_solana_demo-keypair.json file that Anchor generated:
-
+The build process generates the keypair for your program's account. Before you deploy your program, you must update this public key in this line `lib.rs` file.
 ```
-solana address -k ./target/deploy/chainlink_solana_demo-keypair.json
+declare_id!("GEgDWT7Cc8H5S1o2YnTp3umiciazQj5fKbftPXkc2TsL");
+``` 
+To do this, you need to run the command below:
+```
+anchor keys sync
 ```
 
-The next step is to edit the [lib.rs](./programs/chainlink_solana_demo/src/lib.rs) file and replace the keypair in the declare_id!() definition with the value you obtained from the previous step:
+After this command, check the file `lib.rs` again. The line will be updated as below (you may find diffretn value within the `declare_id!()`)
 
 ```
 declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");
 ```
 
-Finally, because you updated the source code with the generated program ID, you need to rebuild the program again, and then it can be deployed to devnet
+Finally, because you updated the source code with the generated program ID, you need to rebuild the program to regenerate the associated files for deployment, and then it can be deployed to devnet
 
 ```
 anchor build
 anchor deploy --provider.cluster devnet
 ```
 
-Once you have successfully deployed the program, the terminal output will specify the program ID of the program, it should match the value you inserted into the lib.rs file and the Anchor.toml file. Once again, take note of this Program ID, as it will be required when executing the client:
+Once you have successfully deployed the program, the terminal output will specify the program ID of the program, it should match the value you inserted into the `lib.rs` file and the `Anchor.toml` file. Once again, take note of this Program ID, as it will be required when executing the client:
 
 ```
 Deploying workspace: https://api.devnet.solana.com
@@ -104,10 +107,10 @@ export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
 export ANCHOR_WALLET='./id.json'
 ```
 
-Now you are ready to run the JavaScript client. Be sure to pass the program ID obtained from the previous steps by using the `--program` flag pointing to the JSON file containing the account that owns the program, as well as the Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we specified the ETH/USD feed:
+Now you are ready to run the JavaScript client. Be sure to pass Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we specified the ETH/USD feed:
 
 ```
-node client.js --program $(solana address -k ./target/deploy/chainlink_solana_demo-keypair.json) --feed 	669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P
+node client.js --feed	669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P
 ```
 
 The client will generate a new account and pass it to the deployed program, which will then populate the account with the current price from the specified price feed. The client will then read the price from the account, and output the value to the console.

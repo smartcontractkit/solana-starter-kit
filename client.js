@@ -1,57 +1,46 @@
-// Parse arguments
-// --program - [Required] The account address for your deployed program.
-// --feed - The account address for the Chainlink data feed to retrieve
-const args = require('minimist')(process.argv.slice(2));
-
 // Initialize Anchor and provider
-const anchor = require("@project-serum/anchor");
-const provider = anchor.AnchorProvider.env();
-// Configure the cluster.
-anchor.setProvider(provider);
+const anchor = require("@coral-xyz/anchor")
+anchor.setProvider(anchor.AnchorProvider.env());
 
 const CHAINLINK_PROGRAM_ID = "HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny";
 const DIVISOR = 100000000;
 
 // Data feed account address
 // Default is SOL / USD
-const default_feed = "99B2bTijsU6f1GCT73HmdR7HCFFjGMBcPZY6jZ96ynrR";
-const CHAINLINK_FEED = args['feed'] || default_feed;
+const args = require('minimist')(process.argv.slice(2));
+default_feed = "99B2bTijsU6f1GCT73HmdR7HCFFjGMBcPZY6jZ96ynrR"
+const CHAINLINK_FEED = args['feed'] || default_feed
 
 async function main() {
-  // Read the generated IDL.
-  const idl = JSON.parse(
-    require("fs").readFileSync("./target/idl/chainlink_solana_demo.json", "utf8")
-  );
-
-  // Address of the deployed program.
-  const programId = new anchor.web3.PublicKey(args['program']);
-
-  // Generate the program client from IDL.
-  const program = new anchor.Program(idl, programId);
+  // Create program client
+  const program = anchor.workspace.ChainlinkSolanaDemo
+  console.log(`trying the interact with program: ${program.programId}`)
 
   //create an account to store the price data
   const priceFeedAccount = anchor.web3.Keypair.generate();
-
   console.log('priceFeedAccount public key: ' + priceFeedAccount.publicKey);
-  console.log('user public key: ' + provider.wallet.publicKey);
 
   // Execute the RPC.
-  let tx = await program.rpc.execute({
-    accounts: {
+  let transactionSignature = await program.methods
+    .execute()
+    .accounts({
       decimal: priceFeedAccount.publicKey,
-      user: provider.wallet.publicKey,
       chainlinkFeed: CHAINLINK_FEED,
       chainlinkProgram: CHAINLINK_PROGRAM_ID,
-      systemProgram: anchor.web3.SystemProgram.programId
-    },
-    options: { commitment: "confirmed" },
-    signers: [priceFeedAccount],
-  });
+    })
+    .signers([priceFeedAccount])
+    .rpc()
+  
+  console.log(`Transaction Signature: ${transactionSignature}`)
 
+  // show logs for transaction
   console.log("Fetching transaction logs...");
-  let t = await provider.connection.getConfirmedTransaction(tx, "confirmed");
-  console.log(t.meta.logMessages);
-  // #endregion main
+  const txDetails = await program.provider
+    .connection.getConfirmedTransaction(transactionSignature, "confirmed");
+
+  const txLogs = txDetails?.meta?.logMessages || null;
+  console.log(txLogs)
+
 
   // Fetch the account details of the account containing the price data
   const latestPrice = await program.account.decimal.fetch(priceFeedAccount.publicKey);

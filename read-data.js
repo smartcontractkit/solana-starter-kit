@@ -1,4 +1,4 @@
-const anchor = require("@project-serum/anchor");
+const anchor = require("@coral-xyz/anchor")
 const  chainlink = require("@chainlink/solana-sdk");
 // Configure the cluster.
 

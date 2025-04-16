@@ -32,12 +32,20 @@ const TEST_KEYPAIR_PATH = resolve(
   ".config/solana/keytest.json"
 );
 
+// Define fee token types for better usability
+enum FeeTokenType {
+  NATIVE = 'native',
+  WRAPPED_NATIVE = 'wrapped-native',
+  LINK = 'link'
+}
+
 // Parse command line arguments
 function parseArgs() {
   const args = process.argv.slice(2);
   const options: {
     logLevel?: LogLevel;
     skipPreflight?: boolean;
+    feeToken?: string;
   } = {};
 
   for (let i = 0; i < args.length; i++) {
@@ -69,6 +77,9 @@ function parseArgs() {
       i++; // Skip the next argument
     } else if (args[i] === "--skip-preflight") {
       options.skipPreflight = true;
+    } else if (args[i] === "--fee-token" && i + 1 < args.length) {
+      options.feeToken = args[i + 1];
+      i++; // Skip the next argument
     }
   }
 
@@ -201,8 +212,49 @@ async function sendCcipMessage() {
     // Prepare the message details
     const EVM_RECEIVER = "0x9d087fC03ae39b088326b67fA3C788236645b717";
     const DEST_CHAIN_SELECTOR = config.ethereumSepoliaSelector;
-    // const FEE_TOKEN = config.nativeSol; // Use native SOL for fees
-    const FEE_TOKEN = NATIVE_MINT;
+    
+    // Set fee token based on command line argument or use default
+    let FEE_TOKEN;
+    if (options.feeToken) {
+      const tokenOption = options.feeToken.toLowerCase();
+      
+      // Use the appropriate config value based on the token type
+      switch (tokenOption) {
+        case FeeTokenType.NATIVE:
+          FEE_TOKEN = config.nativeSol;
+          console.log('Using native SOL as fee token');
+          break;
+        
+        case FeeTokenType.WRAPPED_NATIVE:
+          FEE_TOKEN = NATIVE_MINT;
+          console.log('Using wrapped SOL as fee token:', NATIVE_MINT.toString());
+          break;
+        
+        case FeeTokenType.LINK:
+          if (config.linkTokenMint) {
+            FEE_TOKEN = config.linkTokenMint;
+            console.log('Using LINK token as fee token:', config.linkTokenMint.toString());
+          } else {
+            console.warn('LINK token mint not defined in config, falling back to native SOL');
+            FEE_TOKEN = config.nativeSol;
+          }
+          break;
+        
+        default:
+          // Try to parse it as a custom address
+          try {
+            FEE_TOKEN = new PublicKey(options.feeToken);
+            console.log(`Using custom fee token address: ${FEE_TOKEN.toString()}`);
+          } catch (error) {
+            console.warn(`Invalid fee token: ${options.feeToken}, using default native SOL`);
+            FEE_TOKEN = config.nativeSol;
+          }
+      }
+    } else {
+      // Default to native SOL from config
+      FEE_TOKEN = config.nativeSol;
+      console.log('Using default fee token: native SOL');
+    }
 
     // Display settings
     console.log("\n==== CCIP Send Configuration ====");
@@ -384,11 +436,17 @@ Options:
   --log-level LEVEL    Set the logging level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
                        Default: INFO
   --skip-preflight     Skip the preflight transaction check (useful for complex transactions)
+  --fee-token TOKEN    Specify token to use for fees:
+                       - native        : Native SOL (default)
+                       - wrapped-native: Wrapped SOL
+                       - link          : Chainlink's LINK token
+                       - <ADDRESS>     : Custom token address
 
 Examples:
-  ts-node ccip-send.ts                       # Run with default settings
-  ts-node ccip-send.ts --log-level DEBUG     # Run with DEBUG level logging
-  ts-node ccip-send.ts --skip-preflight      # Run with preflight check disabled
+  ts-node ccip-send.ts                          # Run with native SOL for fees
+  ts-node ccip-send.ts --fee-token link         # Use LINK token for fees
+  ts-node ccip-send.ts --fee-token wrapped-native  # Use Wrapped SOL for fees
+  ts-node ccip-send.ts --fee-token <TOKEN_ADDRESS>  # Use custom token
   `);
 }
 

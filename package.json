@@ -11,7 +11,8 @@
     "ccip:send:debug": "ts-node ./ccip-scripts/router/ccip-send.ts --log-level DEBUG",
     "token:delegate": "ts-node ./ccip-scripts/token/delegate-token-authority.ts",
     "token:check": "ts-node ./ccip-scripts/token/check-token-approvals.ts",
-    "token:wrap": "ts-node ./ccip-scripts/token/wrap-sol.ts"
+    "token:wrap": "ts-node ./ccip-scripts/token/wrap-sol.ts",
+    "token:wrap:2": "ts-node ./ccip-scripts/token/wrap-sol.ts --amount 2"
   },
   "dependencies": {
     "@chainlink/solana-sdk": "^0.2.2",

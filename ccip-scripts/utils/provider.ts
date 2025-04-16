@@ -1,20 +1,14 @@
 import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { CCIPProvider, AddressConversion } from "../../ccip-sdk";
 import fs from "fs";
-import path from "path";
-
-// Default file path for the keypair (standard Solana location)
-export const DEFAULT_KEYPAIR_PATH = path.resolve(
-  process.env.HOME || "",
-  ".config/solana/id.json"
-);
+import { KEYPAIR_PATHS } from "./config-parser";
 
 /**
  * Loads a keypair from a file
  * @param filePath Path to keypair file
  * @returns Keypair
  */
-export function loadKeypair(filePath: string = DEFAULT_KEYPAIR_PATH): Keypair {
+export function loadKeypair(filePath: string = KEYPAIR_PATHS.DEFAULT): Keypair {
   try {
     const keypairData = fs.readFileSync(filePath, "utf-8");
     const keypairJson = JSON.parse(keypairData);
@@ -32,7 +26,7 @@ export function loadKeypair(filePath: string = DEFAULT_KEYPAIR_PATH): Keypair {
  * @returns CCIPProvider instance
  */
 export function createProviderFromPath(
-  keypairPath: string,
+  keypairPath: string = KEYPAIR_PATHS.TEST,
   connection: Connection
 ): CCIPProvider {
   const keypair = loadKeypair(keypairPath);

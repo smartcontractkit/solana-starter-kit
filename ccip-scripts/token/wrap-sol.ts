@@ -13,12 +13,19 @@ import {
   getAssociatedTokenAddress
 } from "@solana/spl-token";
 import * as utils from "../utils/index";
+import * as path from "path";
+
+// Test keypath for development purposes
+const TEST_KEYPAIR_PATH = path.resolve(
+  process.env.HOME || "",
+  ".config/solana/keytest.json"
+);
 
 async function wrapSol(amountSol: number) {
   console.log(`==== Wrapping ${amountSol} SOL to wSOL ====`);
   
   // Load the keypair
-  const keypairPath = utils.DEFAULT_KEYPAIR_PATH;
+  const keypairPath = TEST_KEYPAIR_PATH;
   console.log("Keypair Path:", keypairPath);
   
   const walletKeypair = utils.loadKeypair(keypairPath);

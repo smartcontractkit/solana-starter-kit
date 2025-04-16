@@ -8,7 +8,8 @@ This directory contains scripts for interacting with the Cross-Chain Interoperab
 - Yarn
 - Solana CLI tools
 - A wallet with SOL on Devnet for testing
-- `.config/solana/keytest.json` keypair (used by default in these scripts)
+- `.config/solana/id.json` keypair used by default
+- Optional: `.config/solana/keytest.json` for test operations
 
 ## Getting Started
 
@@ -29,12 +30,19 @@ yarn install
 The `wrap-sol.ts` script allows you to wrap native SOL into wrapped SOL (wSOL) tokens.
 
 ```bash
+# Use default keypair
 yarn token:wrap
+
+# Specify amount of SOL to wrap
+yarn token:wrap -- --amount 2
+
+# Use test keypair
+yarn token:wrap:test
 ```
 
 The script:
 - Checks your SOL balance
-- Wraps a predefined amount (1 SOL by default) into wSOL
+- Wraps the specified amount (1 SOL by default) into wSOL
 - Displays before and after balances
 
 #### 1.2. Delegate Token Authority
@@ -42,7 +50,11 @@ The script:
 The `delegate-token-authority.ts` script delegates token spending authority to the CCIP router's Program Derived Addresses (PDAs).
 
 ```bash
+# Use default keypair
 yarn token:delegate
+
+# Use test keypair
+yarn token:delegate:test
 ```
 
 This script:
@@ -61,7 +73,11 @@ If you skip this step, your transfers will fail with permission errors.
 The `check-token-approvals.ts` script checks the current delegation status of your token accounts.
 
 ```bash
+# Use default keypair
 yarn token:check
+
+# Use test keypair
+yarn token:check:test
 ```
 
 This script:
@@ -99,7 +115,11 @@ yarn ts-node ccip-scripts/router/get-ccip-fee.ts [options]
 
 #### Options
 
-- `--log-level LEVEL`: Set logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--network <devnet|mainnet>`: Specify network (default: devnet)
+- `--keypair <path>`: Path to keypair file (default: ~/.config/solana/id.json)
+- `--use-test-keypair`: Use test keypair at ~/.config/solana/keytest.json
+- `--log-level <level>`: Set logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip preflight transaction checks
 - `--help` or `-h`: Show usage information
 
 #### Examples
@@ -119,16 +139,19 @@ Maximum logging for troubleshooting:
 yarn ccip:fee:trace
 ```
 
+Using test keypair:
+```bash
+yarn ccip:fee:test
+```
+
+Skip preflight checks:
+```bash
+yarn ccip:fee:skip
+```
+
 #### Fee Token Options
 
-By default, the script uses Native SOL for fee payments. The script supports several token options for fee payment:
-
-1. **Native SOL**: Uses the default Solana system program (PublicKey.default)
-2. **Wrapped SOL**: Uses the Solana SPL Token program's NATIVE_MINT
-3. **LINK Token**: Uses the Chainlink token on Solana (available on devnet)
-4. **Custom Tokens**: You can specify any SPL token mint address
-
-The fee token is configured in the script and can be viewed in the output under "Fee Token".
+The script uses Wrapped SOL (wSOL) for fee estimations. This is configured in the script to ensure consistent fee calculation with the Solana CCIP implementation.
 
 ### 3. Send CCIP Cross-Chain Messages
 
@@ -156,6 +179,15 @@ yarn ccip:send:link
 
 # With debug logging
 yarn ccip:send:debug
+
+# Using test keypair
+yarn ccip:send:test
+
+# Using wrapped SOL and test keypair
+yarn ccip:send:wrapped:test
+
+# Skip preflight checks (for complex transactions)
+yarn ccip:send:skip
 ```
 
 Or you can use with custom options:
@@ -166,13 +198,15 @@ yarn ts-node ccip-scripts/router/ccip-send.ts [options]
 
 #### Options
 
-- `--fee-token TOKEN`: Specify which token to use for paying CCIP fees:
+- `--network <devnet|mainnet>`: Specify network (default: devnet)
+- `--keypair <path>`: Path to keypair file (default: ~/.config/solana/id.json)
+- `--use-test-keypair`: Use test keypair at ~/.config/solana/keytest.json
+- `--fee-token <token>`: Specify which token to use for paying CCIP fees:
   - `native`: Native SOL (default)
   - `wrapped-native`: Wrapped SOL (WSOL)
   - `link`: Chainlink's LINK token
   - `<ADDRESS>`: Custom token address
-
-- `--log-level LEVEL`: Set logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--log-level <level>`: Set logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
 - `--skip-preflight`: Skip the preflight transaction check (useful for complex transactions)
 - `--help` or `-h`: Show usage information
 
@@ -198,6 +232,16 @@ Send with detailed logging:
 yarn ccip:send:debug
 ```
 
+Send with test keypair:
+```bash
+yarn ccip:send:test
+```
+
+Send with custom keypair:
+```bash
+yarn ccip:send -- --keypair /path/to/keypair.json
+```
+
 #### Process Overview
 
 The script:
@@ -220,6 +264,14 @@ View transaction on explorer:
 https://explorer.solana.com/tx/3pVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KRbu5F7173tediMcrLHUKmwu6Ust3NvnAujPTvkSk?cluster=devnet
 ```
 
+### Keypair Handling
+
+The scripts use the following approach for keypair selection:
+
+1. **Default Behavior**: Uses the standard Solana keypair at `~/.config/solana/id.json`
+2. **Custom Keypair**: Specify a custom path with `--keypair <path>` 
+3. **Test Keypair**: Use the test keypair at `~/.config/solana/keytest.json` with the `--use-test-keypair` flag
+
 ### Configuration
 
 The scripts use configuration from `ccip-scripts/config/index.ts` which provides network endpoints and contract addresses.
@@ -235,6 +287,26 @@ If you encounter errors:
    ```bash
    yarn ccip:fee:trace
    ```
+
+#### Skip Preflight Option
+
+If you encounter issues with transaction simulation failing, you can use the `--skip-preflight` option:
+
+```bash
+yarn ccip:send:skip
+# or
+yarn ccip:fee:skip
+```
+
+This bypasses the client-side simulation that happens before sending the transaction, which can be useful for complex transactions that might exceed compute limits during simulation but would work when executed on-chain.
+
+#### Fee Token Recommendations
+
+Based on our testing:
+
+1. **Wrapped SOL** (`--fee-token wrapped-native`): Most reliable option for paying fees
+2. **Native SOL** (default): Works in most cases but may have issues with complex transactions
+3. **LINK** (`--fee-token link`): Requires having LINK tokens in your wallet and proper delegations
 
 #### Permission Errors
 

@@ -10,7 +10,6 @@ import {
   getAssociatedTokenAddressSync,
   NATIVE_MINT,
 } from "@solana/spl-token";
-import { resolve } from "path";
 
 // Import from SDK for types and utilities
 import {
@@ -23,14 +22,8 @@ import {
 
 // Import our local utilities
 import { getCCIPConfig } from "../config";
-import { loadKeypair } from "../utils/provider";
+import { loadKeypair, parseCCIPSendArgs, printUsage, getKeypairPath } from "../utils";
 import { createCCIPClient } from "../utils/client-factory";
-
-// Test keypair path for development/testing purposes
-const TEST_KEYPAIR_PATH = resolve(
-  process.env.HOME || "",
-  ".config/solana/keytest.json"
-);
 
 // Define fee token types for better usability
 enum FeeTokenType {
@@ -39,65 +32,20 @@ enum FeeTokenType {
   LINK = 'link'
 }
 
-// Parse command line arguments
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const options: {
-    logLevel?: LogLevel;
-    skipPreflight?: boolean;
-    feeToken?: string;
-  } = {};
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--log-level" && i + 1 < args.length) {
-      const level = args[i + 1].toUpperCase();
-      switch (level) {
-        case "TRACE":
-          options.logLevel = LogLevel.TRACE;
-          break;
-        case "DEBUG":
-          options.logLevel = LogLevel.DEBUG;
-          break;
-        case "INFO":
-          options.logLevel = LogLevel.INFO;
-          break;
-        case "WARN":
-          options.logLevel = LogLevel.WARN;
-          break;
-        case "ERROR":
-          options.logLevel = LogLevel.ERROR;
-          break;
-        case "SILENT":
-          options.logLevel = LogLevel.SILENT;
-          break;
-        default:
-          console.warn(`Unknown log level: ${level}, using INFO`);
-          options.logLevel = LogLevel.INFO;
-      }
-      i++; // Skip the next argument
-    } else if (args[i] === "--skip-preflight") {
-      options.skipPreflight = true;
-    } else if (args[i] === "--fee-token" && i + 1 < args.length) {
-      options.feeToken = args[i + 1];
-      i++; // Skip the next argument
-    }
-  }
-
-  return options;
-}
-
 /**
  * Sends a CCIP message from Solana to Ethereum Sepolia
  */
 async function sendCcipMessage() {
   try {
     // Parse command line arguments
-    const options = parseArgs();
-
-    // Use test keypair path for development/testing
-    const keypairPath = TEST_KEYPAIR_PATH;
+    const options = parseCCIPSendArgs();
+    const network = options.network || "devnet";
+    
+    // Use the appropriate keypair path
     console.log("\n==== Environment Information ====");
-    console.log("Solana Cluster:", "devnet");
+    console.log(`Solana Cluster: ${network}`);
+    
+    const keypairPath = getKeypairPath(options);
     console.log("Keypair Path:", keypairPath);
     console.log("Log Level:", LogLevel[options.logLevel ?? LogLevel.INFO]);
     console.log("Skip Preflight:", options.skipPreflight ? "Yes" : "No");
@@ -107,7 +55,6 @@ async function sendCcipMessage() {
     console.log("Wallet public key:", walletKeypair.publicKey.toString());
 
     // Get the configuration
-    const network = "devnet";
     const config = getCCIPConfig(network);
 
     // Create the CCIPClient with our factory
@@ -115,6 +62,7 @@ async function sendCcipMessage() {
       network,
       keypairPath,
       logLevel: options.logLevel,
+      skipPreflight: options.skipPreflight,
     });
 
     // Check wallet balance
@@ -405,7 +353,7 @@ async function sendCcipMessage() {
 
     console.log("\nView transaction on explorer:");
     console.log(
-      `https://explorer.solana.com/tx/${result.txSignature}?cluster=devnet`
+      `https://explorer.solana.com/tx/${result.txSignature}?cluster=${network}`
     );
   } catch (error) {
     console.error(
@@ -423,36 +371,14 @@ async function sendCcipMessage() {
         console.error(JSON.stringify((error as any).context, null, 2));
       }
     }
+    printUsage("ccip:send");
     process.exit(1);
   }
 }
 
-// Show usage information
-function printUsage() {
-  console.log(`
-Usage: ts-node ccip-send.ts [options]
-
-Options:
-  --log-level LEVEL    Set the logging level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-                       Default: INFO
-  --skip-preflight     Skip the preflight transaction check (useful for complex transactions)
-  --fee-token TOKEN    Specify token to use for fees:
-                       - native        : Native SOL (default)
-                       - wrapped-native: Wrapped SOL
-                       - link          : Chainlink's LINK token
-                       - <ADDRESS>     : Custom token address
-
-Examples:
-  ts-node ccip-send.ts                          # Run with native SOL for fees
-  ts-node ccip-send.ts --fee-token link         # Use LINK token for fees
-  ts-node ccip-send.ts --fee-token wrapped-native  # Use Wrapped SOL for fees
-  ts-node ccip-send.ts --fee-token <TOKEN_ADDRESS>  # Use custom token
-  `);
-}
-
 // Check if help is requested
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
-  printUsage();
+  printUsage("ccip:send");
   process.exit(0);
 }
 

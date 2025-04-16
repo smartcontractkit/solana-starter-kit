@@ -8,13 +8,14 @@
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/smartcontractkit/solana-starter-kit)
 
-
 # Chainlink Solana Starter Kit
+
 The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/anchor/getting-started/introduction.html) based program and client that shows developers how to use and interact with [Chainlink Price Feeds on Solana](https://docs.chain.link/solana/). The demo is configured to run on the [Devnet cluster](https://docs.solana.com/clusters#devnet), and is comprised of an on-chain program written in Rust, and an off-chain client written in JavaScript. The program takes parameters and account information from the off-chain client, retrieves the latest price data from the specified Chainlink Price Feed on Devnet, then writes the data out to the specified account, which can then be read by the off-chain client.
 
 ## Running the example on Devnet
 
 ### Requirements
+
 - [NodeJS 12](https://nodejs.org/en/download/) or higher
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Solana CLI](https://docs.solanalabs.com/cli/install)
@@ -38,9 +39,8 @@ npm install
 **Note for [Apple M1](https://en.wikipedia.org/wiki/Apple_M1) chipsets**: You will need to perform an extra step to get the Anchor framework installed manually from source, as the NPM package only support x86_64 chipsets currently, please run the following command to install it manually:
 
 ```
-cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.0 anchor-cli --locked
 ```
-
 
 Next, generate a new wallet:
 
@@ -48,7 +48,7 @@ Next, generate a new wallet:
 solana-keygen new -o id.json
 ```
 
-You should see the public key in the terminal output. Alternatively, you can find the public key  with the following CLI command:
+You should see the public key in the terminal output. Alternatively, you can find the public key with the following CLI command:
 
 ```
 solana-keygen pubkey id.json
@@ -67,10 +67,13 @@ anchor build
 ```
 
 The build process generates the keypair for your program's account. Before you deploy your program, you must update this public key in this line `lib.rs` file.
+
 ```
 declare_id!("GEgDWT7Cc8H5S1o2YnTp3umiciazQj5fKbftPXkc2TsL");
-``` 
+```
+
 To do this, you need to run the command below:
+
 ```
 anchor keys sync
 ```
@@ -160,7 +163,6 @@ export ANCHOR_WALLET='./id.json'
 
 Next, you can set the value of the `CHAINLINK_FEED_ADDRESS` static variable to the value of the [Price Feed account address](https://docs.chain.link/docs/solana/data-feeds-solana/) that you wish to query. This example queries the ETH/USD feed on Devnet:
 
-
 ```
 const CHAINLINK_FEED_ADDRESS="669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P"
 ```
@@ -174,6 +176,7 @@ npm run read-data
 ```
 
 JavaScript:
+
 ```
 node read-data.js
 ```
@@ -191,7 +194,6 @@ pappas99@Pappas solana-starter-kit % npm run read-data
 301205000000
 301331000000
 ```
-
 
 ### Testing
 

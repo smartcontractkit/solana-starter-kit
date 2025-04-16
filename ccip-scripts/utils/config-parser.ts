@@ -30,6 +30,8 @@ export interface CommonOptions {
   network?: "devnet" | "mainnet";
   /** Path to keypair file */
   keypairPath?: string;
+  /** Use test keypair instead of default */
+  useTestKeypair?: boolean;
   /** Skip transaction preflight checks */
   skipPreflight?: boolean;
 }
@@ -86,12 +88,34 @@ export function parseCommonArgs(): CommonOptions {
     } else if (args[i] === "--keypair" && i + 1 < args.length) {
       options.keypairPath = args[i + 1];
       i++;
+    } else if (args[i] === "--use-test-keypair") {
+      options.useTestKeypair = true;
     } else if (args[i] === "--skip-preflight") {
       options.skipPreflight = true;
     }
   }
 
   return options;
+}
+
+/**
+ * Get the appropriate keypair path based on options
+ * @param options Options containing keypair preferences
+ * @returns The keypair path to use
+ */
+export function getKeypairPath(options: CommonOptions): string {
+  // Explicit path takes precedence
+  if (options.keypairPath) {
+    return options.keypairPath;
+  }
+  
+  // If test keypair is explicitly requested, use it
+  if (options.useTestKeypair) {
+    return KEYPAIR_PATHS.TEST;
+  }
+  
+  // Otherwise use the default keypair
+  return KEYPAIR_PATHS.DEFAULT;
 }
 
 /**
@@ -158,7 +182,8 @@ export function printUsage(scriptName: string): void {
   console.log(`\nUsage: npm run ${scriptName} [options]\n`);
   console.log("Common Options:");
   console.log("  --network <devnet|mainnet>    Specify network (default: devnet)");
-  console.log("  --keypair <path>              Path to keypair file (default: ~/.config/solana/keytest.json)");
+  console.log("  --keypair <path>              Path to keypair file (default: ~/.config/solana/id.json)");
+  console.log("  --use-test-keypair            Use test keypair at ~/.config/solana/keytest.json");
   console.log("  --log-level <level>           Log level: TRACE, DEBUG, INFO, WARN, ERROR, SILENT (default: INFO)");
   console.log("  --skip-preflight              Skip preflight transaction checks");
   

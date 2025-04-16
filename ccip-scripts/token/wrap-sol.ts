@@ -1,5 +1,4 @@
 import { 
-  Connection, 
   PublicKey, 
   Transaction, 
   SystemProgram, 
@@ -12,7 +11,8 @@ import {
   createSyncNativeInstruction,
   getAssociatedTokenAddress
 } from "@solana/spl-token";
-import { loadKeypair, KEYPAIR_PATHS, parseTokenArgs, printUsage } from "../utils";
+import { loadKeypair, parseTokenArgs, printUsage, getKeypairPath } from "../utils";
+import { getCCIPConfig } from "../config";
 
 /**
  * Wraps SOL to wSOL
@@ -25,16 +25,17 @@ async function wrapSol() {
     
     console.log(`==== Wrapping ${amountSol} SOL to wSOL ====`);
     
-    // Load the keypair
-    const keypairPath = options.keypairPath || KEYPAIR_PATHS.TEST;
+    // Load the keypair using the appropriate path
+    const keypairPath = getKeypairPath(options);
     console.log("Keypair Path:", keypairPath);
     
     const walletKeypair = loadKeypair(keypairPath);
     console.log("Wallet Public Key:", walletKeypair.publicKey.toString());
     
-    // Create a connection to the appropriate network
+    // Get network configuration including connection
     const network = options.network || "devnet";
-    const connection = new Connection(`https://api.${network}.solana.com`, "confirmed");
+    const config = getCCIPConfig(network);
+    const connection = config.connection;
     console.log(`Network: ${network}`);
     
     // Check SOL balance

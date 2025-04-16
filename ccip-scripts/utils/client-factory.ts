@@ -1,7 +1,7 @@
 import { CCIPClient, CCIPClientOptions, CCIPContext, LogLevel, createLogger } from "../../ccip-sdk";
 import { getCCIPConfig } from "../config";
 import { createProviderFromPath } from "./provider";
-import { CommonOptions, KEYPAIR_PATHS } from "./config-parser";
+import { CommonOptions, getKeypairPath } from "./config-parser";
 
 /**
  * Options for creating a CCIPClient
@@ -17,7 +17,7 @@ export interface CCIPClientFactoryOptions extends CCIPClientOptions, CommonOptio
 export function createCCIPClient(options: CCIPClientFactoryOptions = {}): CCIPClient {
   const network = options.network || "devnet";
   const config = getCCIPConfig(network);
-  const keypairPath = options.keypairPath || KEYPAIR_PATHS.TEST;
+  const keypairPath = getKeypairPath(options);
   
   // Create provider from keypair path
   const provider = createProviderFromPath(keypairPath, config.connection);

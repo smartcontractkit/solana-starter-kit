@@ -8,10 +8,10 @@ import {
   NATIVE_MINT,
 } from "@solana/spl-token";
 import { 
-  loadKeypair, 
-  KEYPAIR_PATHS,
+  loadKeypair,
   parseCommonArgs,
-  printUsage
+  printUsage,
+  getKeypairPath
 } from "../utils";
 import { getCCIPConfig } from "../config/index";
 
@@ -46,8 +46,8 @@ async function checkTokenApprovals(
     console.log("\n==== Token Approval Status ====");
     console.log(`Network: ${network}`);
     
-    // Load the keypair and setup the provider
-    const keypairPath = options.keypairPath || KEYPAIR_PATHS.TEST;
+    // Load the keypair using the appropriate path
+    const keypairPath = getKeypairPath(options);
     console.log("Keypair Path:", keypairPath);
     
     const walletKeypair = loadKeypair(keypairPath);

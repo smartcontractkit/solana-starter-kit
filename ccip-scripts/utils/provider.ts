@@ -26,7 +26,7 @@ export function loadKeypair(filePath: string = KEYPAIR_PATHS.DEFAULT): Keypair {
  * @returns CCIPProvider instance
  */
 export function createProviderFromPath(
-  keypairPath: string = KEYPAIR_PATHS.TEST,
+  keypairPath: string = KEYPAIR_PATHS.DEFAULT,
   connection: Connection
 ): CCIPProvider {
   const keypair = loadKeypair(keypairPath);

@@ -10,8 +10,11 @@
     "ccip:send:link": "ts-node ./ccip-scripts/router/ccip-send.ts --fee-token link",
     "ccip:send:debug": "ts-node ./ccip-scripts/router/ccip-send.ts --log-level DEBUG",
     "token:delegate": "ts-node ./ccip-scripts/token/delegate-token-authority.ts",
+    "token:delegate:test": "ts-node ./ccip-scripts/token/delegate-token-authority.ts --use-test-keypair",
     "token:check": "ts-node ./ccip-scripts/token/check-token-approvals.ts",
+    "token:check:test": "ts-node ./ccip-scripts/token/check-token-approvals.ts --use-test-keypair",
     "token:wrap": "ts-node ./ccip-scripts/token/wrap-sol.ts",
+    "token:wrap:test": "ts-node ./ccip-scripts/token/wrap-sol.ts --use-test-keypair",
     "token:wrap:2": "ts-node ./ccip-scripts/token/wrap-sol.ts --amount 2"
   },
   "dependencies": {

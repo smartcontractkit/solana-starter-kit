@@ -1,6 +1,5 @@
 import {
   PublicKey,
-  Connection,
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
@@ -13,10 +12,10 @@ import {
 } from "@solana/spl-token";
 import BN from "bn.js";
 import { 
-  loadKeypair, 
-  KEYPAIR_PATHS, 
+  loadKeypair,
   parseCommonArgs, 
-  printUsage 
+  printUsage,
+  getKeypairPath
 } from "../utils";
 import { getCCIPConfig } from "../config/index";
 import {
@@ -41,22 +40,17 @@ async function delegateTokenAuthority() {
     console.log("==== Delegate Token Authority ====");
     console.log(`Network: ${network}`);
     
-    // Use test keypair path or specified path
-    const keypairPath = options.keypairPath || KEYPAIR_PATHS.TEST;
+    // Use the appropriate keypair path
+    const keypairPath = getKeypairPath(options);
     console.log("Keypair Path:", keypairPath);
     
     // Load wallet keypair
     const walletKeypair = loadKeypair(keypairPath);
     console.log("Wallet public key:", walletKeypair.publicKey.toString());
     
-    // Connect to Solana
-    const connection = new Connection(
-      `https://api.${network === "mainnet" ? "mainnet-beta" : network}.solana.com`,
-      "confirmed"
-    );
-    
     // Get configuration from the appropriate network
     const config = getCCIPConfig(network);
+    const connection = config.connection;
     
     // Get router program ID from config
     const routerProgramId = config.ccipRouterProgramId;

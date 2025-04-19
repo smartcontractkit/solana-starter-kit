@@ -1,10 +1,8 @@
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
-import fs from "fs";
-import path from "path";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair } from "../utils";
+import { loadKeypair, loadReceiverProgram } from "../utils";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
@@ -48,7 +46,7 @@ async function main() {
   logger.info(`Loading keypair from ${KEYPAIR_PATH}...`);
 
   try {
-    // Load keypair
+    // Load keypair and check balance
     const walletKeypair = loadKeypair(KEYPAIR_PATH);
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
@@ -64,32 +62,8 @@ async function main() {
       process.exit(1);
     }
 
-    // Set up Anchor provider
-    const wallet = new anchor.Wallet(walletKeypair);
-    const provider = new anchor.AnchorProvider(
-      config.connection,
-      wallet,
-      { commitment: "confirmed" }
-    );
-    anchor.setProvider(provider);
-    
-    // Find the local IDL file
-    const idlPath = path.join(
-      __dirname,
-      "../../../target/idl/ccip_basic_receiver.json"
-    );
-    
-    if (!fs.existsSync(idlPath)) {
-      logger.error(`IDL file not found at ${idlPath}`);
-      logger.error("Please build the program first with 'anchor build'");
-      process.exit(1);
-    }
-    
-    // Read IDL
-    const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
-    
-    // Create program interface
-    const program = new anchor.Program(idl, provider);
+    // Load the receiver program using our utility function
+    const { program } = loadReceiverProgram(KEYPAIR_PATH, config.connection, programId);
     
     try {
       // Find the state PDA
@@ -120,7 +94,7 @@ async function main() {
       
       // Check if token vault already exists
       try {
-        const tokenAccountInfo = await provider.connection.getAccountInfo(tokenVault);
+        const tokenAccountInfo = await program.provider.connection.getAccountInfo(tokenVault);
         if (tokenAccountInfo !== null) {
           logger.info("Token vault is already initialized");
         } else {
@@ -128,7 +102,7 @@ async function main() {
             const tx = await program.methods
               .initializeTokenVault()
               .accounts({
-                payer: provider.wallet.publicKey,
+                payer: program.provider.publicKey,
                 state: statePda,
                 tokenMint: tokenMint,
                 tokenVault: tokenVault,

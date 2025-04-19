@@ -1,11 +1,8 @@
-import { PublicKey, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
-import fs from "fs";
-import path from "path";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair } from "../utils";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { loadKeypair, loadReceiverProgram } from "../utils";
 
 /**
  * Initializes the CCIP Basic Receiver program on Solana.
@@ -38,7 +35,7 @@ async function main() {
   logger.info(`Loading keypair from ${KEYPAIR_PATH}...`);
 
   try {
-    // Load keypair
+    // Load keypair and check balance
     const walletKeypair = loadKeypair(KEYPAIR_PATH);
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
@@ -54,32 +51,8 @@ async function main() {
       process.exit(1);
     }
 
-    // Set up Anchor provider
-    const wallet = new anchor.Wallet(walletKeypair);
-    const provider = new anchor.AnchorProvider(
-      config.connection,
-      wallet,
-      { commitment: "confirmed" }
-    );
-    anchor.setProvider(provider);
-    
-    // Find the local IDL file
-    const idlPath = path.join(
-      __dirname,
-      "../../../target/idl/ccip_basic_receiver.json"
-    );
-    
-    if (!fs.existsSync(idlPath)) {
-      logger.error(`IDL file not found at ${idlPath}`);
-      logger.error("Please build the program first with 'anchor build'");
-      process.exit(1);
-    }
-    
-    // Read IDL
-    const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
-    
-    // Create program interface
-    const program = new anchor.Program(idl, provider);
+    // Load the receiver program using our utility function
+    const { program } = loadReceiverProgram(KEYPAIR_PATH, config.connection, programId);
     
     try {
       // Find the state PDA
@@ -101,7 +74,7 @@ async function main() {
       // Check if state is already initialized
       let isStateInitialized = false;
       try {
-        const stateAccountInfo = await provider.connection.getAccountInfo(statePda);
+        const stateAccountInfo = await program.provider.connection.getAccountInfo(statePda);
         if (stateAccountInfo !== null && stateAccountInfo.data.length > 0) {
           isStateInitialized = true;
           logger.info("State is already initialized");
@@ -119,7 +92,7 @@ async function main() {
           const tx = await program.methods
             .initialize(config.routerProgramId)
             .accounts({
-              payer: provider.wallet.publicKey,
+              payer: program.provider.publicKey,
               state: statePda,
               systemProgram: anchor.web3.SystemProgram.programId,
             })

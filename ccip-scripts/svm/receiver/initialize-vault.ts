@@ -3,7 +3,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
 import { loadKeypair, loadReceiverProgram } from "../utils";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
  * Initializes a token vault for the CCIP Basic Receiver program on Solana.
@@ -21,6 +21,11 @@ const CUSTOM_PROGRAM_ID = null; // Set to null to use default from config, or sp
 // By default uses the BnM token from config (config.tokenMint)
 // Change to a specific PublicKey string to create a vault for a different token
 const CUSTOM_TOKEN_MINT = null; // Set to null to use default BnM token, or specify a custom token mint
+
+// Custom token program ID
+// By default uses the standard SPL Token Program (TOKEN_PROGRAM_ID)
+// Set to a PublicKey string to use a different token program
+const CUSTOM_TOKEN_PROGRAM_ID = null; // Set to null to use standard Token Program, or specify a custom token program ID
 
 // Path to your wallet keypair
 const KEYPAIR_PATH = process.env.KEYPAIR_PATH || "~/.config/solana/id.json";
@@ -41,6 +46,10 @@ async function main() {
   // Get token mint (use custom if provided, otherwise use default from config)
   const tokenMint = CUSTOM_TOKEN_MINT ? new PublicKey(CUSTOM_TOKEN_MINT) : config.tokenMint;
   logger.info(`Token Mint: ${tokenMint.toString()}`);
+  
+  // Get token program ID (use custom if provided, otherwise use default TOKEN_PROGRAM_ID)
+  const tokenProgramId = CUSTOM_TOKEN_PROGRAM_ID ? new PublicKey(CUSTOM_TOKEN_PROGRAM_ID) : TOKEN_2022_PROGRAM_ID;
+  logger.info(`Token Program ID: ${tokenProgramId.toString()}`);
   
   // Load keypair
   logger.info(`Loading keypair from ${KEYPAIR_PATH}...`);
@@ -108,7 +117,7 @@ async function main() {
                 tokenVault: tokenVault,
                 tokenVaultAuthority: tokenVaultAuthority,
                 systemProgram: anchor.web3.SystemProgram.programId,
-                tokenProgram: TOKEN_PROGRAM_ID,
+                tokenProgram: tokenProgramId,
               })
               .rpc();
             

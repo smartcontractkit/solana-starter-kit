@@ -1,63 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Transfer};
 use crate::{
-    constants::{ALLOWED_OFFRAMP, EXTERNAL_EXECUTION_CONFIG_SEED, MESSAGES_STORAGE_SEED, STATE_SEED, TOKEN_VAULT_SEED},
+    constants::TOKEN_VAULT_SEED,
+    context::CcipReceive,
     error::CCIPReceiverError,
     events::{MessageReceived, TokenReceived, TokensForwarded},
-    state::{Any2SVMMessage, BaseState, MessageType, MessagesStorage, ReceivedMessage},
+    state::{Any2SVMMessage, MessageType, ReceivedMessage},
 };
-
-/// Accounts required for receiving a CCIP message
-#[derive(Accounts)]
-#[instruction(message: Any2SVMMessage, token_amount: u64)]
-pub struct CcipReceive<'info> {
-    /// The authority PDA from the offramp program that must sign the transaction
-    /// This ensures only authorized offramp programs can call this function
-    #[account(
-        seeds = [EXTERNAL_EXECUTION_CONFIG_SEED, crate::ID.as_ref()],
-        bump,
-        seeds::program = offramp_program.key(),
-    )]
-    pub authority: Signer<'info>,
-
-    /// The offramp program account
-    /// Used for deriving PDA seeds
-    /// CHECK: offramp program: exists only to derive the allowed offramp PDA and the authority PDA
-    pub offramp_program: UncheckedAccount<'info>,
-
-    /// PDA from the router program that verifies this offramp is allowed
-    /// If this PDA doesn't exist, the router doesn't allow this offramp
-    /// CHECK: PDA of the router program verifying the signer is an allowed offramp
-    #[account(
-        owner = state.router @ CCIPReceiverError::InvalidCaller, // this guarantees that it was initialized
-        seeds = [
-            ALLOWED_OFFRAMP,
-            message.source_chain_selector.to_le_bytes().as_ref(),
-            offramp_program.key().as_ref()
-        ],
-        bump,
-        seeds::program = state.router,
-    )]
-    pub allowed_offramp: UncheckedAccount<'info>,
-
-    /// Program state account for verification
-    #[account(
-        seeds = [STATE_SEED],
-        bump,
-    )]
-    pub state: Account<'info, BaseState>,
-
-    /// Storage for received messages
-    /// Will be updated with the latest message
-    #[account(
-        mut,
-        seeds = [MESSAGES_STORAGE_SEED],
-        bump,
-    )]
-    pub messages_storage: Account<'info, MessagesStorage>,
-
-    // Note: Token-related accounts are dynamically provided in remaining_accounts
-}
 
 /// Process an incoming cross-chain message
 /// 
@@ -75,7 +24,7 @@ pub struct CcipReceive<'info> {
 /// * `ctx` - The context of accounts involved in this instruction
 /// * `message` - The cross-chain message containing data and token information
 /// * `token_amount` - The amount of token received in this transaction
-pub fn ccip_receive_handler(
+pub fn handler(
     ctx: Context<CcipReceive>,
     message: Any2SVMMessage,
     token_amount: u64

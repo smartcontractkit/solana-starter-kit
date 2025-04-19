@@ -50,4 +50,8 @@ pub enum CCIPReceiverError {
     /// Error when account validation fails
     #[msg("Account validation failed")]
     AccountValidationFailed,
+    
+    /// Error when an unauthorized user attempts to perform a restricted action
+    #[msg("Unauthorized access")]
+    Unauthorized,
 } 

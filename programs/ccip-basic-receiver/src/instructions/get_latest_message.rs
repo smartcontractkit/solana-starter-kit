@@ -1,32 +1,20 @@
 use anchor_lang::prelude::*;
 use crate::{
-    constants::MESSAGES_STORAGE_SEED,
-    state::{MessagesStorage, ReceivedMessage},
+    context::GetLatestMessage,
+    state::ReceivedMessage,
 };
 
-/// Accounts required for getting the latest received message
-#[derive(Accounts)]
-pub struct GetLatestMessage<'info> {
-    /// Storage account containing received messages
-    #[account(
-        seeds = [MESSAGES_STORAGE_SEED],
-        bump,
-    )]
-    pub messages_storage: Account<'info, MessagesStorage>,
-}
-
-/// Get the latest received cross-chain message
+/// Get the latest received message
 /// 
-/// This view function returns the most recent message received by the program.
-/// Useful for integrations to check received data without having to scan events.
+/// This function returns the latest cross-chain message received by the program.
+/// It's a read-only operation that doesn't modify any state.
 ///
 /// # Arguments
-/// * `ctx` - The context of accounts involved in this instruction
-///
+/// * `ctx` - The context of accounts for this instruction
+/// 
 /// # Returns
-/// * `ReceivedMessage` - The most recent message received by the program
-pub fn get_latest_message_handler(ctx: Context<GetLatestMessage>) -> Result<ReceivedMessage> {
-    // Simply return a clone of the latest message from storage
-    let messages_storage = &ctx.accounts.messages_storage;
-    Ok(messages_storage.latest_message.clone())
+/// * `ReceivedMessage` - The latest message received by the program
+pub fn handler(ctx: Context<GetLatestMessage>) -> Result<ReceivedMessage> {
+    // Return the latest message from storage
+    Ok(ctx.accounts.messages_storage.latest_message.clone())
 } 

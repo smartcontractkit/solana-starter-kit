@@ -1,23 +1,21 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount};
 
 /// Program constants
 pub mod constants;
+/// Context definitions for account validation
+pub mod context;
 /// Error definitions
 pub mod error;
 /// Event definitions
 pub mod events;
-/// Instruction handlers and account structures
+/// Instruction handlers
 pub mod instructions;
 /// Program state definitions
 pub mod state;
 
-use crate::constants::*;
-use crate::error::CCIPReceiverError;
-use crate::events::*;
-use crate::state::*;
-// Import the instruction account structures and handlers
-use crate::instructions::*;
+// Re-export account structures and state types for use in program entry points
+pub use context::*;
+pub use state::*;
 
 declare_id!("671b2A65jR5QxwYFSuEMBhQ6bWJKkGMheEp3ReWC9WnB");
 
@@ -41,17 +39,17 @@ declare_id!("671b2A65jR5QxwYFSuEMBhQ6bWJKkGMheEp3ReWC9WnB");
 #[program]
 pub mod ccip_basic_receiver {
     use super::*;
-
+    
     /// Initialize the receiver program state
     /// @param router - The CCIP router program ID
     pub fn initialize(ctx: Context<Initialize>, router: Pubkey) -> Result<()> {
-        initialize_handler(ctx, router)
+        instructions::initialize_handler(ctx, router)
     }
 
     /// Initialize a token vault for a specific token mint
     /// This vault will be used to receive tokens from cross-chain transfers
     pub fn initialize_token_vault(ctx: Context<InitializeTokenVault>) -> Result<()> {
-        initialize_token_vault_handler(ctx)
+        instructions::initialize_token_vault_handler(ctx)
     }
 
     /// This function is called by the CCIP Router to handle incoming cross-chain messages.
@@ -71,14 +69,11 @@ pub mod ccip_basic_receiver {
         message: Any2SVMMessage,
         token_amount: u64
     ) -> Result<()> {
-        ccip_receive_handler(ctx, message, token_amount)
+        instructions::ccip_receive_handler(ctx, message, token_amount)
     }
 
     /// Get the latest received message
     pub fn get_latest_message(ctx: Context<GetLatestMessage>) -> Result<ReceivedMessage> {
-        get_latest_message_handler(ctx)
+        instructions::get_latest_message_handler(ctx)
     }
 }
-
-// No need to duplicate the account structures here since they are imported
-// from the instruction modules through the instructions::* import 

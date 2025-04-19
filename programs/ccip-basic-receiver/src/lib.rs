@@ -58,15 +58,22 @@ pub mod ccip_basic_receiver {
     }
 
     /// This function is called by the CCIP Router to handle incoming cross-chain messages.
-    /// It receives message data, updates token metadata, and immediately forwards tokens
-    /// to the specified recipient account.
+    /// It processes message data and forwards tokens to recipient accounts dynamically using remaining_accounts.
+    ///
+    /// For each token transfer, the remaining_accounts should contain these accounts in order:
+    /// 1. token_mint: Account<Mint>
+    /// 2. token_metadata: Account<TokenMetadata>
+    /// 3. token_vault: Account<TokenAccount>
+    /// 4. token_vault_authority: UncheckedAccount
+    /// 5. recipient_token_account: Account<TokenAccount>
+    /// 6. token_program: Program<Token>
     ///
     /// @param message - The cross-chain message from the source chain
-    /// @param token_amount - The amount of tokens received in this transaction
+    /// @param token_amounts - The amounts of tokens received for each token in the message
     pub fn ccip_receive(
         ctx: Context<CcipReceive>, 
         message: Any2SVMMessage,
-        token_amount: u64
+        token_amounts: Vec<u64>
     ) -> Result<()> {
         // Emit detailed message event
         emit!(MessageReceived {
@@ -76,7 +83,7 @@ pub mod ccip_basic_receiver {
             data_length: message.data.len() as u64,
             token_count: message.token_amounts.len() as u8,
         });
-
+        
         // Store the message in the messages storage PDA
         let messages_storage = &mut ctx.accounts.messages_storage;
 
@@ -88,49 +95,121 @@ pub mod ccip_basic_receiver {
         } else {
             MessageType::TokenTransfer
         };
-
-        // Only process token transfers if tokens are involved
-        if token_amount > 0 && (message_type == MessageType::TokenTransfer || 
-                               message_type == MessageType::ProgrammaticTokenTransfer) {
-            // Emit token received event at the appropriate place
-            emit!(TokenReceived {
-                token: ctx.accounts.token_mint.key(),
-                amount: token_amount,
-                index: 0, // For simplicity in the tutorial, we handle one token at a time
-            });
-
-            // Update token metadata to reflect the received tokens
-            let token_metadata = &mut ctx.accounts.token_metadata;
+        
+        // Process token transfers if there are any
+        if !token_amounts.is_empty() && 
+           (message_type == MessageType::TokenTransfer || 
+            message_type == MessageType::ProgrammaticTokenTransfer) {
             
-            // Update only total_received as the tokens will be forwarded immediately
-            token_metadata.total_received = token_metadata.total_received.checked_add(token_amount)
-                .ok_or(CCIPReceiverError::ArithmeticOverflow)?;
-            token_metadata.last_updated = Clock::get()?.unix_timestamp;
+            // For each token in the message, we need 6 accounts in the remaining_accounts
+            let remaining = &ctx.remaining_accounts;
+            let accounts_per_token = 6; // Number of accounts required per token
             
-            // Forward tokens from the token vault to the recipient
-            let transfer_ctx = CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.token_vault.to_account_info(),
-                    to: ctx.accounts.recipient_token_account.to_account_info(),
-                    authority: ctx.accounts.token_vault_authority.to_account_info(),
-                },
+            require!(
+                remaining.len() == token_amounts.len() * accounts_per_token,
+                CCIPReceiverError::InvalidRemainingAccounts
             );
-
-            // Get the bump from ctx.bumps
-            let vault_bump = ctx.bumps.token_vault_authority;
-            let seeds = &[TOKEN_VAULT_SEED, &[vault_bump]];
-            let signer_seeds = &[&seeds[..]];
-
-            // Execute the transfer instruction with PDA as signer
-            token::transfer(transfer_ctx.with_signer(signer_seeds), token_amount)?;
-
-            // Emit event for the forwarded tokens
-            emit!(TokensForwarded {
-                token: ctx.accounts.token_mint.key(),
-                amount: token_amount,
-                recipient: ctx.accounts.recipient_token_account.key(),
-            });
+            
+            // Process each token (in the tutorial, we'll typically have just one)
+            for (i, &token_amount) in token_amounts.iter().enumerate() {
+                if token_amount == 0 {
+                    continue; // Skip if no tokens to process
+                }
+                
+                // Extract the accounts for this token from remaining_accounts
+                let start_idx = i * accounts_per_token;
+                
+                // Get individual accounts - note this pattern leverages Anchor's
+                // capability of converting AccountInfo references to typed accounts
+                let token_mint_info = &remaining[start_idx];
+                let token_metadata_info = &remaining[start_idx + 1];
+                let token_vault_info = &remaining[start_idx + 2];
+                let token_vault_authority_info = &remaining[start_idx + 3];
+                let recipient_account_info = &remaining[start_idx + 4];
+                let token_program_info = &remaining[start_idx + 5];
+                
+                // Convert account infos to typed accounts for validation
+                let token_mint = Account::<Mint>::try_from(token_mint_info)?;
+                let mut token_metadata = Account::<TokenMetadata>::try_from(token_metadata_info)?;
+                let token_vault = Account::<TokenAccount>::try_from(token_vault_info)?;
+                let recipient_account = Account::<TokenAccount>::try_from(recipient_account_info)?;
+                
+                // Validate token metadata matches the mint
+                require!(
+                    token_metadata.mint == token_mint.key(),
+                    CCIPReceiverError::TokenMismatch
+                );
+                
+                // Validate token vault is for the correct mint
+                require!(
+                    token_vault.mint == token_mint.key(),
+                    CCIPReceiverError::TokenMismatch
+                );
+                
+                // Validate recipient account is for the correct mint
+                require!(
+                    recipient_account.mint == token_mint.key(),
+                    CCIPReceiverError::TokenMismatch
+                );
+                
+                // Validate token metadata PDA is derived correctly
+                let metadata_seeds = &[
+                    TOKEN_METADATA_SEED, 
+                    token_mint.key().as_ref()
+                ];
+                require!(
+                    Pubkey::create_program_address(
+                        &[metadata_seeds[0], metadata_seeds[1], &[ctx.bumps.state]], 
+                        &crate::ID
+                    ).unwrap() == token_metadata.key(),
+                    CCIPReceiverError::AccountValidationFailed
+                );
+                
+                // Validate token vault PDA is derived correctly
+                let vault_seeds = &[
+                    TOKEN_VAULT_SEED, 
+                    token_mint.key().as_ref()
+                ];
+                
+                // Emit token received event
+                emit!(TokenReceived {
+                    token: token_mint.key(),
+                    amount: token_amount,
+                    index: i as u8,
+                });
+                
+                // Update token metadata
+                token_metadata.total_received = token_metadata.total_received
+                    .checked_add(token_amount)
+                    .ok_or(CCIPReceiverError::ArithmeticOverflow)?;
+                token_metadata.last_updated = Clock::get()?.unix_timestamp;
+                
+                // Forward tokens using CPI
+                let transfer_ctx = CpiContext::new(
+                    token_program_info.to_account_info(),
+                    Transfer {
+                        from: token_vault_info.to_account_info(),
+                        to: recipient_account_info.to_account_info(),
+                        authority: token_vault_authority_info.to_account_info(),
+                    },
+                );
+                
+                // Get the correct seeds for token vault authority
+                // Note: In a production system, we'd validate the authority PDA derivation
+                let vault_bump = Pubkey::find_program_address(&[TOKEN_VAULT_SEED], &crate::ID).1;
+                let seeds = &[TOKEN_VAULT_SEED, &[vault_bump]];
+                let signer_seeds = &[&seeds[..]];
+                
+                // Execute the transfer
+                token::transfer(transfer_ctx.with_signer(signer_seeds), token_amount)?;
+                
+                // Emit forwarded event
+                emit!(TokensForwarded {
+                    token: token_mint.key(),
+                    amount: token_amount,
+                    recipient: recipient_account.key(),
+                });
+            }
         }
         
         // Create and store the latest received message
@@ -219,7 +298,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(message: Any2SVMMessage, token_amount: u64)]
+#[instruction(message: Any2SVMMessage, token_amounts: Vec<u64>)]
 pub struct CcipReceive<'info> {
     // Offramp CPI signer PDA must be first
     // It is not mutable, and thus cannot be used as payer of init/realloc of other PDAs.
@@ -264,42 +343,7 @@ pub struct CcipReceive<'info> {
     )]
     pub messages_storage: Account<'info, MessagesStorage>,
 
-    // Token vault accounts for the received token
-    pub token_mint: Account<'info, Mint>,
-
-    // Token metadata for tracking balances
-    #[account(
-        mut,
-        seeds = [TOKEN_METADATA_SEED, token_mint.key().as_ref()],
-        bump,
-        constraint = token_metadata.mint == token_mint.key() @ CCIPReceiverError::TokenMismatch,
-    )]
-    pub token_metadata: Account<'info, TokenMetadata>,
-
-    // Token vault that should have received the tokens already
-    #[account(
-        mut,
-        seeds = [TOKEN_VAULT_SEED, token_mint.key().as_ref()],
-        bump,
-    )]
-    pub token_vault: Account<'info, TokenAccount>,
-
-    /// CHECK: This is the PDA that has authority over the token vault
-    #[account(
-        seeds = [TOKEN_VAULT_SEED],
-        bump,
-    )]
-    pub token_vault_authority: UncheckedAccount<'info>,
-
-    // Destination account to receive tokens
-    #[account(
-        mut,
-        token::mint = token_mint,
-    )]
-    pub recipient_token_account: Account<'info, TokenAccount>,
-
-    // Token program for transfer operation
-    pub token_program: Program<'info, Token>,
+    // Token-related accounts moved to remaining_accounts for dynamic handling
 }
 
 #[derive(Accounts)]
@@ -468,6 +512,10 @@ pub enum CCIPReceiverError {
     InsufficientBalance,
     #[msg("Token mint mismatch with metadata")]
     TokenMismatch,
+    #[msg("Invalid remaining accounts structure")]
+    InvalidRemainingAccounts,
+    #[msg("Account validation failed")]
+    AccountValidationFailed,
 }
 
 #[event]

@@ -17,7 +17,7 @@ pub mod state;
 pub use context::*;
 pub use state::*;
 
-declare_id!("671b2A65jR5QxwYFSuEMBhQ6bWJKkGMheEp3ReWC9WnB");
+declare_id!("BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq");
 
 /// CCIP Receiver program that accepts cross-chain messages from Chainlink CCIP.
 /// 

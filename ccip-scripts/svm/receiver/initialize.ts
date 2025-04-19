@@ -2,7 +2,8 @@ import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
-import { KEYPAIR_PATHS, loadKeypair, loadReceiverProgram } from "../utils";
+import { loadKeypair, loadReceiverProgram } from "../utils";
+import { KEYPAIR_PATHS } from "../utils/config-parser";
 
 /**
  * Initializes the CCIP Basic Receiver program on Solana.

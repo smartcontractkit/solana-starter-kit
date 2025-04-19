@@ -4,7 +4,8 @@ import path from "path";
 import { execSync } from "child_process";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
-import { KEYPAIR_PATHS, loadKeypair } from "../utils";
+import { loadKeypair } from "../utils";
+import { KEYPAIR_PATHS } from "../utils/config-parser";
 
 /**
  * Deploys the CCIP Basic Receiver program to Solana devnet.
@@ -45,7 +46,7 @@ async function main() {
   const programId = new PublicKey(idl.address || idl.metadata.address);
 
   logger.info(`Program ID from IDL: ${programId.toString()}`);
-  logger.info(`Program Name: ${idl.name}`);
+  logger.info(`Program Name: ${idl.metadata.name}`);
 
   // Default keypair path
   const keypairPath = process.env.KEYPAIR_PATH || KEYPAIR_PATHS.DEFAULT;
@@ -76,7 +77,7 @@ async function main() {
     logger.info(`Deploying ${idl.name} program to devnet...`);
 
     try {
-      const deployCommand = `anchor deploy --program-id ${programId.toString()} --provider.cluster devnet --provider.wallet ${keypairPath}`;
+      const deployCommand = `anchor deploy --program-name ccip-basic-receiver --provider.cluster devnet --provider.wallet ${keypairPath}`;
       logger.info(`Running: ${deployCommand}`);
 
       const output = execSync(deployCommand).toString();
@@ -86,9 +87,7 @@ async function main() {
       // Next steps
       logger.info("\n======== NEXT STEPS ========");
       logger.info("Initialize the program with:");
-      logger.info(
-        `npx ts-node ccip-scripts/svm/receiver/initialize.ts ${programId.toString()}`
-      );
+      logger.info("npx ts-node ccip-scripts/svm/receiver/initialize.ts");
     } catch (error) {
       logger.error("Deployment failed:", error);
       process.exit(1);

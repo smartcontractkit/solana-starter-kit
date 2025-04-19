@@ -2,8 +2,9 @@ import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
-import { KEYPAIR_PATHS, loadKeypair, loadReceiverProgram } from "../utils";
+import { loadKeypair, loadReceiverProgram } from "../utils";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { KEYPAIR_PATHS } from "../utils/config-parser";
 
 /**
  * Initializes a token vault for the CCIP Basic Receiver program on Solana.

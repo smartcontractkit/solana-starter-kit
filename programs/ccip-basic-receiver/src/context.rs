@@ -69,9 +69,6 @@ pub struct InitializeTokenVault<'info> {
     
     /// Token program for token vault initialization
     pub token_program: Program<'info, Token>,
-    
-    /// Rent sysvar
-    pub rent: Sysvar<'info, Rent>,
 }
 
 /// Accounts required for receiving a CCIP message

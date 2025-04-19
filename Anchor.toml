@@ -10,7 +10,7 @@ exclude = [
 ]
 
 [programs.devnet]
-ccip-basic-receiver = "671b2A65jR5QxwYFSuEMBhQ6bWJKkGMheEp3ReWC9WnB"
+ccip-basic-receiver = "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"
 chainlink-solana-demo = "Gwdjt5fAZfhUyxXSrCKE5uGiHnbfx5ZhueEbnZToMRNJ"
 
 [programs.localnet]

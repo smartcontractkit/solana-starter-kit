@@ -49,7 +49,7 @@ async function main() {
   logger.info(`Token Mint: ${tokenMint.toString()}`);
   
   // Get token program ID (use custom if provided, otherwise use default TOKEN_PROGRAM_ID)
-  const tokenProgramId = CUSTOM_TOKEN_PROGRAM_ID ? new PublicKey(CUSTOM_TOKEN_PROGRAM_ID) : TOKEN_2022_PROGRAM_ID;
+  const tokenProgramId = CUSTOM_TOKEN_PROGRAM_ID ? new PublicKey(CUSTOM_TOKEN_PROGRAM_ID) : TOKEN_PROGRAM_ID;
   logger.info(`Token Program ID: ${tokenProgramId.toString()}`);
   
   // Load keypair

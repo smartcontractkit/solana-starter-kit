@@ -95,7 +95,8 @@ export function loadReceiverProgram(
   // Use provided programId or get from IDL
   const programIdToUse =
     programId ||
-    (idl.metadata?.address ? new PublicKey(idl.metadata.address) : null);
+    (idl.address ? new PublicKey(idl.address) : 
+     (idl.metadata?.address ? new PublicKey(idl.metadata.address) : null));
 
   if (!programIdToUse) {
     throw new Error("Program ID not provided and not found in IDL metadata");

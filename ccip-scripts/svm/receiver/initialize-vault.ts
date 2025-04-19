@@ -2,7 +2,7 @@ import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair, loadReceiverProgram } from "../utils";
+import { KEYPAIR_PATHS, loadKeypair, loadReceiverProgram } from "../utils";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
@@ -28,7 +28,7 @@ const CUSTOM_TOKEN_MINT = null; // Set to null to use default BnM token, or spec
 const CUSTOM_TOKEN_PROGRAM_ID = null; // Set to null to use standard Token Program, or specify a custom token program ID
 
 // Path to your wallet keypair
-const KEYPAIR_PATH = process.env.KEYPAIR_PATH || "~/.config/solana/id.json";
+const KEYPAIR_PATH = process.env.KEYPAIR_PATH || KEYPAIR_PATHS.DEFAULT;
 // ========== END CONFIGURATION ==========
 
 async function main() {

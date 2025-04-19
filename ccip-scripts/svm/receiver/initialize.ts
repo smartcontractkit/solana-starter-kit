@@ -2,7 +2,7 @@ import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair, loadReceiverProgram } from "../utils";
+import { KEYPAIR_PATHS, loadKeypair, loadReceiverProgram } from "../utils";
 
 /**
  * Initializes the CCIP Basic Receiver program on Solana.
@@ -17,7 +17,7 @@ import { loadKeypair, loadReceiverProgram } from "../utils";
 const CUSTOM_PROGRAM_ID = null; // Set to null to use default from config, or specify a custom program ID string
 
 // Path to your wallet keypair
-const KEYPAIR_PATH = process.env.KEYPAIR_PATH || "~/.config/solana/id.json";
+const KEYPAIR_PATH = process.env.KEYPAIR_PATH || KEYPAIR_PATHS.DEFAULT;
 // ========== END CONFIGURATION ==========
 
 async function main() {

@@ -108,7 +108,7 @@ function getTokenAccounts() {
   const pdas = deriveReceiverPDAs(receiverProgramId);
   
   // For token vault derivation
-  const mintPubkey = new PublicKey(config.tokenAddress);
+  const mintPubkey = new PublicKey(solanaConfig.tokenMint);
   
   // Derive token vault using the receiver program ID and mint
   const [tokenVault] = PublicKey.findProgramAddressSync(
@@ -119,7 +119,7 @@ function getTokenAccounts() {
   // These must match the accounts expected by the ccip_receive handler
   return {
     // 1. Token mint - Use the token address from config
-    tokenMint: config.tokenAddress,
+    tokenMint: solanaConfig.tokenMint.toString(),
     
     // 2. Token vault - Derived PDA based on program ID and mint
     tokenVault: tokenVault.toString(),
@@ -190,11 +190,10 @@ const MESSAGE_CONFIG = {
     // The receiver program will then forward these tokens to the recipient
     tokenReceiver: (() => {
       // We need to derive the token vault to use as the receiver
-      const receiverProgramId = getCCIPSVMConfig(
-        ChainId.SOLANA_DEVNET
-      ).receiverProgramId.toString();
+      const solanaConfig = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+      const receiverProgramId = solanaConfig.receiverProgramId.toString();
       
-      const mintPubkey = new PublicKey(config.tokenAddress);
+      const mintPubkey = new PublicKey(solanaConfig.tokenMint);
       
       // Derive token vault using the receiver program ID and mint
       const [tokenVault] = PublicKey.findProgramAddressSync(

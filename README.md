@@ -8,13 +8,14 @@
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/smartcontractkit/solana-starter-kit)
 
-
 # Chainlink Solana Starter Kit
+
 The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/anchor/getting-started/introduction.html) based program and client that shows developers how to use and interact with [Chainlink Price Feeds on Solana](https://docs.chain.link/solana/). The demo is configured to run on the [Devnet cluster](https://docs.solana.com/clusters#devnet), and is comprised of an on-chain program written in Rust, and an off-chain client written in JavaScript. The program takes parameters and account information from the off-chain client, retrieves the latest price data from the specified Chainlink Price Feed on Devnet, then writes the data out to the specified account, which can then be read by the off-chain client.
 
 ## Running the example on Devnet
 
 ### Requirements
+
 - [NodeJS 12](https://nodejs.org/en/download/) or higher
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Solana CLI](https://docs.solanalabs.com/cli/install)
@@ -41,14 +42,13 @@ npm install
 cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
 ```
 
-
 Next, generate a new wallet:
 
 ```
 solana-keygen new -o id.json
 ```
 
-You should see the public key in the terminal output. Alternatively, you can find the public key  with the following CLI command:
+You should see the public key in the terminal output. Alternatively, you can find the public key with the following CLI command:
 
 ```
 solana-keygen pubkey id.json
@@ -67,10 +67,13 @@ anchor build
 ```
 
 The build process generates the keypair for your program's account. Before you deploy your program, you must update this public key in this line `lib.rs` file.
+
 ```
 declare_id!("GEgDWT7Cc8H5S1o2YnTp3umiciazQj5fKbftPXkc2TsL");
-``` 
+```
+
 To do this, you need to run the command below:
+
 ```
 anchor keys sync
 ```
@@ -107,13 +110,38 @@ export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
 export ANCHOR_WALLET='./id.json'
 ```
 
-Now you are ready to run the JavaScript client. Be sure to pass Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we specified the ETH/USD feed:
+Now you are ready to run the client. You can choose between the JavaScript version or the TypeScript version.
+
+Be sure to pass Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we specified the ETH/USD feed:
+
+#### JavaScript Client
+
+To run the JavaScript client, be sure to pass the Chainlink data feed address that you want to query. You can get the feed address from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana). If you don’t specify a feed address, the default will be the Devnet SOL/USD feed. In this example, we specify the ETH/USD feed:
 
 ```
-node client.js --feed	669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P
+node client.js \
+    --program $(solana address -k ./target/deploy/chainlink_solana_demo-keypair.json) \
+    --feed 669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P
 ```
 
-The client will generate a new account and pass it to the deployed program, which will then populate the account with the current price from the specified price feed. The client will then read the price from the account, and output the value to the console.
+#### TypeScript Client
+
+To run the TypeScript client, you'll need to have ts-node installed. To run it, use the following command:
+
+```
+npx ts-node client.ts \
+    --program $(solana address -k ./target/deploy/chainlink_solana_demo-keypair.json) \
+    --feed 669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P
+```
+
+#### What Happens Next?
+The client will generate a new account and pass it to the deployed program.
+
+The program will then populate the account with the current price from the specified price feed.
+
+The client will read the price from the account and output the value to the console.
+
+Both the JavaScript and TypeScript clients will function the same way, so you can choose the version that fits your development environment.
 
 ```
 Running client...
@@ -160,7 +188,6 @@ export ANCHOR_WALLET='./id.json'
 
 Next, you can set the value of the `CHAINLINK_FEED_ADDRESS` static variable to the value of the [Price Feed account address](https://docs.chain.link/docs/solana/data-feeds-solana/) that you wish to query. This example queries the ETH/USD feed on Devnet:
 
-
 ```
 const CHAINLINK_FEED_ADDRESS="669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P"
 ```
@@ -174,6 +201,7 @@ npm run read-data
 ```
 
 JavaScript:
+
 ```
 node read-data.js
 ```
@@ -191,7 +219,6 @@ pappas99@Pappas solana-starter-kit % npm run read-data
 301205000000
 301331000000
 ```
-
 
 ### Testing
 

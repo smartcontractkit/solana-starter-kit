@@ -5,9 +5,10 @@
     "dependencies": {
         "@chainlink/solana-sdk": "^0.2.2",
         "@coral-xyz/anchor": "^0.30.1",
+        "@types/node": "^22.14.1",
         "bn.js": "^5.2.0",
         "borsh": "^0.7.0",
-        "typescript": "^5.5.4"
+        "typescript": "^5.8.3"
     },
     "devDependencies": {
         "@solana/web3.js": "^1.95.2",

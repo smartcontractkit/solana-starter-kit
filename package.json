@@ -1,7 +1,9 @@
 {
   "scripts": {
+    "generate-types": "typechain --target ethers-v6 --out-dir ccip-evm-sdk/types/contracts ccip-evm-sdk/abi/*.json",
     "read-data": "ts-node ./read-data.ts",
     "type-check": "tsc --noEmit",
+    "test:config": "node --experimental-modules ccip-scripts/config-test.js",
     "ccip:fee": "ts-node ./ccip-scripts/router/get-ccip-fee.ts",
     "ccip:fee:debug": "ts-node ./ccip-scripts/router/get-ccip-fee.ts --log-level DEBUG",
     "ccip:fee:trace": "ts-node ./ccip-scripts/router/get-ccip-fee.ts --log-level TRACE",
@@ -20,7 +22,15 @@
     "token:check:test": "ts-node ./ccip-scripts/token/check-token-approvals.ts --use-test-keypair",
     "token:wrap": "ts-node ./ccip-scripts/token/wrap-sol.ts",
     "token:wrap:test": "ts-node ./ccip-scripts/token/wrap-sol.ts --use-test-keypair",
-    "token:wrap:2": "ts-node ./ccip-scripts/token/wrap-sol.ts --amount 2"
+    "token:wrap:2": "ts-node ./ccip-scripts/token/wrap-sol.ts --amount 2",
+    "evm:transfer": "ts-node ./ccip-scripts/evm/router/1_token-transfer.ts",
+    "evm:transfer:dry": "ts-node ./ccip-scripts/evm/router/1_token-transfer.ts --dry-run",
+    "evm:transfer:debug": "ts-node ./ccip-scripts/evm/router/1_token-transfer.ts --log-level DEBUG",
+    "evm:transfer:fuji": "ts-node ./ccip-scripts/evm/router/1_token-transfer.ts --network avalancheFuji",
+    "evm:transfer:link": "ts-node ./ccip-scripts/evm/router/1_token-transfer.ts --fee-token link",
+    "evm:drip": "ts-node ./ccip-scripts/evm/token/drip.ts",
+    "evm:drip:dry": "ts-node ./ccip-scripts/evm/token/drip.ts --dry-run",
+    "evm:drip:10": "ts-node ./ccip-scripts/evm/token/drip.ts --amount 10"
   },
   "dependencies": {
     "@chainlink/solana-sdk": "^0.2.2",
@@ -28,17 +38,22 @@
     "@solana/spl-token": "^0.3.11",
     "bn.js": "^5.2.0",
     "borsh": "^0.7.0",
+    "bs58": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.10.0",
     "loglevel": "^1.9.2",
     "typescript": "^5.5.4"
   },
   "devDependencies": {
+    "@typechain/ethers-v6": "^0.5.1",
     "@types/bn.js": "^5.1.0",
     "@types/chai": "^4.3.0",
     "@types/mocha": "^9.0.0",
     "chai": "^4.3.4",
     "mocha": "^9.0.3",
     "prettier": "^2.6.2",
-    "ts-mocha": "^10.0.0"
+    "ts-mocha": "^10.0.0",
+    "typechain": "^8.3.2"
   },
   "resolutions": {
     "@solana/web3.js": "^1.98.0"

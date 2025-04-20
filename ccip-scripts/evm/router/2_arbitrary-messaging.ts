@@ -35,7 +35,7 @@ import { printUsage } from "../utils/config-parser";
 import { createLogger, LogLevel } from "../../../ccip-lib/evm";
 import { ethers } from "ethers";
 import { PublicKey } from "@solana/web3.js";
-import { ChainId, FeeTokenType } from "../../config";
+import { ChainId, FeeTokenType, getCCIPSVMConfig } from "../../config";
 
 // Create initial logger for startup errors
 const initialLogger = createLogger("arbitrary-messaging", {
@@ -53,7 +53,9 @@ const MESSAGE_CONFIG = {
   data: "0x" + Buffer.from("Hello World").toString("hex"),
 
   // Destination program on Solana that will receive the message
-  receiver: "52XvWQKuZHRjnR7qHsEGE532jqgQ3MBiBMgVkBowP1LD",
+  receiver: getCCIPSVMConfig(
+    ChainId.SOLANA_DEVNET
+  ).receiverProgramId.toString(),
 
   // Fee token to use for CCIP fees
   feeToken: FeeTokenType.LINK,

@@ -35,13 +35,7 @@ import {
 import { printUsage } from "../utils/config-parser";
 import { createLogger, LogLevel } from "../../../ccip-lib/evm";
 import { PublicKey } from "@solana/web3.js";
-import { 
-  FeeTokenType, 
-  getEVMConfig, 
-  getEVMFeeTokenAddress, 
-  ChainId,
-  DEFAULT_RECEIVERS 
-} from "../../config";
+import { FeeTokenType, getEVMConfig, ChainId } from "../../config";
 
 // Create initial logger for startup errors
 const initialLogger = createLogger("token-transfer", {

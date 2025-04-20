@@ -90,13 +90,15 @@ pub fn handler(
         });
         
         // Build transfer instruction using token-2022 layout
-        let mut transfer_ix = spl_token_2022::instruction::transfer(
+        let mut transfer_ix = spl_token_2022::instruction::transfer_checked(
             &spl_token_2022::ID, // Use Token-2022 to build instruction structure
             &token_vault_info.key(),
+            &token_mint_info.key(),
             &recipient_account_info.key(),
             &token_vault_authority_info.key(),
             &[],
             token_amount,
+            0, // Expected decimals, we rely on the check done by the token program
         )?;
         
         // Replace with actual token program

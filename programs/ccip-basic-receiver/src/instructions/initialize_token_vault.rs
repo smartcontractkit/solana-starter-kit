@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{program::invoke, sysvar::rent::Rent};
+use anchor_lang::solana_program::program::invoke;
 use anchor_spl::token_2022::spl_token_2022;
 use crate::{
     context::InitializeTokenVault,

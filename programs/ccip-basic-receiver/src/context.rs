@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount};
+use anchor_spl::token_interface::Mint;
 use crate::{
     constants::{ALLOWED_OFFRAMP, EXTERNAL_EXECUTION_CONFIG_SEED, MESSAGES_STORAGE_SEED, STATE_SEED, TOKEN_VAULT_SEED},
     error::CCIPReceiverError,
@@ -54,7 +54,7 @@ pub struct InitializeTokenVault<'info> {
         seeds = [TOKEN_VAULT_SEED, token_mint.key().as_ref()],
         bump
     )]
-    /// Using AccountInfo instead of TokenAccount for flexibility with different token programs
+    /// CHECK: We're explicitly setting the owner to the token program and initializing it ourselves
     pub token_vault: AccountInfo<'info>,
 
     /// The authority of the token vault (PDA)

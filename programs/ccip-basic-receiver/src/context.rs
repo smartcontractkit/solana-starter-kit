@@ -76,7 +76,7 @@ pub struct InitializeTokenVault<'info> {
 
 /// Accounts required for receiving a CCIP message
 #[derive(Accounts)]
-#[instruction(message: Any2SVMMessage, token_amount: u64)]
+#[instruction(message: Any2SVMMessage)]
 pub struct CcipReceive<'info> {
     /// The authority PDA from the offramp program that must sign the transaction
     /// This ensures only authorized offramp programs can call this function

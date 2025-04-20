@@ -24,11 +24,9 @@ use crate::{
 /// # Arguments
 /// * `ctx` - The context of accounts involved in this instruction
 /// * `message` - The cross-chain message containing data and token information
-/// * `token_amount` - The amount of token received in this transaction
 pub fn handler(
     ctx: Context<CcipReceive>,
     message: Any2SVMMessage,
-    token_amount: u64
 ) -> Result<()> {
     // Emit detailed message received event
     emit!(MessageReceived {
@@ -52,7 +50,7 @@ pub fn handler(
     };
     
     // Process token transfer if tokens are involved
-    if token_amount > 0 && 
+    if message.token_amounts.len() > 0 && 
         (message_type == MessageType::TokenTransfer || 
          message_type == MessageType::ProgrammaticTokenTransfer) {
         
@@ -82,50 +80,58 @@ pub fn handler(
         // Get the token mint key for events
         let token_mint_key = token_mint_info.key();
         
-        // Emit token received event
-        emit!(TokenReceived {
-            token: token_mint_key,
-            amount: token_amount,
-            index: 0,
-        });
+        // Get token amount from the message
+        let token_amount = message.token_amounts.first()
+            .map(|token| token.amount)
+            .unwrap_or(0);
         
-        // Build transfer instruction using token-2022 layout
-        let mut transfer_ix = spl_token_2022::instruction::transfer_checked(
-            &spl_token_2022::ID, // Use Token-2022 to build instruction structure
-            &token_vault_info.key(),
-            &token_mint_info.key(),
-            &recipient_account_info.key(),
-            &token_vault_authority_info.key(),
-            &[],
-            token_amount,
-            0, // Expected decimals, we rely on the check done by the token program
-        )?;
-        
-        // Replace with actual token program
-        transfer_ix.program_id = token_program_info.key();
-        
-        // Derive the PDA signer seeds for the token vault authority
-        let vault_bump = Pubkey::find_program_address(&[TOKEN_VAULT_SEED], &crate::ID).1;
-        let seeds = &[TOKEN_VAULT_SEED, &[vault_bump]];
-        let signer_seeds = &[&seeds[..]];
-        
-        // Execute the token transfer with the PDA as signer
-        invoke_signed(
-            &transfer_ix,
-            &[
-                token_vault_info.clone(),
-                recipient_account_info.clone(),
-                token_vault_authority_info.clone(),
-            ],
-            signer_seeds,
-        )?;
-        
-        // Emit the tokens forwarded event
-        emit!(TokensForwarded {
-            token: token_mint_key,
-            amount: token_amount,
-            recipient: recipient_account_info.key(),
-        });
+        // Only proceed if there's an actual token amount to transfer
+        if token_amount > 0 {
+            // Emit token received event
+            emit!(TokenReceived {
+                token: token_mint_key,
+                amount: token_amount,
+                index: 0,
+            });
+            
+            // Build transfer instruction using token-2022 layout
+            let mut transfer_ix = spl_token_2022::instruction::transfer_checked(
+                &spl_token_2022::ID, // Use Token-2022 to build instruction structure
+                &token_vault_info.key(),
+                &token_mint_info.key(),
+                &recipient_account_info.key(),
+                &token_vault_authority_info.key(),
+                &[],
+                token_amount,
+                0, // Expected decimals, we rely on the check done by the token program
+            )?;
+            
+            // Replace with actual token program
+            transfer_ix.program_id = token_program_info.key();
+            
+            // Derive the PDA signer seeds for the token vault authority
+            let vault_bump = Pubkey::find_program_address(&[TOKEN_VAULT_SEED], &crate::ID).1;
+            let seeds = &[TOKEN_VAULT_SEED, &[vault_bump]];
+            let signer_seeds = &[&seeds[..]];
+            
+            // Execute the token transfer with the PDA as signer
+            invoke_signed(
+                &transfer_ix,
+                &[
+                    token_vault_info.clone(),
+                    recipient_account_info.clone(),
+                    token_vault_authority_info.clone(),
+                ],
+                signer_seeds,
+            )?;
+            
+            // Emit the tokens forwarded event
+            emit!(TokensForwarded {
+                token: token_mint_key,
+                amount: token_amount,
+                recipient: recipient_account_info.key(),
+            });
+        }
     }
     
     // Create and store the latest received message in our storage account

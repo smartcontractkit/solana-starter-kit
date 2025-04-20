@@ -91,13 +91,11 @@ pub mod ccip_basic_receiver {
     /// 5. token_program: Program<Token>
     ///
     /// @param message - The cross-chain message from the source chain
-    /// @param token_amount - The amount of token received in this transaction
     pub fn ccip_receive(
         ctx: Context<CcipReceive>, 
         message: Any2SVMMessage,
-        token_amount: u64
     ) -> Result<()> {
-        instructions::ccip_receive_handler(ctx, message, token_amount)
+        instructions::ccip_receive_handler(ctx, message)
     }
 
     /// Get the latest received message

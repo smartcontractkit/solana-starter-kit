@@ -72,21 +72,30 @@ async function main() {
       
       logger.info(`Messages Storage PDA: ${messagesStoragePda.toString()}`);
       
-      // Check if state is already initialized
+      // Check if state and messages storage are already initialized
       let isStateInitialized = false;
+      let isMessagesStorageInitialized = false;
+      
       try {
         const stateAccountInfo = await program.provider.connection.getAccountInfo(statePda);
         if (stateAccountInfo !== null && stateAccountInfo.data.length > 0) {
           isStateInitialized = true;
           logger.info("State is already initialized");
         }
+        
+        const messagesStorageInfo = await program.provider.connection.getAccountInfo(messagesStoragePda);
+        if (messagesStorageInfo !== null && messagesStorageInfo.data.length > 0) {
+          isMessagesStorageInitialized = true;
+          logger.info("Messages storage is already initialized");
+        }
       } catch (error) {
-        logger.info("Error checking state account:", error);
+        logger.info("Error checking accounts:", error);
       }
       
-      // Initialize state if not already initialized
-      if (!isStateInitialized) {
-        logger.info("Initializing program state...");
+      // Initialize if either account is not initialized
+      // With init_if_needed, this will be safe even if one account is already initialized
+      if (!isStateInitialized || !isMessagesStorageInitialized) {
+        logger.info("Initializing program accounts...");
         logger.info(`Router Program ID: ${config.routerProgramId.toString()}`);
         
         try {
@@ -95,6 +104,7 @@ async function main() {
             .accounts({
               payer: program.provider.publicKey,
               state: statePda,
+              messagesStorage: messagesStoragePda,
               systemProgram: anchor.web3.SystemProgram.programId,
             })
             .rpc();
@@ -102,9 +112,11 @@ async function main() {
           logger.info(`Program initialized successfully. Transaction: ${tx}`);
           logger.info(`Solana Explorer: ${config.explorerUrl}${tx}`);
         } catch (error) {
-          logger.error("Error initializing program state:", error);
+          logger.error("Error initializing program:", error);
           process.exit(1);
         }
+      } else {
+        logger.info("All program accounts are already initialized");
       }
       
       logger.info("Initialization process completed");

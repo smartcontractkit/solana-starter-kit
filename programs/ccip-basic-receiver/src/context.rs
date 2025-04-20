@@ -15,13 +15,23 @@ pub struct Initialize<'info> {
 
     /// The state account to be initialized
     #[account(
-        init,
+        init_if_needed,
         payer = payer,
         space = 8 + BaseState::INIT_SPACE,
         seeds = [STATE_SEED],
         bump
     )]
     pub state: Account<'info, BaseState>,
+
+    /// Messages storage account to be initialized
+    #[account(
+        init_if_needed,
+        payer = payer,
+        space = 8 + std::mem::size_of::<MessagesStorage>(),
+        seeds = [MESSAGES_STORAGE_SEED],
+        bump
+    )]
+    pub messages_storage: Account<'info, MessagesStorage>,
 
     /// Program state account for verification
     pub system_program: Program<'info, System>,

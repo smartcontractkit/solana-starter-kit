@@ -41,6 +41,7 @@ import { createLogger, LogLevel } from "../../../ccip-lib/evm";
 import { ethers } from "ethers";
 import { PublicKey } from "@solana/web3.js";
 import { FeeTokenType, getEVMConfig, ChainId, getCCIPSVMConfig } from "../../config";
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 // Create initial logger for startup errors
 const initialLogger = createLogger("data-and-tokens", {
@@ -106,19 +107,22 @@ function getTokenAccounts() {
   const receiverProgramId = solanaConfig.receiverProgramId.toString();
   const pdas = deriveReceiverPDAs(receiverProgramId);
   
-  // Need to get the correct token addresses from somewhere appropriate
-  // These would typically come from environment variables or configuration
-  // For this tutorial, we'll use placeholders that must be replaced
+  // For token vault derivation
+  const mintPubkey = new PublicKey(config.tokenAddress);
+  
+  // Derive token vault using the receiver program ID and mint
+  const [tokenVault] = PublicKey.findProgramAddressSync(
+    [Buffer.from("token_vault"), mintPubkey.toBuffer()],
+    new PublicKey(receiverProgramId)
+  );
   
   // These must match the accounts expected by the ccip_receive handler
   return {
-    // 1. Token mint - the Solana token mint address (equivalent to the EVM token)
-    // This should be the wrapped version of the EVM token on Solana
-    tokenMint: "TOKEN_MINT_ADDRESS", // Replace with actual token mint on Solana
+    // 1. Token mint - Use the token address from config
+    tokenMint: config.tokenAddress,
     
-    // 2. Token vault - this is where CCIP router deposits the tokens first
-    // This is a token account owned by the CCIP Receiver program
-    tokenVault: "TOKEN_VAULT_ADDRESS", // Replace with actual token vault
+    // 2. Token vault - Derived PDA based on program ID and mint
+    tokenVault: tokenVault.toString(),
     
     // 3. Token vault authority - PDA that has authority over the vault
     tokenVaultAuthority: pdas.tokenVaultAuthority.toString(),
@@ -128,7 +132,7 @@ function getTokenAccounts() {
     recipientTokenAccount: "HWFMEkEaiYXYngJvmYT1AU4aaxR85mowvD88j4cLNpxp", // ATA of the recipient
     
     // 5. Token program - usually SPL Token program
-    tokenProgram: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" // SPL Token program
+    tokenProgram: TOKEN_2022_PROGRAM_ID.toString()
   };
 }
 
@@ -153,8 +157,7 @@ const MESSAGE_CONFIG = {
   ],
 
   // Custom message to send - must be properly encoded as hex with 0x prefix
-  // This example encodes "Transfer with message" to hex
-  data: "0x" + Buffer.from("Transfer with message").toString("hex"),
+  data: "0x" + Buffer.from("Hello World").toString("hex"),
 
   // Fee token to use for CCIP fees
   feeToken: FeeTokenType.LINK,
@@ -169,12 +172,38 @@ const MESSAGE_CONFIG = {
     allowOutOfOrderExecution: true,
 
     // Bitmap of accounts that should be made writeable
-    // Setting 3 (binary 11) to make both state and messages_storage writable
-    accountIsWritableBitmap: BigInt(3),
+    // Binary representation: 000110 (decimal 6)
+    // Analyzing the accounts in the order they appear in the `accounts` array:
+    // [0] state PDA - NOT writable (0)
+    // [1] messages_storage PDA - writable (1)
+    // [2] token_mint - NOT writable (0)
+    // [3] token_vault - writable (1)
+    // [4] token_vault_authority - NOT writable (0)
+    // [5] recipient_token_account - NOT writable (0) (CPI makes it writable)
+    // [6] token_program - NOT writable (0)
+    // 
+    // Result: Binary 0000110 = Decimal 6
+    // Only messages_storage and token_vault need to be explicitly writable
+    accountIsWritableBitmap: BigInt(6), // Binary 110
 
-    // Token receiver wallet address (where tokens will ultimately arrive)
-    // This should match the token account owner of recipientTokenAccount
-    tokenReceiver: "RECIPIENT_WALLET_ADDRESS", // Replace with the actual wallet address
+    // Token receiver should be the token vault where CCIP initially deposits tokens
+    // The receiver program will then forward these tokens to the recipient
+    tokenReceiver: (() => {
+      // We need to derive the token vault to use as the receiver
+      const receiverProgramId = getCCIPSVMConfig(
+        ChainId.SOLANA_DEVNET
+      ).receiverProgramId.toString();
+      
+      const mintPubkey = new PublicKey(config.tokenAddress);
+      
+      // Derive token vault using the receiver program ID and mint
+      const [tokenVault] = PublicKey.findProgramAddressSync(
+        [Buffer.from("token_vault"), mintPubkey.toBuffer()],
+        new PublicKey(receiverProgramId)
+      );
+      
+      return tokenVault.toString();
+    })(),
 
     // Accounts needed for the CCIP message
     accounts: (() => {
@@ -192,15 +221,26 @@ const MESSAGE_CONFIG = {
       // First the state and messages storage for message processing
       // Then the 5 token accounts needed for token transfers
       return [
-        // Accounts for message storage
+        // [0] state PDA - Required by the CcipReceive context
         pdas.state.toString(),
+        
+        // [1] messages_storage PDA - Required by the CcipReceive context and must be writable
         pdas.messagesStorage.toString(),
         
-        // The 5 token accounts required by the ccip_receive handler:
+        // The 5 token accounts required by the ccip_receive handler as remaining_accounts:
+        // [2] token_mint - The token mint account
         tokenAccounts.tokenMint,
+        
+        // [3] token_vault - The token vault account that must be writable
         tokenAccounts.tokenVault,
+        
+        // [4] token_vault_authority - The vault authority PDA
         tokenAccounts.tokenVaultAuthority, 
+        
+        // [5] recipient_token_account - Where tokens will be transferred to
         tokenAccounts.recipientTokenAccount,
+        
+        // [6] token_program - The token program that handles the transfer
         tokenAccounts.tokenProgram
       ];
     })(),

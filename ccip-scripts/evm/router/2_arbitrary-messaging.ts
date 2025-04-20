@@ -106,7 +106,7 @@ const MESSAGE_CONFIG = {
     allowOutOfOrderExecution: true,
 
     // Bitmap of accounts that should be made writeable (advanced usage)
-    accountIsWritableBitmap: BigInt(3), // Binary 11 = both accounts are writable
+    accountIsWritableBitmap: BigInt(2), // Binary 10 = only messages_storage account is writable
 
     // Token receiver - for arbitrary messages, this is usually the default PublicKey
     tokenReceiver: PublicKey.default.toString(),

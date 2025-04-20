@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::TokenAccount;
+use anchor_lang::solana_program::pubkey::Pubkey;
 
 /// Program constants
 pub mod constants;
@@ -18,6 +20,34 @@ pub use context::*;
 pub use state::*;
 
 declare_id!("BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq");
+
+/// Token program IDs
+pub mod token_programs {
+    use anchor_lang::solana_program::pubkey::Pubkey;
+    use anchor_lang::prelude::declare_id;
+
+    // SPL Token program ID
+    declare_id!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    // Token 2022 program ID
+    pub const TOKEN_2022_ID: Pubkey = Pubkey::new_from_array([
+        6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180,
+        133, 237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+    ]);
+}
+
+/// Utility function to determine if a token program is supported
+pub fn is_supported_token_program(program_id: &Pubkey) -> bool {
+    program_id == &token_programs::ID || program_id == &token_programs::TOKEN_2022_ID
+}
+
+/// Helper to get the appropriate space for a token account based on program
+pub fn get_token_account_space(program_id: &Pubkey) -> usize {
+    if program_id == &token_programs::TOKEN_2022_ID {
+        165 // Base size for Token-2022 accounts
+    } else {
+        TokenAccount::LEN // Standard token account size
+    }
+}
 
 /// CCIP Receiver program that accepts cross-chain messages from Chainlink CCIP.
 /// 

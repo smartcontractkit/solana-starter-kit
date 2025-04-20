@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{Mint, TokenAccount};
 use crate::{
     constants::{ALLOWED_OFFRAMP, EXTERNAL_EXECUTION_CONFIG_SEED, MESSAGES_STORAGE_SEED, STATE_SEED, TOKEN_VAULT_SEED},
     error::CCIPReceiverError,
@@ -43,18 +43,19 @@ pub struct InitializeTokenVault<'info> {
     pub state: Account<'info, BaseState>,
 
     /// The mint associated with this token vault
-    pub token_mint: Account<'info, Mint>,
+    pub token_mint: InterfaceAccount<'info, Mint>,
 
     /// The token vault to be initialized
     #[account(
         init,
         payer = payer,
-        token::mint = token_mint,
-        token::authority = token_vault_authority,
+        owner = token_program.key(),
+        space = 165, // Space sufficient for Token-2022 accounts
         seeds = [TOKEN_VAULT_SEED, token_mint.key().as_ref()],
         bump
     )]
-    pub token_vault: Account<'info, TokenAccount>,
+    /// Using AccountInfo instead of TokenAccount for flexibility with different token programs
+    pub token_vault: AccountInfo<'info>,
 
     /// The authority of the token vault (PDA)
     /// CHECK: This is a PDA used as the token vault authority
@@ -68,7 +69,9 @@ pub struct InitializeTokenVault<'info> {
     pub system_program: Program<'info, System>,
     
     /// Token program for token vault initialization
-    pub token_program: Program<'info, Token>,
+    /// CHECK: Verified by checking account ownership
+    #[account(address = *token_mint.to_account_info().owner)]
+    pub token_program: AccountInfo<'info>,
 }
 
 /// Accounts required for receiving a CCIP message

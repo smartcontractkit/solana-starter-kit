@@ -54,4 +54,46 @@ pub enum CCIPReceiverError {
     /// Error when an unauthorized user attempts to perform a restricted action
     #[msg("Unauthorized access")]
     Unauthorized,
+
+    #[msg("Invalid chain selector")]
+    InvalidChainSelector,
+
+    #[msg("Function is not implemented")]
+    NotImplemented,
+
+    #[msg("Invalid message")]
+    InvalidMessage,
+
+    #[msg("Invalid signature")]
+    InvalidSignature,
+
+    #[msg("Invalid token address")]
+    InvalidTokenAddress,
+
+    #[msg("Invalid receiver address")]
+    InvalidReceiverAddress,
+
+    #[msg("Invalid message ID")]
+    InvalidMessageId,
+
+    #[msg("Invalid amount")]
+    InvalidAmount,
+
+    #[msg("Invalid token amount")]
+    InvalidTokenAmount,
+
+    #[msg("Invalid message data")]
+    InvalidMessageData,
+
+    #[msg("Invalid destination chain")]
+    InvalidDestinationChain,
+
+    #[msg("Token account not owned by specified token program")]
+    InvalidTokenAccountOwner,
+    
+    #[msg("Token-2022 extension required but not present")]
+    MissingTokenExtension,
+    
+    #[msg("Unsupported token program")]
+    UnsupportedTokenProgram,
 } 

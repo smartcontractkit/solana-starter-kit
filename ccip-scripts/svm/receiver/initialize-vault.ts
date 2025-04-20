@@ -10,6 +10,10 @@ import { KEYPAIR_PATHS } from "../utils/config-parser";
  * Initializes a token vault for the CCIP Basic Receiver program on Solana.
  * This allows the program to receive specific tokens through CCIP.
  * 
+ * This script now supports both standard SPL tokens and Token-2022 tokens.
+ * You can specify which token program to use via the CUSTOM_TOKEN_PROGRAM_ID
+ * configuration variable below.
+ * 
  * To use this script with a different setup, modify the CONFIGURATION section below.
  */
 
@@ -25,8 +29,8 @@ const CUSTOM_TOKEN_MINT = null; // Set to null to use default BnM token, or spec
 
 // Custom token program ID
 // By default uses the standard SPL Token Program (TOKEN_PROGRAM_ID)
-// Set to a PublicKey string to use a different token program
-const CUSTOM_TOKEN_PROGRAM_ID = null; // Set to null to use standard Token Program, or specify a custom token program ID
+// Set to TOKEN_2022_PROGRAM_ID to use the Token-2022
+const CUSTOM_TOKEN_PROGRAM_ID = TOKEN_2022_PROGRAM_ID; // Using Token-2022 Program
 
 // Path to your wallet keypair
 const KEYPAIR_PATH = process.env.KEYPAIR_PATH || KEYPAIR_PATHS.DEFAULT;
@@ -149,4 +153,4 @@ async function main() {
 main().catch((error) => {
   console.error("Token vault initialization failed:", error);
   process.exit(1);
-}); 
+});

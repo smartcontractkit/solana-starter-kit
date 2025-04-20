@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Transfer};
+use anchor_lang::solana_program::program::invoke_signed;
+use anchor_spl::token_2022::spl_token_2022;
 use crate::{
     constants::TOKEN_VAULT_SEED,
     context::CcipReceive,
@@ -69,6 +70,15 @@ pub fn handler(
         let recipient_account_info = &ctx.remaining_accounts[3];
         let token_program_info = &ctx.remaining_accounts[4];
         
+        // Validate token accounts against provided token program
+        if *token_vault_info.owner != token_program_info.key() {
+            return Err(CCIPReceiverError::InvalidTokenAccountOwner.into());
+        }
+        
+        if *recipient_account_info.owner != token_program_info.key() {
+            return Err(CCIPReceiverError::InvalidTokenAccountOwner.into());
+        }
+        
         // Get the token mint key for events
         let token_mint_key = token_mint_info.key();
         
@@ -79,24 +89,18 @@ pub fn handler(
             index: 0,
         });
         
-        // In a real production environment, additional validation would be performed here
-        // For example, validating that:
-        // 1. The token_mint matches what's expected for the source chain
-        // 2. The token_vault is the correct vault for this mint
-        // 3. The recipient account is owned by the expected program and configured for the mint
+        // Build transfer instruction using token-2022 layout
+        let mut transfer_ix = spl_token_2022::instruction::transfer(
+            &spl_token_2022::ID, // Use Token-2022 to build instruction structure
+            &token_vault_info.key(),
+            &recipient_account_info.key(),
+            &token_vault_authority_info.key(),
+            &[],
+            token_amount,
+        )?;
         
-        // Create the token transfer instruction
-        let transfer_ix = Transfer {
-            from: token_vault_info.clone(),
-            to: recipient_account_info.clone(),
-            authority: token_vault_authority_info.clone(),
-        };
-        
-        // Create the CPI (Cross-Program Invocation) context
-        let cpi_ctx = CpiContext::new(
-            token_program_info.clone(),
-            transfer_ix,
-        );
+        // Replace with actual token program
+        transfer_ix.program_id = token_program_info.key();
         
         // Derive the PDA signer seeds for the token vault authority
         let vault_bump = Pubkey::find_program_address(&[TOKEN_VAULT_SEED], &crate::ID).1;
@@ -104,7 +108,15 @@ pub fn handler(
         let signer_seeds = &[&seeds[..]];
         
         // Execute the token transfer with the PDA as signer
-        token::transfer(cpi_ctx.with_signer(signer_seeds), token_amount)?;
+        invoke_signed(
+            &transfer_ix,
+            &[
+                token_vault_info.clone(),
+                recipient_account_info.clone(),
+                token_vault_authority_info.clone(),
+            ],
+            signer_seeds,
+        )?;
         
         // Emit the tokens forwarded event
         emit!(TokensForwarded {
@@ -128,13 +140,6 @@ pub fn handler(
     // Update the storage metadata
     messages_storage.message_count += 1;
     messages_storage.last_updated = Clock::get()?.unix_timestamp;
-
-    // Tutorial benefit: you can do additional processing here based on the message
-    // For example, you could:
-    // 1. Swap the received tokens
-    // 2. Add liquidity to a pool
-    // 3. Execute a custom action based on message.data
-    // 4. Update application state
 
     Ok(())
 } 

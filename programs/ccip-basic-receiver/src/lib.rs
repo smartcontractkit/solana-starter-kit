@@ -24,15 +24,13 @@ declare_id!("BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq");
 /// Token program IDs
 pub mod token_programs {
     use anchor_lang::solana_program::pubkey::Pubkey;
-    use anchor_lang::prelude::declare_id;
+    use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
+    use anchor_spl::token_2022::ID as TOKEN_2022_PROGRAM_ID;
 
     // SPL Token program ID
-    declare_id!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    pub const ID: Pubkey = TOKEN_PROGRAM_ID;
     // Token 2022 program ID
-    pub const TOKEN_2022_ID: Pubkey = Pubkey::new_from_array([
-        6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180,
-        133, 237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
-    ]);
+    pub const TOKEN_2022_ID: Pubkey = TOKEN_2022_PROGRAM_ID;
 }
 
 /// Utility function to determine if a token program is supported

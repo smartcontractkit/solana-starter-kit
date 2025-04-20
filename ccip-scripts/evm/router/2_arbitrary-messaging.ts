@@ -47,6 +47,38 @@ const initialLogger = createLogger("arbitrary-messaging", {
 // Edit these values to customize your message
 // =================================================================
 
+/**
+ * Utility function to derive PDAs for CCIP Receiver accounts
+ * 
+ * @param receiverProgramId - The CCIP Receiver program ID
+ * @returns Object containing the derived PDAs
+ */
+function deriveReceiverPDAs(receiverProgramIdStr: string) {
+  // Convert string to PublicKey
+  const receiverProgramId = new PublicKey(receiverProgramIdStr);
+  
+  // Seeds for PDAs (these match the ones in the Rust program)
+  const STATE_SEED = Buffer.from("state");
+  const MESSAGES_STORAGE_SEED = Buffer.from("messages_storage");
+  
+  // Derive the state PDA
+  const [statePda] = PublicKey.findProgramAddressSync(
+    [STATE_SEED],
+    receiverProgramId
+  );
+  
+  // Derive the messages storage PDA
+  const [messagesStoragePda] = PublicKey.findProgramAddressSync(
+    [MESSAGES_STORAGE_SEED],
+    receiverProgramId
+  );
+  
+  return {
+    state: statePda,
+    messagesStorage: messagesStoragePda
+  };
+}
+
 const MESSAGE_CONFIG = {
   // Custom message to send - must be properly encoded as hex with 0x prefix
   // This example encodes "Hello World" to hex
@@ -74,13 +106,27 @@ const MESSAGE_CONFIG = {
     allowOutOfOrderExecution: true,
 
     // Bitmap of accounts that should be made writeable (advanced usage)
-    accountIsWritableBitmap: BigInt(0),
+    accountIsWritableBitmap: BigInt(3), // Binary 11 = both accounts are writable
 
     // Token receiver - for arbitrary messages, this is usually the default PublicKey
     tokenReceiver: PublicKey.default.toString(),
 
     // PDA or other accounts that should be made writeable
-    accounts: ["52XvWQKuZHRjnR7qHsEGS532jqgQ3MBiBMgVzBowP1LD"],
+    accounts: (() => {
+      // Get the receiver program ID from config
+      const receiverProgramId = getCCIPSVMConfig(
+        ChainId.SOLANA_DEVNET
+      ).receiverProgramId.toString();
+      
+      // Derive the PDAs for state and messages storage
+      const pdas = deriveReceiverPDAs(receiverProgramId);
+      
+      // Return the accounts needed for the CCIP message
+      return [
+        pdas.state.toString(),
+        pdas.messagesStorage.toString()
+      ];
+    })(),
   },
 };
 // =================================================================

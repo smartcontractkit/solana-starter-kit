@@ -1,223 +1,281 @@
+/**
+ * Solana CCIP Fee Calculation Utility
+ *
+ * This script demonstrates how to estimate fees for CCIP cross-chain transactions
+ * without actually sending any messages or tokens.
+ *
+ * INSTRUCTIONS:
+ * 1. Run the script with: npm run ccip:fee
+ *
+ * You can override settings with command line arguments:
+ * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)
+ * --keypair         : Path to your keypair file
+ * --log-level       : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+ * --skip-preflight  : Skip transaction preflight checks
+ */
+
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 
-// Import from SDK for model types and logger
+// Import AbiCoder from ethers for encoding message data
+import { AbiCoder } from "ethers";
+
+// Import from SDK for model types
 import {
   CCIPFeeRequest,
-  LogLevel,
   AddressConversion,
+  LogLevel,
+  createLogger,
 } from "../../../ccip-lib/svm";
 
 // Import from centralized config
-import { 
-  ChainId, 
+import {
+  ChainId,
   CHAIN_SELECTORS,
-  getCCIPSVMConfig
+  getCCIPSVMConfig,
+  FeeTokenType as ConfigFeeTokenType,
 } from "../../config";
 
-// Import our local utilities
+// Import helper utilities
 import {
-  loadKeypair,
-  parseCommonArgs,
   printUsage,
+  parseCCIPSendArgs,
   getKeypairPath,
+  CCIPMessageConfig,
 } from "../utils";
 import { createCCIPClient } from "../utils/client-factory";
 
-async function getRouterFee() {
+// =================================================================
+// FEE CALCULATION CONFIGURATION
+// Parameters to use when estimating CCIP fees
+// =================================================================
+const FEE_CALCULATION_CONFIG: CCIPMessageConfig = {
+  // Destination configuration
+  destinationChain: ChainId.ETHEREUM_SEPOLIA,
+  destinationChainSelector:
+    CHAIN_SELECTORS[ChainId.ETHEREUM_SEPOLIA].toString(),
+  evmReceiverAddress: "0x9d087fC03ae39b088326b67fA3C788236645b717",
+
+  // Token transfers configuration - supports multiple tokens
+  tokenAmounts: [
+    {
+      tokenMint: getCCIPSVMConfig(ChainId.SOLANA_DEVNET).tokenMint, // BnM token on Solana Devnet
+      amount: "10000000", // String representation of raw token amount (0.01 with 9 decimals)
+    },
+  ],
+
+  // Fee configuration
+  feeToken: ConfigFeeTokenType.NATIVE, // Use SOL for fees
+
+  // Message data - ABI-encode a string "Hello World" for EVM compatibility
+  messageData: AbiCoder.defaultAbiCoder().encode(["string"], ["Hello World"]),
+
+  // Extra arguments configuration
+  extraArgs: {
+    gasLimit: 200000, // Set gas limit for message execution on destination chain
+    allowOutOfOrderExecution: true, // Allow out-of-order execution
+  },
+};
+
+// =================================================================
+
+/**
+ * Main fee calculation function
+ */
+async function getFeeEstimation(): Promise<void> {
+  // Parse command line arguments
+  const cmdOptions = parseCCIPSendArgs();
+
+  // Create logger with appropriate level
+  const logger = createLogger("ccip-fee", {
+    level: cmdOptions.logLevel ?? LogLevel.INFO,
+  });
+
   try {
-    // Parse command line arguments
-    const options = parseCommonArgs();
-    const network = options.network || "devnet";
+    // Get configuration
+    const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
 
-    // Use the appropriate keypair path
-    console.log("\n==== Environment Information ====");
-    console.log(`Solana Cluster: ${network}`);
+    // Display environment information
+    logger.info("\n==== Environment Information ====");
+    logger.info(`Solana Cluster: devnet`);
 
-    const keypairPath = getKeypairPath(options);
-    console.log("Keypair Path:", keypairPath);
-    console.log("Log Level:", LogLevel[options.logLevel ?? LogLevel.INFO]);
-    console.log("Skip Preflight:", options.skipPreflight ? "Yes" : "No");
-
-    // Load the wallet keypair
-    const walletKeypair = loadKeypair(keypairPath);
-    console.log("Wallet Public Key:", walletKeypair.publicKey.toString());
-
-    // Get the configuration
-    const chainId = ChainId.SOLANA_DEVNET; // Map network string to ChainId
-    const config = getCCIPSVMConfig(chainId);
+    // Get keypair path
+    const keypairPath = getKeypairPath(cmdOptions);
 
     // Create the CCIPClient with our factory
     const ccipClient = createCCIPClient({
       keypairPath,
-      logLevel: options.logLevel,
-      skipPreflight: options.skipPreflight,
+      logLevel: cmdOptions.logLevel,
+      skipPreflight: cmdOptions.skipPreflight,
     });
 
-    // Check wallet balance
-    console.log("\n==== Wallet Balance Information ====");
-    const connection = config.connection;
-    const balance = await connection.getBalance(walletKeypair.publicKey);
-    console.log("SOL Balance:", balance / LAMPORTS_PER_SOL, "SOL");
-    console.log("Lamports Balance:", balance, "lamports");
-
-    // Log minimum rent exemption
-    const minRentExemption = await connection.getMinimumBalanceForRentExemption(
-      0
+    // Display CCIP Router information
+    logger.info("\n==== CCIP Router Information ====");
+    logger.info(`CCIP Router Program ID: ${config.routerProgramId.toString()}`);
+    logger.info(
+      `Fee Quoter Program ID: ${config.feeQuoterProgramId.toString()}`
     );
-    console.log(
-      "Minimum Rent Exemption:",
-      minRentExemption / LAMPORTS_PER_SOL,
-      "SOL"
+    logger.info(
+      `RMN Remote Program ID: ${config.rmnRemoteProgramId.toString()}`
     );
 
-    // Get network fees
-    try {
-      // Create a simple message to estimate fees
-      const { blockhash } = await connection.getLatestBlockhash();
-      const message = new anchor.web3.TransactionMessage({
-        payerKey: walletKeypair.publicKey,
-        recentBlockhash: blockhash,
-        instructions: [], // Empty instructions for base fee
-      }).compileToV0Message();
-
-      const fee = await connection.getFeeForMessage(message);
-      console.log(
-        "Estimated Transaction Fee:",
-        fee.value || "Unknown",
-        "lamports"
-      );
-    } catch (error) {
-      console.log(
-        "Could not estimate transaction fee:",
-        error instanceof Error ? error.message : String(error)
-      );
-    }
-
-    console.log("\n==== CCIP Router Information ====");
-    console.log(
-      "CCIP Router Program ID:",
-      config.routerProgramId.toString()
+    // Display fee calculation parameters
+    logger.info("\n==== Fee Calculation Parameters ====");
+    logger.info(
+      `Destination Chain: ${FEE_CALCULATION_CONFIG.destinationChain}`
     );
-    console.log("Fee Quoter Program ID:", config.feeQuoterProgramId.toString());
-    console.log("RMN Remote Program ID:", config.rmnRemoteProgramId.toString());
-
-    console.log("\n==== Message Parameters ====");
-
-    // Create a message for fee calculation - using the parameters specified
-    const EVM_RECEIVER = "0x9d087fC03ae39b088326b67fA3C788236645b717";
-    const TOKEN_AMOUNT = 0.01; // 0.01 tokens with 9 decimals
-    const TOKEN_DECIMALS = 9;
-
-    console.log("- Receiver (EVM):", EVM_RECEIVER);
-    console.log("- Data: Empty (token transfer only)");
-    console.log("- Token Amount:", TOKEN_AMOUNT, "tokens");
-    console.log("- Token Decimals:", TOKEN_DECIMALS);
-    console.log("- Fee Token:", NATIVE_MINT.toString(), "(Wrapped SOL)");
+    logger.info(
+      `Destination Chain Selector: ${FEE_CALCULATION_CONFIG.destinationChainSelector}`
+    );
+    logger.info(
+      `EVM Receiver Address: ${FEE_CALCULATION_CONFIG.evmReceiverAddress}`
+    );
+    logger.info(
+      `Token Amounts: ${FEE_CALCULATION_CONFIG.tokenAmounts
+        .map((t) => `${t.amount} (${t.tokenMint.toString()})`)
+        .join(", ")}`
+    );
+    logger.info(`Fee Token: ${FEE_CALCULATION_CONFIG.feeToken}`);
+    logger.info(
+      `Message Data Length: ${
+        Buffer.from(FEE_CALCULATION_CONFIG.messageData || "").length
+      } bytes`
+    );
+    logger.info(`Gas Limit: ${FEE_CALCULATION_CONFIG.extraArgs.gasLimit}`);
+    logger.info(
+      `Allow Out Of Order Execution: ${FEE_CALCULATION_CONFIG.extraArgs.allowOutOfOrderExecution}`
+    );
 
     // Convert the EVM address to the format expected by Solana
-    const receiverBytes =
-      AddressConversion.evmAddressToSolanaBytes(EVM_RECEIVER);
-
-    // Convert amount to on-chain representation with proper decimals
-    const onChainAmount = new anchor.BN(
-      TOKEN_AMOUNT * Math.pow(10, TOKEN_DECIMALS)
+    const receiverBytes = AddressConversion.evmAddressToSolanaBytes(
+      FEE_CALCULATION_CONFIG.evmReceiverAddress
     );
 
-    // Use wrapped SOL as fee token
-    const feeToken = NATIVE_MINT;
+    // Convert amounts to BN values
+    const tokenAmounts = FEE_CALCULATION_CONFIG.tokenAmounts.map((t) => ({
+      token: new PublicKey(t.tokenMint),
+      amount: new anchor.BN(t.amount),
+    }));
 
-    // Define destination chain selector (Ethereum Sepolia)
-    const destChainSelector = CHAIN_SELECTORS[ChainId.ETHEREUM_SEPOLIA];
+    // Determine fee token
+    let feeToken: PublicKey;
+    if (FEE_CALCULATION_CONFIG.feeToken === ConfigFeeTokenType.NATIVE) {
+      feeToken = PublicKey.default;
+      logger.info("Using native SOL as fee token");
+    } else if (
+      FEE_CALCULATION_CONFIG.feeToken === ConfigFeeTokenType.WRAPPED_NATIVE
+    ) {
+      feeToken = new PublicKey(NATIVE_MINT);
+      logger.info(`Using wrapped SOL as fee token: ${NATIVE_MINT.toString()}`);
+    } else if (FEE_CALCULATION_CONFIG.feeToken === ConfigFeeTokenType.LINK) {
+      feeToken = new PublicKey(config.linkTokenMint);
+      logger.info(
+        `Using LINK token as fee token: ${config.linkTokenMint.toString()}`
+      );
+    } else {
+      // Try to parse it as a custom address
+      try {
+        feeToken = new PublicKey(FEE_CALCULATION_CONFIG.feeToken);
+        logger.info(`Using custom fee token address: ${feeToken.toString()}`);
+      } catch (error) {
+        logger.warn(
+          `Invalid fee token: ${FEE_CALCULATION_CONFIG.feeToken}, using default native SOL`
+        );
+        feeToken = PublicKey.default;
+      }
+    }
 
-    // Create the CCIPFeeRequest using values from config
+    // Generate extra args buffer if needed
+    const extraArgs = FEE_CALCULATION_CONFIG.messageData
+      ? ccipClient.createExtraArgs({
+          gasLimit: FEE_CALCULATION_CONFIG.extraArgs.gasLimit,
+          allowOutOfOrderExecution:
+            FEE_CALCULATION_CONFIG.extraArgs.allowOutOfOrderExecution,
+        })
+      : Buffer.alloc(0);
+
+    // Create the CCIPFeeRequest
     const feeRequest: CCIPFeeRequest = {
-      destChainSelector: new anchor.BN(destChainSelector.toString()),
+      destChainSelector: new anchor.BN(
+        FEE_CALCULATION_CONFIG.destinationChainSelector
+      ),
       message: {
         receiver: receiverBytes,
-        data: Buffer.alloc(0), // Empty data for token transfer only
-        tokenAmounts: [
-          {
-            token: config.tokenMint,
-            amount: onChainAmount,
-          },
-        ],
+        data: Buffer.from(FEE_CALCULATION_CONFIG.messageData || ""),
+        tokenAmounts: tokenAmounts,
         feeToken: feeToken,
-        extraArgs: Buffer.alloc(0), // Empty extra args
+        extraArgs: extraArgs,
       },
     };
 
-    console.log("\n==== Message Details ====");
-    console.log(
-      "- Receiver (bytes):",
-      Buffer.from(receiverBytes).toString("hex")
+    logger.info("\n==== Fee Request Details ====");
+    logger.debug(
+      `Destination Chain Selector: ${feeRequest.destChainSelector.toString()}`
     );
-    console.log("- On-chain amount:", onChainAmount.toString());
-    console.log("- Token mint:", config.tokenMint.toString());
-    console.log("- Fee token:", feeToken.toString());
-    console.log(
-      "- Destination chain selector:",
-      destChainSelector.toString()
+    logger.debug(
+      `Receiver (bytes): ${Buffer.from(receiverBytes).toString("hex")}`
     );
-
-    // Add detailed debug logging
-    console.log("\n==== Debug Information ====");
-    console.log(
-      "- Fee token type:",
-      feeToken.equals(PublicKey.default)
-        ? "PublicKey.default"
-        : "Custom PublicKey"
+    logger.debug(
+      `Token Amounts: ${tokenAmounts
+        .map((ta) => `${ta.amount.toString()} (${ta.token.toString()})`)
+        .join(", ")}`
     );
-    console.log("- PublicKey.default value:", PublicKey.default.toString());
-    console.log("- NATIVE_MINT value:", NATIVE_MINT.toString());
+    logger.debug(`Fee Token: ${feeToken.toString()}`);
 
-    console.log("\n==== Calling getFee ====");
-    try {
-      // Call getFee with the CCIPClient
-      console.log("Preparing fee request...");
-      const feeResult = await ccipClient.getFee(feeRequest);
+    logger.info("\n==== Calculating Fee ====");
+    logger.info("Preparing fee request...");
 
-      console.log("\nFee Result Details:");
-      console.log("------------------");
+    // Calculate fee
+    const feeResult = await ccipClient.getFee(feeRequest);
 
-      // Format fee amount based on token type
-      const feeToken = new PublicKey(feeResult.token);
-      let formattedFee: string;
+    logger.info("\n==== Fee Calculation Results ====");
 
-      if (feeToken.equals(NATIVE_MINT)) {
-        formattedFee = `${feeResult.amount.toNumber() / LAMPORTS_PER_SOL} SOL`;
-        console.log("Result is in SOL (matches NATIVE_MINT)");
-      } else {
-        // For non-native tokens, we could fetch token metadata to get decimals
-        // For now, display raw amount with token address
-        formattedFee = `${feeResult.amount.toString()} (Token: ${feeToken.toString()})`;
-        console.log("Result is in a token other than SOL");
-      }
+    // Format fee amount based on token type
+    const feeTokenResult = new PublicKey(feeResult.token);
+    let formattedFee: string;
 
-      console.log(`Fee Amount: ${formattedFee}`);
-      console.log(`Fee in Juels: ${feeResult.juels.toString()}`);
-      console.log(`Fee Token: ${feeToken.toString()}`);
-
-      return feeResult;
-    } catch (error) {
-      console.error("\nError getting CCIP router fee:");
-      if (error instanceof Error) {
-        console.error(`Error message: ${error.message}`);
-        console.error(`Stack trace: ${error.stack}`);
-
-        // Check for context in enhanced errors
-        if ((error as any).context) {
-          console.error("\nError Context:");
-          console.error(JSON.stringify((error as any).context, null, 2));
-        }
-      } else {
-        console.error("Unknown error:", error);
-      }
-      process.exit(1);
+    if (feeTokenResult.equals(NATIVE_MINT)) {
+      formattedFee = `${feeResult.amount.toNumber() / LAMPORTS_PER_SOL} SOL`;
+      logger.info("Fee is calculated in SOL");
+    } else {
+      formattedFee = `${feeResult.amount.toString()} (Token: ${feeTokenResult.toString()})`;
+      logger.info("Fee is calculated in a token other than native SOL");
     }
+
+    logger.info(`Estimated Fee: ${formattedFee}`);
+    logger.info(`Fee in Juels: ${feeResult.juels.toString()}`);
+    logger.info(`Fee Token: ${feeTokenResult.toString()}`);
+
+    // Add additional information for advanced users
+    logger.debug("\n==== Additional Fee Details ====");
+    logger.debug(
+      `Fee token equals PublicKey.default: ${feeTokenResult.equals(
+        PublicKey.default
+      )}`
+    );
+    logger.debug(
+      `Fee token equals NATIVE_MINT: ${feeTokenResult.equals(NATIVE_MINT)}`
+    );
+    logger.debug(`PublicKey.default value: ${PublicKey.default.toString()}`);
+    logger.debug(`NATIVE_MINT value: ${NATIVE_MINT.toString()}`);
   } catch (error) {
-    console.error("Failed to get CCIP router fee:", error);
+    logger.error(
+      `\n❌ Failed to calculate CCIP fee: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+
+    if (error instanceof Error && error.stack) {
+      logger.debug("\nError stack:");
+      logger.debug(error.stack);
+
+      // Check for context in enhanced errors from SDK
+      if ((error as any).context) {
+        logger.error("\nError Context:");
+        logger.error(JSON.stringify((error as any).context, null, 2));
+      }
+    }
     printUsage("ccip:fee");
     process.exit(1);
   }
@@ -229,11 +287,8 @@ if (process.argv.includes("--help") || process.argv.includes("-h")) {
   process.exit(0);
 }
 
-// Run the function
-getRouterFee().then(
-  (result) => process.exit(0),
-  (err) => {
-    console.error(err);
-    process.exit(1);
-  }
-);
+// Run the script
+getFeeEstimation().catch((err) => {
+  console.error(`Unhandled error in fee estimation: ${err}`);
+  process.exit(1);
+});

@@ -42,14 +42,23 @@ export interface CommonOptions {
 export interface CCIPSendOptions extends CommonOptions {
   /** Type of token to use for fees */
   feeToken?: FeeTokenType | string;
+  
+  /** Token mint address for CCIP token transfer (legacy single token support) */
+  tokenMint?: string;
+  
+  /** Token amount for CCIP token transfer (legacy single token support) */
+  tokenAmount?: string | number;
+  
+  /** Multiple token transfers support - internal usage */
+  tokenAmounts?: Array<{ tokenMint: string, amount: string | number }>;
 }
 
 /**
  * Options for token operations
  */
 export interface TokenOptions extends CommonOptions {
-  /** Amount to use for token operations */
-  amount?: number;
+  /** Amount to use for token operations (as string to preserve precision) */
+  amount?: string;
 }
 
 /**
@@ -168,17 +177,13 @@ export function parseTokenArgs(): TokenOptions {
   const args = process.argv.slice(2);
   const tokenOptions: TokenOptions = {
     ...options,
-    amount: 1, // Default amount
+    amount: "1", // Default amount as string
   };
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--amount" && i + 1 < args.length) {
-      const amount = parseFloat(args[i + 1]);
-      if (!isNaN(amount)) {
-        tokenOptions.amount = amount;
-      } else {
-        console.warn(`Invalid amount: ${args[i + 1]}, using default 1`);
-      }
+      // Store the amount directly as a string to preserve precision
+      tokenOptions.amount = args[i + 1];
       i++;
     }
   }
@@ -209,14 +214,49 @@ export function printUsage(scriptName: string): void {
     "  --skip-preflight              Skip preflight transaction checks"
   );
 
-  if (scriptName.startsWith("ccip:send")) {
+  if (scriptName.startsWith("ccip:send") || scriptName.startsWith("svm:token-transfer")) {
     console.log("\nCCIP Send Options:");
     console.log(
       "  --fee-token <token>           Fee token type: native, wrapped-native, link, or custom address"
     );
   }
 
-  if (scriptName.startsWith("token:")) {
+  if (scriptName === "svm:token-transfer" || scriptName === "ccip:send") {
+    console.log("\nToken Transfer Options:");
+    console.log(
+      "  --token-mint <address>        Token mint address to transfer"
+    );
+    console.log(
+      "  --token-amount <amount>       Amount to transfer in raw units"
+    );
+    console.log(
+      "  For multiple tokens, use comma-separated values:"
+    );
+    console.log(
+      "  --token-mint \"address1,address2\"  Multiple token addresses"
+    );
+    console.log(
+      "  --token-amount \"amount1,amount2\"  Corresponding amounts"
+    );
+  }
+
+  if (scriptName === "token:delegate") {
+    console.log("\nToken Delegation Options:");
+    console.log(
+      "  --token-mint <address>        Custom token mint address to delegate"
+    );
+    console.log(
+      "  --token-program-id <address>  Token program ID (default: TOKEN_2022_PROGRAM_ID)"
+    );
+    console.log(
+      "  --delegation-type <type>      Delegation type: fee-billing, token-pool, custom (default: token-pool)"
+    );
+    console.log(
+      "  --custom-delegate <address>   Custom delegate address (required for custom delegation type)"
+    );
+  }
+
+  if (scriptName.startsWith("token:") && scriptName !== "token:delegate") {
     console.log("\nToken Options:");
     console.log(
       "  --amount <number>             Amount to use for token operation (default: 1)"

@@ -2,158 +2,320 @@ import {
   PublicKey,
   Transaction,
   sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
 import {
   createApproveInstruction,
   getAssociatedTokenAddressSync,
-  TOKEN_2022_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
   NATIVE_MINT,
 } from "@solana/spl-token";
-import BN from "bn.js";
 import {
   loadKeypair,
+  getKeypairPath,
   parseCommonArgs,
   printUsage,
-  getKeypairPath,
+  determineTokenProgramId,
 } from "../utils";
 import {
   findFeeBillingSignerPDA,
   findExternalTokenPoolsSignerPDA,
   findDynamicTokenPoolsSignerPDA,
 } from "../../../ccip-lib/svm/utils/pdas";
-import { 
-  ChainId, 
-  getCCIPSVMConfig 
-} from "../../config";
+import { ChainId, getCCIPSVMConfig } from "../../config";
+import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 
 // Maximum uint64 value for unlimited approvals - computes 2^64 - 1
 const MAX_UINT64 = ((BigInt(1) << BigInt(64)) - BigInt(1)).toString();
 
+// Get configuration - we only support Solana Devnet for now
+const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+
+// =================================================================
+// TOKEN DELEGATION CONFIGURATION
+// Core parameters for token delegations
+// =================================================================
+
 /**
- * Delegate token authority to the appropriate PDAs for fee billing and token pools
+ * Delegation type determines which PDA will be used for delegation
  */
-async function delegateTokenAuthority() {
+type DelegationType = "fee-billing" | "token-pool" | "custom";
+
+/**
+ * Token delegation configuration interface
+ */
+interface TokenDelegationConfig {
+  tokenMint: PublicKey | string;
+  tokenProgramId?: PublicKey | string; // Now optional - will be determined dynamically if not provided
+  delegationType: DelegationType;
+  customDelegate?: PublicKey | string; // Optional custom delegate address
+  amount: string;
+}
+
+/**
+ * Extended options for token delegation operations
+ */
+interface TokenDelegateOptions extends ReturnType<typeof parseCommonArgs> {
+  // For custom token delegation
+  tokenMint?: string;
+  tokenProgramId?: string | PublicKey;
+  delegationType?: DelegationType;
+  customDelegate?: string | PublicKey;
+}
+
+const TOKEN_DELEGATION_CONFIG = {
+  // Tokens to delegate
+  tokenDelegations: [
+    {
+      // Wrapped SOL (wSOL)
+      tokenMint: NATIVE_MINT,
+      // Will determine program ID dynamically, but we know it uses the legacy TOKEN_PROGRAM_ID
+      delegationType: "fee-billing" as DelegationType, // Maps to fee billing signer PDA
+      amount: MAX_UINT64, // Unlimited approval
+    },
+    {
+      // BnM token
+      tokenMint: config.tokenMint,
+      // Will determine program ID dynamically
+      delegationType: "token-pool" as DelegationType, // Maps to token pool signer PDA (dynamic)
+      amount: MAX_UINT64, // Unlimited approval
+    },
+    {
+      // LINK token
+      tokenMint: config.linkTokenMint,
+      // Will determine program ID dynamically
+      delegationType: "fee-billing" as DelegationType, // Maps to fee billing signer PDA
+      amount: MAX_UINT64, // Unlimited approval
+    },
+  ],
+};
+
+// =================================================================
+// SCRIPT CONFIGURATION
+// Parameters specific to this script
+// =================================================================
+const SCRIPT_CONFIG = {
+  computeUnits: 1_400_000, // Maximum compute units for Solana
+  minSolRequired: 0.001, // Minimum SOL needed for transaction fees
+};
+// =================================================================
+
+/**
+ * Parse command line arguments for token delegation operations
+ */
+function parseTokenDelegateArgs(): TokenDelegateOptions {
+  const commonOptions = parseCommonArgs();
+  const args = process.argv.slice(2);
+  const options: TokenDelegateOptions = {
+    ...commonOptions,
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--token-mint" && i + 1 < args.length) {
+      options.tokenMint = args[i + 1];
+      i++;
+    } else if (args[i] === "--token-program-id" && i + 1 < args.length) {
+      options.tokenProgramId = args[i + 1];
+      i++;
+    } else if (args[i] === "--delegation-type" && i + 1 < args.length) {
+      const delegationType = args[i + 1].toLowerCase();
+      if (
+        delegationType === "fee-billing" ||
+        delegationType === "token-pool" ||
+        delegationType === "custom"
+      ) {
+        options.delegationType = delegationType as DelegationType;
+      } else {
+        console.warn(
+          `Unknown delegation type: ${delegationType}, using token-pool`
+        );
+        options.delegationType = "token-pool";
+      }
+      i++;
+    } else if (args[i] === "--custom-delegate" && i + 1 < args.length) {
+      options.customDelegate = args[i + 1];
+      i++;
+    }
+  }
+
+  return options;
+}
+
+/**
+ * Resolve a delegate address based on delegation type and token mint
+ *
+ * @param delegationType Type of delegation (fee-billing, token-pool, custom)
+ * @param routerProgramId Router program ID
+ * @param tokenMint Token mint address
+ * @param customDelegate Custom delegate address (optional)
+ * @param connection Solana connection
+ * @returns Resolved delegate public key
+ */
+async function resolveDelegateAddress(
+  delegationType: DelegationType,
+  routerProgramId: PublicKey,
+  tokenMint: PublicKey,
+  customDelegate?: PublicKey | string,
+  connection?: any
+): Promise<PublicKey> {
+  switch (delegationType) {
+    case "fee-billing": {
+      const [feeBillingSignerPDA] = findFeeBillingSignerPDA(routerProgramId);
+      return feeBillingSignerPDA;
+    }
+    case "token-pool": {
+      try {
+        if (!connection) {
+          throw new Error("Connection required for token-pool delegation type");
+        }
+        // Try to find dynamic token pool signer PDA
+        const [tokenPoolSignerPDA] = await findDynamicTokenPoolsSignerPDA(
+          tokenMint,
+          routerProgramId,
+          connection
+        );
+        return tokenPoolSignerPDA;
+      } catch (error) {
+        // Fall back to static token pool signer PDA if dynamic lookup fails
+        const [tokenPoolsSignerPDA] =
+          findExternalTokenPoolsSignerPDA(routerProgramId);
+        return tokenPoolsSignerPDA;
+      }
+    }
+    case "custom": {
+      if (!customDelegate) {
+        throw new Error(
+          "Custom delegate address required for custom delegation type"
+        );
+      }
+      return customDelegate instanceof PublicKey
+        ? customDelegate
+        : new PublicKey(customDelegate);
+    }
+    default:
+      throw new Error(`Unknown delegation type: ${delegationType}`);
+  }
+}
+
+/**
+ * Main token delegation function
+ */
+async function delegateTokenAuthority(): Promise<void> {
   try {
     // Parse command line arguments
-    const options = parseCommonArgs();
-    const network = options.network || "devnet";
+    const cmdOptions = parseTokenDelegateArgs();
 
-    // Load configuration
-    console.log("==== Delegate Token Authority ====");
-    console.log(`Network: ${network}`);
+    // Create logger with appropriate level
+    const logger = createLogger("token-delegate", {
+      level: cmdOptions.logLevel ?? LogLevel.INFO,
+    });
 
-    // Use the appropriate keypair path
-    const keypairPath = getKeypairPath(options);
-    console.log("Keypair Path:", keypairPath);
+    // Display environment information
+    logger.info("\n==== Environment Information ====");
+    logger.info(`Solana Cluster: devnet`);
+
+    // Get appropriate keypair path
+    const keypairPath = getKeypairPath(cmdOptions);
+    logger.info(`Keypair Path: ${keypairPath}`);
 
     // Load wallet keypair
     const walletKeypair = loadKeypair(keypairPath);
-    console.log("Wallet public key:", walletKeypair.publicKey.toString());
-
-    // Get configuration from the appropriate network
-    const chainId = network === "mainnet" 
-      ? ChainId.SOLANA_DEVNET // For now, mainnet is not supported, map to devnet
-      : ChainId.SOLANA_DEVNET;
-    const config = getCCIPSVMConfig(chainId);
-    const connection = config.connection;
+    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
     // Get router program ID from config
     const routerProgramId = config.routerProgramId;
-    console.log("Router Program ID:", routerProgramId.toString());
+    logger.info(`Router Program ID: ${routerProgramId.toString()}`);
 
-    // Derive static PDAs
-    const [feeBillingSignerPDA] = findFeeBillingSignerPDA(routerProgramId);
-    console.log("Fee Billing Signer PDA:", feeBillingSignerPDA.toString());
+    // Check wallet SOL balance
+    logger.info("\n==== Wallet Balance Information ====");
+    const connection = config.connection;
+    const balance = await connection.getBalance(walletKeypair.publicKey);
+    logger.info(`SOL Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+    logger.info(`Lamports Balance: ${balance} lamports`);
 
-    // For BnM and LINK tokens, we need to dynamically find the token pool signers
-    // First, prepare an array to hold our token delegations
-    const tokenDelegations = [];
-
-    // Add static delegation for wSOL (using fee billing signer)
-    tokenDelegations.push({
-      // Wrapped SOL (wSOL) - uses legacy TOKEN_PROGRAM_ID for fees
-      mint: NATIVE_MINT.toString(),
-      tokenProgramId: TOKEN_PROGRAM_ID.toString(),
-      delegate: feeBillingSignerPDA.toString(),
-      amount: MAX_UINT64, // Unlimited approval
-    });
-
-    try {
-      // Dynamically determine the BnM token pool signer
-      console.log("\nDetermining BnM token pool signer...");
-      const bnmMint = new PublicKey(config.tokenMint.toString());
-      const [bnmPoolSignerPDA] = await findDynamicTokenPoolsSignerPDA(
-        bnmMint,
-        routerProgramId,
-        connection
+    // Check if we have enough SOL
+    if (balance < SCRIPT_CONFIG.minSolRequired * LAMPORTS_PER_SOL) {
+      logger.error(
+        `Insufficient SOL balance. You need at least ${SCRIPT_CONFIG.minSolRequired} SOL for transaction fees.`
       );
-      console.log("BnM Token Pool Signer PDA:", bnmPoolSignerPDA.toString());
-
-      // Add BnM token delegation with the correct PDA
-      tokenDelegations.push({
-        mint: config.tokenMint.toString(),
-        tokenProgramId: TOKEN_2022_PROGRAM_ID.toString(),
-        delegate: bnmPoolSignerPDA.toString(),
-        amount: MAX_UINT64, // Unlimited approval
-      });
-
-      // Add LINK token delegation with the correct PDA
-      tokenDelegations.push({
-        mint: config.linkTokenMint.toString(),
-        tokenProgramId: TOKEN_2022_PROGRAM_ID.toString(),
-        delegate: feeBillingSignerPDA.toString(),
-        amount: MAX_UINT64, // Unlimited approval
-      });
-    } catch (error) {
-      console.error("Error determining dynamic token pool signers:", error);
-      console.log("\nFalling back to static token pool signer...");
-
-      // Fallback to the basic external token pools signer if dynamic lookup fails
-      const [tokenPoolsSignerPDA] =
-        findExternalTokenPoolsSignerPDA(routerProgramId);
-      console.log(
-        "Fallback Token Pools Signer PDA:",
-        tokenPoolsSignerPDA.toString()
-      );
-
-      // Add BnM and LINK tokens with the fallback PDA
-      tokenDelegations.push(
-        {
-          mint: config.tokenMint.toString(),
-          tokenProgramId: TOKEN_2022_PROGRAM_ID.toString(),
-          delegate: tokenPoolsSignerPDA.toString(),
-          amount: MAX_UINT64, // Unlimited approval
-        },
-        {
-          mint: config.linkTokenMint.toString(),
-          tokenProgramId: TOKEN_2022_PROGRAM_ID.toString(),
-          delegate: tokenPoolsSignerPDA.toString(),
-          amount: MAX_UINT64, // Unlimited approval
-        }
-      );
+      return;
     }
 
-    // Process each token delegation
-    console.log("\n==== Processing Token Delegations ====");
+    // Process each token delegation from config
+    logger.info("\n==== Processing Token Delegations ====");
 
+    // Create a copy of token delegations from config
+    const tokenDelegations: TokenDelegationConfig[] = [
+      ...TOKEN_DELEGATION_CONFIG.tokenDelegations,
+    ];
+
+    // Add any additional tokens from command line
+    if (cmdOptions.tokenMint) {
+      const customTokenConfig: TokenDelegationConfig = {
+        tokenMint: cmdOptions.tokenMint,
+        tokenProgramId: cmdOptions.tokenProgramId,
+        delegationType: cmdOptions.delegationType || "token-pool",
+        amount: MAX_UINT64,
+      };
+
+      if (cmdOptions.customDelegate) {
+        customTokenConfig.delegationType = "custom";
+        customTokenConfig.customDelegate = cmdOptions.customDelegate;
+      }
+
+      tokenDelegations.push(customTokenConfig);
+      logger.info(`Added custom token delegation for: ${cmdOptions.tokenMint}`);
+    }
+
+    // Process each delegation
     for (let i = 0; i < tokenDelegations.length; i++) {
       const delegation = tokenDelegations[i];
-      console.log(
+      logger.info(
         `\n[${i + 1}/${
           tokenDelegations.length
-        }] Processing delegation for mint: ${delegation.mint}`
+        }] Processing delegation for mint: ${delegation.tokenMint}`
       );
 
       try {
-        const tokenMint = new PublicKey(delegation.mint);
-        const tokenProgramId = new PublicKey(delegation.tokenProgramId);
-        const delegateAddress = new PublicKey(delegation.delegate);
-        const amountToDelegate = new BN(delegation.amount);
+        // Convert tokenMint to PublicKey
+        const tokenMint =
+          delegation.tokenMint instanceof PublicKey
+            ? delegation.tokenMint
+            : new PublicKey(delegation.tokenMint.toString());
 
-        console.log("Token Program ID:", tokenProgramId.toString());
-        console.log("Delegate Address:", delegateAddress.toString());
-        console.log("Amount to delegate:", amountToDelegate.toString());
+        // Convert tokenProgramId to PublicKey or determine dynamically
+        let tokenProgramId: PublicKey;
+        if (delegation.tokenProgramId) {
+          tokenProgramId =
+            delegation.tokenProgramId instanceof PublicKey
+              ? delegation.tokenProgramId
+              : new PublicKey(delegation.tokenProgramId.toString());
+          logger.info(
+            `Using provided token program ID: ${tokenProgramId.toString()}`
+          );
+        } else {
+          // Dynamically determine token program ID from the mint account
+          tokenProgramId = await determineTokenProgramId(
+            tokenMint,
+            connection,
+            logger
+          );
+        }
+
+        // Resolve delegate address based on delegation type
+        const delegateAddress = await resolveDelegateAddress(
+          delegation.delegationType,
+          routerProgramId,
+          tokenMint,
+          delegation.customDelegate,
+          connection
+        );
+
+        const amountToDelegate = BigInt(delegation.amount);
+
+        logger.info(`Token Program ID: ${tokenProgramId.toString()}`);
+        logger.info(`Delegation Type: ${delegation.delegationType}`);
+        logger.info(`Delegate Address: ${delegateAddress.toString()}`);
+        logger.info(`Amount to delegate: ${amountToDelegate.toString()}`);
 
         // Get the user's token account
         const userTokenAccount = getAssociatedTokenAddressSync(
@@ -163,52 +325,72 @@ async function delegateTokenAuthority() {
           tokenProgramId
         );
 
-        console.log("User Token Account:", userTokenAccount.toString());
+        logger.info(`User Token Account: ${userTokenAccount.toString()}`);
 
         // Create the approve instruction
         const approveInstruction = createApproveInstruction(
           userTokenAccount,
           delegateAddress,
           walletKeypair.publicKey,
-          BigInt(amountToDelegate.toString()),
+          amountToDelegate,
           [],
           tokenProgramId
         );
 
-        // Create and send transaction
-        const transaction = new Transaction().add(approveInstruction);
+        // Get a recent blockhash with longer validity
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash({
+          commitment: "finalized"
+        });
 
-        console.log("Sending transaction to delegate token authority...");
+        // Create and send transaction
+        const transaction = new Transaction({
+          feePayer: walletKeypair.publicKey,
+          blockhash,
+          lastValidBlockHeight
+        }).add(approveInstruction);
+
+        logger.info("Sending transaction to delegate token authority...");
         const signature = await sendAndConfirmTransaction(
           connection,
           transaction,
           [walletKeypair],
-          { skipPreflight: options.skipPreflight }
+          { 
+            skipPreflight: cmdOptions.skipPreflight, 
+            commitment: "confirmed",
+            maxRetries: 5,
+            preflightCommitment: "processed"
+          }
         );
 
-        console.log(`✅ Token delegation successful!`);
-        console.log(`Transaction signature: ${signature}`);
-        console.log(
-          `Explorer URL: https://explorer.solana.com/tx/${signature}?cluster=${network}`
+        logger.info(`✅ Token delegation successful!`);
+        logger.info(`Transaction signature: ${signature}`);
+        logger.info(
+          `Explorer URL: https://explorer.solana.com/tx/${signature}?cluster=devnet`
         );
       } catch (error) {
-        console.error(
+        logger.error(
           `❌ Error delegating token authority:`,
           error instanceof Error ? error.message : String(error)
         );
 
         if (error instanceof Error && error.stack) {
-          console.log("\nError stack:");
-          console.log(error.stack);
+          logger.debug("Error stack:");
+          logger.debug(error.stack);
         }
       }
     }
 
-    console.log("\n==== All delegations processed ====");
+    logger.info("\n==== All delegations processed ====");
   } catch (error) {
     console.error("Failed to execute delegate-token-authority:", error);
     printUsage("token:delegate");
   }
+}
+
+// Check if help is requested
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  printUsage("token:delegate");
+  process.exit(0);
 }
 
 // Run the script if it's executed directly

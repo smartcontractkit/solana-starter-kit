@@ -160,9 +160,11 @@ export async function sendCCIPMessage(
     }))
   );
 
-  // Get recent blockhash
+  // Get recent blockhash with longer validity
   const { blockhash, lastValidBlockHeight } =
-    await connection.getLatestBlockhash("confirmed");
+    await connection.getLatestBlockhash({
+      commitment: "finalized" // Using finalized for longer validity
+    });
 
   // Create the transaction instructions array
   const instructions: TransactionInstruction[] = [];
@@ -185,19 +187,19 @@ export async function sendCCIPMessage(
   const tx = new VersionedTransaction(messageV0);
   await context.provider.signTransaction(tx);
 
-  // Send the transaction
+  // Send the transaction with improved options
   const signature = await connection.sendTransaction(tx, {
     skipPreflight: sendOptions?.skipPreflight ?? false,
-    preflightCommitment: "confirmed",
-    maxRetries: 3,
+    preflightCommitment: "processed", // Faster preflight check
+    maxRetries: 5, // Increased retries
   });
 
-  // Wait for transaction confirmation
+  // Wait for transaction confirmation with improved options
   await connection.confirmTransaction({
     signature,
     blockhash,
     lastValidBlockHeight,
-  });
+  }, "confirmed"); // Using confirmed commitment for better balance
 
   logger.info(`CCIP message sent successfully: ${signature}`);
 

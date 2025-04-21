@@ -24,12 +24,6 @@ pub struct MessagesStorage {
     pub latest_message: ReceivedMessage,
 }
 
-/// Configuration for external execution of the program
-/// Currently used as a placeholder
-#[account]
-#[derive(InitSpace, Debug, Default)]
-pub struct ExternalExecutionConfig {}
-
 /// Enum representing different types of cross-chain messages
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default, PartialEq)]
 pub enum MessageType {

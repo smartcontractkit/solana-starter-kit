@@ -35,15 +35,6 @@ pub struct TokenReceived {
     pub index: u8,
 }
 
-/// Event emitted when a token vault is initialized
-#[event]
-pub struct TokenVaultInitialized {
-    /// The mint address of the token for this vault
-    pub token_mint: Pubkey,
-    /// The token account address of the vault
-    pub token_vault: Pubkey,
-}
-
 /// Event emitted when tokens are forwarded to a recipient
 #[event]
 pub struct TokensForwarded {

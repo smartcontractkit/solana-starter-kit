@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::token_2022::spl_token_2022;
 use crate::{
-    constants::TOKEN_VAULT_SEED,
+    constants::TOKEN_ADMIN_SEED,
     context::CcipReceive,
     error::CCIPReceiverError,
     events::{MessageReceived, TokenReceived, TokensForwarded},
@@ -14,10 +14,10 @@ use crate::{
 /// This function is called by the CCIP Router to handle incoming cross-chain messages.
 /// It processes message data and forwards tokens to recipient accounts dynamically using remaining_accounts.
 ///
-/// For the tutorial, the remaining_accounts should contain these accounts in order:
+/// For token transfers, the remaining_accounts should contain these accounts in order:
 /// 1. token_mint: Account<Mint>
-/// 2. token_vault: Account<TokenAccount>
-/// 3. token_vault_authority: UncheckedAccount
+/// 2. source_token_account: Account<TokenAccount> (owned by program with token_admin authority)
+/// 3. token_admin: UncheckedAccount (the PDA with authority)
 /// 4. recipient_token_account: Account<TokenAccount>
 /// 5. token_program: Program<Token>
 ///
@@ -50,88 +50,88 @@ pub fn handler(
     };
     
     // Process token transfer if tokens are involved
-    if message.token_amounts.len() > 0 && 
-        (message_type == MessageType::TokenTransfer || 
-         message_type == MessageType::ProgrammaticTokenTransfer) {
-        
-        // For the tutorial demonstration, we validate the remaining_accounts structure
-        // In a production environment, more robust validation would be implemented
-        if ctx.remaining_accounts.len() != 5 {
+    if message.token_amounts.len() > 0 {
+        // Validate the remaining_accounts structure
+        if ctx.remaining_accounts.len() < 5 {
             return Err(CCIPReceiverError::InvalidRemainingAccounts.into());
         }
         
         // Extract account references from the remaining_accounts
-        // This demonstrates dynamic account handling in Solana programs
         let token_mint_info = &ctx.remaining_accounts[0];
-        let token_vault_info = &ctx.remaining_accounts[1];
-        let token_vault_authority_info = &ctx.remaining_accounts[2];
+        let source_token_account = &ctx.remaining_accounts[1];
+        let token_admin_info = &ctx.remaining_accounts[2];
         let recipient_account_info = &ctx.remaining_accounts[3];
         let token_program_info = &ctx.remaining_accounts[4];
         
+        // Verify the token_admin is the expected PDA
+        let (expected_token_admin, admin_bump) = 
+            Pubkey::find_program_address(&[TOKEN_ADMIN_SEED], &crate::ID);
+        if token_admin_info.key() != expected_token_admin {
+            return Err(CCIPReceiverError::InvalidTokenAdmin.into());
+        }
+        
         // Validate token accounts against provided token program
-        if *token_vault_info.owner != token_program_info.key() {
+        if source_token_account.owner != token_program_info.key {
             return Err(CCIPReceiverError::InvalidTokenAccountOwner.into());
         }
         
-        if *recipient_account_info.owner != token_program_info.key() {
+        if recipient_account_info.owner != token_program_info.key {
             return Err(CCIPReceiverError::InvalidTokenAccountOwner.into());
         }
         
         // Get the token mint key for events
         let token_mint_key = token_mint_info.key();
         
-        // Get token amount from the message
+        // For simplicity, this implementation only processes the first token in the array
+        // To support multiple tokens, you would need to iterate through token_amounts and handle each one
         let token_amount = message.token_amounts.first()
             .map(|token| token.amount)
             .unwrap_or(0);
         
-        // Only proceed if there's an actual token amount to transfer
-        if token_amount > 0 {
-            // Emit token received event
-            emit!(TokenReceived {
-                token: token_mint_key,
-                amount: token_amount,
-                index: 0,
-            });
-            
-            // Build transfer instruction using token-2022 layout
-            let mut transfer_ix = spl_token_2022::instruction::transfer_checked(
-                &spl_token_2022::ID, // Use Token-2022 to build instruction structure
-                &token_vault_info.key(),
-                &token_mint_info.key(),
-                &recipient_account_info.key(),
-                &token_vault_authority_info.key(),
-                &[],
-                token_amount,
-                0, // Expected decimals, we rely on the check done by the token program
-            )?;
-            
-            // Replace with actual token program
-            transfer_ix.program_id = token_program_info.key();
-            
-            // Derive the PDA signer seeds for the token vault authority
-            let vault_bump = Pubkey::find_program_address(&[TOKEN_VAULT_SEED], &crate::ID).1;
-            let seeds = &[TOKEN_VAULT_SEED, &[vault_bump]];
-            let signer_seeds = &[&seeds[..]];
-            
-            // Execute the token transfer with the PDA as signer
-            invoke_signed(
-                &transfer_ix,
-                &[
-                    token_vault_info.clone(),
-                    recipient_account_info.clone(),
-                    token_vault_authority_info.clone(),
-                ],
-                signer_seeds,
-            )?;
-            
-            // Emit the tokens forwarded event
-            emit!(TokensForwarded {
-                token: token_mint_key,
-                amount: token_amount,
-                recipient: recipient_account_info.key(),
-            });
-        }
+        // Emit token received event
+        emit!(TokenReceived {
+            token: token_mint_key,
+            amount: token_amount,
+            index: 0,
+        });
+        
+        // Build transfer instruction using token-2022 layout
+        let mut transfer_ix = spl_token_2022::instruction::transfer_checked(
+            &spl_token_2022::ID, // Use Token-2022 to build instruction structure
+            &source_token_account.key(),
+            &token_mint_info.key(),
+            &recipient_account_info.key(),
+            &token_admin_info.key(),
+            &[],
+            token_amount,
+            0, // Expected decimals, we rely on the check done by the token program
+        )?;
+        
+        // Replace with actual token program
+        transfer_ix.program_id = token_program_info.key();
+        
+        // Derive the PDA signer seeds for the token admin
+        let seeds = &[TOKEN_ADMIN_SEED, &[admin_bump]];
+        let signer_seeds = &[&seeds[..]];
+        
+        // Execute the token transfer with the PDA as signer
+        invoke_signed(
+            &transfer_ix,
+            &[
+                source_token_account.clone(),
+                token_mint_info.clone(),
+                recipient_account_info.clone(),
+                token_admin_info.clone(),
+            ],
+            signer_seeds,
+        )?;
+        
+        // Emit the tokens forwarded event
+        emit!(TokensForwarded {
+            token: token_mint_key,
+            amount: token_amount,
+            recipient: recipient_account_info.key(),
+        });
     }
     
     // Create and store the latest received message in our storage account

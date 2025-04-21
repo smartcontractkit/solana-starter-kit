@@ -5,14 +5,13 @@ use crate::{
     state::ReceivedMessage,
 };
 
-/// Initialize the receiver program state
+/// Initialize the CCIP Receiver program
 /// 
-/// This function initializes the state for the CCIP Receiver program
-/// by setting the owner and router. It also initializes the messages_storage account.
-/// It must be called before any other function can be used.
+/// Creates and initializes the state and messages storage PDAs.
+/// Also initializes the token admin PDA which will have authority over all token accounts.
 ///
 /// # Arguments
-/// * `ctx` - The context of accounts for this instruction
+/// * `ctx` - The context for this instruction
 /// * `router` - The public key of the CCIP Router program
 pub fn handler(ctx: Context<Initialize>, router: Pubkey) -> Result<()> {
     let state = &mut ctx.accounts.state;
@@ -27,11 +26,15 @@ pub fn handler(ctx: Context<Initialize>, router: Pubkey) -> Result<()> {
     messages_storage.message_count = 0;
     messages_storage.latest_message = ReceivedMessage::default();
     
+    // Note: token_admin PDA is initialized via the account constraints
+    
     // Emit initialization event
     emit!(ReceiverInitialized {
         router,
         owner: ctx.accounts.payer.key(),
     });
+    
+    msg!("CCIP Receiver program initialized with router: {}", router);
     
     Ok(())
 } 

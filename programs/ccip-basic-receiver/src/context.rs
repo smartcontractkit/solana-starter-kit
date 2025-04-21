@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use crate::{
-    constants::{ALLOWED_OFFRAMP, EXTERNAL_EXECUTION_CONFIG_SEED, MESSAGES_STORAGE_SEED, STATE_SEED, TOKEN_VAULT_SEED},
+    constants::{ALLOWED_OFFRAMP, ANCHOR_DISCRIMINATOR, EXTERNAL_EXECUTION_CONFIG_SEED, MESSAGES_STORAGE_SEED, STATE_SEED, TOKEN_ADMIN_SEED},
     error::CCIPReceiverError,
     state::{Any2SVMMessage, BaseState, MessagesStorage},
 };
@@ -17,7 +17,7 @@ pub struct Initialize<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = 8 + BaseState::INIT_SPACE,
+        space = ANCHOR_DISCRIMINATOR + BaseState::INIT_SPACE,
         seeds = [STATE_SEED],
         bump
     )]
@@ -27,61 +27,25 @@ pub struct Initialize<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = 8 + std::mem::size_of::<MessagesStorage>(),
+        space = ANCHOR_DISCRIMINATOR + std::mem::size_of::<MessagesStorage>(),
         seeds = [MESSAGES_STORAGE_SEED],
         bump
     )]
     pub messages_storage: Account<'info, MessagesStorage>,
 
+    /// Token admin PDA that will have authority over all token accounts
+    #[account(
+        init_if_needed,
+        payer = payer,
+        space = ANCHOR_DISCRIMINATOR, // Only anchor discriminator needed
+        seeds = [TOKEN_ADMIN_SEED],
+        bump
+    )]
+    /// CHECK: This is a PDA used as the authority for all token accounts
+    pub token_admin: UncheckedAccount<'info>,
+
     /// Program state account for verification
     pub system_program: Program<'info, System>,
-}
-
-/// Accounts required for initializing a token vault
-#[derive(Accounts)]
-pub struct InitializeTokenVault<'info> {
-    /// The payer of the transaction
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    /// The state account for authority validation
-    #[account(
-        seeds = [STATE_SEED],
-        bump,
-        constraint = state.owner == payer.key() @ CCIPReceiverError::Unauthorized
-    )]
-    pub state: Account<'info, BaseState>,
-
-    /// The mint associated with this token vault
-    pub token_mint: InterfaceAccount<'info, Mint>,
-
-    /// The token vault to be initialized
-    #[account(
-        init,
-        payer = payer,
-        owner = token_program.key(),
-        space = 165, // Space sufficient for Token-2022 accounts
-        seeds = [TOKEN_VAULT_SEED, token_mint.key().as_ref()],
-        bump
-    )]
-    /// CHECK: We're explicitly setting the owner to the token program and initializing it ourselves
-    pub token_vault: AccountInfo<'info>,
-
-    /// The authority of the token vault (PDA)
-    /// CHECK: This is a PDA used as the token vault authority
-    #[account(
-        seeds = [TOKEN_VAULT_SEED],
-        bump
-    )]
-    pub token_vault_authority: UncheckedAccount<'info>,
-
-    /// System program for account creation
-    pub system_program: Program<'info, System>,
-    
-    /// Token program for token vault initialization
-    /// CHECK: Verified by checking account ownership
-    #[account(address = *token_mint.to_account_info().owner)]
-    pub token_program: AccountInfo<'info>,
 }
 
 /// Accounts required for receiving a CCIP message
@@ -145,4 +109,54 @@ pub struct GetLatestMessage<'info> {
         bump,
     )]
     pub messages_storage: Account<'info, MessagesStorage>,
+}
+
+/// Accounts required for withdrawing tokens
+#[derive(Accounts)]
+pub struct WithdrawTokens<'info> {
+    /// Program state account for verification
+    #[account(
+        seeds = [STATE_SEED],
+        bump,
+    )]
+    pub state: Account<'info, BaseState>,
+
+    /// The token account owned by the program
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = token_admin,
+        token::token_program = token_program,
+    )]
+    pub program_token_account: InterfaceAccount<'info, anchor_spl::token_interface::TokenAccount>,
+
+    /// The destination token account
+    #[account(
+        mut,
+        token::mint = mint,
+        token::token_program = token_program,
+    )]
+    pub to_token_account: InterfaceAccount<'info, anchor_spl::token_interface::TokenAccount>,
+
+    /// The token mint
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    /// The token program
+    #[account(address = *mint.to_account_info().owner)]
+    /// CHECK: CPI to token program
+    pub token_program: AccountInfo<'info>,
+
+    /// The token admin PDA that has authority over program token accounts
+    #[account(
+        seeds = [TOKEN_ADMIN_SEED],
+        bump,
+    )]
+    /// CHECK: CPI signer for tokens
+    pub token_admin: UncheckedAccount<'info>,
+
+    /// The authority (owner) of the program
+    #[account(
+        address = state.owner @ CCIPReceiverError::Unauthorized,
+    )]
+    pub authority: Signer<'info>,
 } 

@@ -72,9 +72,18 @@ async function main() {
       
       logger.info(`Messages Storage PDA: ${messagesStoragePda.toString()}`);
       
+      // Find the token admin PDA
+      const [tokenAdminPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("token_admin")],
+        programId
+      );
+      
+      logger.info(`Token Admin PDA: ${tokenAdminPda.toString()}`);
+      
       // Check if state and messages storage are already initialized
       let isStateInitialized = false;
       let isMessagesStorageInitialized = false;
+      let isTokenAdminInitialized = false;
       
       try {
         const stateAccountInfo = await program.provider.connection.getAccountInfo(statePda);
@@ -88,13 +97,19 @@ async function main() {
           isMessagesStorageInitialized = true;
           logger.info("Messages storage is already initialized");
         }
+        
+        const tokenAdminInfo = await program.provider.connection.getAccountInfo(tokenAdminPda);
+        if (tokenAdminInfo !== null && tokenAdminInfo.data.length > 0) {
+          isTokenAdminInitialized = true;
+          logger.info("Token admin is already initialized");
+        }
       } catch (error) {
         logger.info("Error checking accounts:", error);
       }
       
-      // Initialize if either account is not initialized
-      // With init_if_needed, this will be safe even if one account is already initialized
-      if (!isStateInitialized || !isMessagesStorageInitialized) {
+      // Initialize if any required account is not initialized
+      // With init_if_needed, this will be safe even if some accounts are already initialized
+      if (!isStateInitialized || !isMessagesStorageInitialized || !isTokenAdminInitialized) {
         logger.info("Initializing program accounts...");
         logger.info(`Router Program ID: ${config.routerProgramId.toString()}`);
         
@@ -105,6 +120,7 @@ async function main() {
               payer: program.provider.publicKey,
               state: statePda,
               messagesStorage: messagesStoragePda,
+              tokenAdmin: tokenAdminPda,
               systemProgram: anchor.web3.SystemProgram.programId,
             })
             .rpc();
@@ -121,8 +137,8 @@ async function main() {
       
       logger.info("Initialization process completed");
       logger.info("\n======== NEXT STEPS ========");
-      logger.info("To receive tokens, initialize token vaults using:");
-      logger.info("npx ts-node ccip-scripts/svm/receiver/initialize-vault.ts");
+      logger.info("The program is ready to receive CCIP messages and tokens");
+      logger.info("No additional initialization is needed as tokens are processed dynamically");
       
     } catch (error) {
       logger.error("Error during initialization:", error);

@@ -38,10 +38,15 @@ import {
 } from "../utils/message-utils";
 import { printUsage } from "../utils/config-parser";
 import { createLogger, LogLevel } from "../../../ccip-lib/evm";
-import { ethers } from "ethers";
 import { PublicKey } from "@solana/web3.js";
-import { FeeTokenType, getEVMConfig, ChainId, getCCIPSVMConfig } from "../../config";
+import {
+  FeeTokenType,
+  getEVMConfig,
+  ChainId,
+  getCCIPSVMConfig,
+} from "../../config";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 
 // Create initial logger for startup errors
 const initialLogger = createLogger("data-and-tokens", {
@@ -53,87 +58,85 @@ const config = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
 
 /**
  * Utility function to derive PDAs for CCIP Receiver accounts
- * 
+ *
  * @param receiverProgramId - The CCIP Receiver program ID
  * @returns Object containing the derived PDAs
  */
 function deriveReceiverPDAs(receiverProgramIdStr: string) {
   // Convert string to PublicKey
   const receiverProgramId = new PublicKey(receiverProgramIdStr);
-  
+
   // Seeds for PDAs (these match the ones in the Rust program)
   const STATE_SEED = Buffer.from("state");
   const MESSAGES_STORAGE_SEED = Buffer.from("messages_storage");
-  const TOKEN_VAULT_SEED = Buffer.from("token_vault");
-  
+  const TOKEN_ADMIN_SEED = Buffer.from("token_admin");
+
   // Derive the state PDA
   const [statePda] = PublicKey.findProgramAddressSync(
     [STATE_SEED],
     receiverProgramId
   );
-  
+
   // Derive the messages storage PDA
   const [messagesStoragePda] = PublicKey.findProgramAddressSync(
     [MESSAGES_STORAGE_SEED],
     receiverProgramId
   );
-  
-  // Derive token vault authority PDA
-  const [tokenVaultAuthority] = PublicKey.findProgramAddressSync(
-    [TOKEN_VAULT_SEED],
+
+  // Derive token admin PDA (authority for token accounts)
+  const [tokenAdminPda] = PublicKey.findProgramAddressSync(
+    [TOKEN_ADMIN_SEED],
     receiverProgramId
   );
-  
+
   return {
     state: statePda,
     messagesStorage: messagesStoragePda,
-    tokenVaultAuthority
+    tokenAdmin: tokenAdminPda,
   };
 }
 
 /**
- * Get the token accounts required for CCIP token transfer
- * 
- * For token transfers, the ccip_receive handler requires 5 additional accounts:
- * 1. token_mint: Account<Mint> - The token mint account
- * 2. token_vault: Account<TokenAccount> - The token vault account where CCIP first deposits tokens
- * 3. token_vault_authority: UncheckedAccount - The authority PDA for the token vault
- * 4. recipient_token_account: Account<TokenAccount> - The recipient's token account
- * 5. token_program: Program<Token> - The token program (SPL Token or Token-2022)
+ * Utility function to determine the token program ID from a mint account
+ *
+ * @param mintPubkey - The public key of the mint account
+ * @param connection - The Solana connection to use for querying
+ * @param logger - The logger to use for logging
+ * @returns Promise<PublicKey> - The token program ID that owns the mint
  */
-function getTokenAccounts() {
-  // Get the Solana configuration
-  const solanaConfig = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-  const receiverProgramId = solanaConfig.receiverProgramId.toString();
-  const pdas = deriveReceiverPDAs(receiverProgramId);
-  
-  // For token vault derivation
-  const mintPubkey = new PublicKey(solanaConfig.tokenMint);
-  
-  // Derive token vault using the receiver program ID and mint
-  const [tokenVault] = PublicKey.findProgramAddressSync(
-    [Buffer.from("token_vault"), mintPubkey.toBuffer()],
-    new PublicKey(receiverProgramId)
-  );
-  
-  // These must match the accounts expected by the ccip_receive handler
-  return {
-    // 1. Token mint - Use the token address from config
-    tokenMint: solanaConfig.tokenMint.toString(),
-    
-    // 2. Token vault - Derived PDA based on program ID and mint
-    tokenVault: tokenVault.toString(),
-    
-    // 3. Token vault authority - PDA that has authority over the vault
-    tokenVaultAuthority: pdas.tokenVaultAuthority.toString(),
-    
-    // 4. Recipient token account - the account where tokens will be sent
-    // This should be the recipient's token account that can hold the specific token
-    recipientTokenAccount: "HWFMEkEaiYXYngJvmYT1AU4aaxR85mowvD88j4cLNpxp", // ATA of the recipient
-    
-    // 5. Token program - usually SPL Token program
-    tokenProgram: TOKEN_2022_PROGRAM_ID.toString()
-  };
+async function determineTokenProgramId(
+  mintPubkey: PublicKey,
+  connection: any,
+  logger = initialLogger
+): Promise<PublicKey> {
+  try {
+    logger.info(
+      `Getting mint account info for ${mintPubkey.toString()} to determine token program ID...`
+    );
+    const mintInfo = await connection.getAccountInfo(mintPubkey);
+
+    if (!mintInfo) {
+      throw new Error(`Mint account ${mintPubkey.toString()} not found`);
+    }
+
+    // The owner of the mint account is the token program (either TOKEN_PROGRAM_ID or TOKEN_2022_PROGRAM_ID)
+    const tokenProgramId = mintInfo.owner;
+
+    // Log which token program is being used
+    const usingToken2022 =
+      tokenProgramId.toString() === TOKEN_2022_PROGRAM_ID.toString()
+        ? "Yes"
+        : "No";
+    logger.info(`Token program ID: ${tokenProgramId.toString()}`);
+    logger.info(`Using Token-2022 Program: ${usingToken2022}`);
+
+    return tokenProgramId;
+  } catch (error) {
+    logger.warn(
+      `Failed to determine token program from mint, falling back to TOKEN_2022_PROGRAM_ID: ${error}`
+    );
+    return TOKEN_2022_PROGRAM_ID;
+  }
 }
 
 // =================================================================
@@ -141,115 +144,151 @@ function getTokenAccounts() {
 // Edit these values to customize your transfer
 // =================================================================
 
-const MESSAGE_CONFIG = {
-  // Tokens to transfer - an array of token amounts to send
-  // Each token has an address and an amount
-  tokenAmounts: [
-    {
-      // The BnM token address on Ethereum Sepolia
-      address: config.tokenAddress,
+// Define a function to create the message config asynchronously
+const createMessageConfig = async () => {
+  const solanaConfig = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  const recipientWalletAddress = new PublicKey(
+    "EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB"
+  );
 
-      // Token amount in raw format (with all decimals included)
-      // IMPORTANT: This must be the full raw amount, not a decimal value
-      // For example: "10000000000000000" = 0.01 tokens with 18 decimals
-      amount: "10000000000000000",
+  // Create an inner logger for configuration initialization
+  const configLogger = createLogger("config-init", {
+    level: LogLevel.INFO,
+  });
+
+  // Return the fully configured message
+  return {
+    // Tokens to transfer - an array of token amounts to send
+    // Each token has an address and an amount
+    tokenAmounts: [
+      {
+        // The BnM token address on Ethereum Sepolia
+        address: config.tokenAddress,
+
+        // Token amount in raw format (with all decimals included)
+        // IMPORTANT: This must be the full raw amount, not a decimal value
+        // For example: "10000000000000000" = 0.01 tokens with 18 decimals
+        amount: "10000000000000000",
+      },
+    ],
+
+    // Custom message to send - must be properly encoded as hex with 0x prefix
+    data: "0x" + Buffer.from("Hello World").toString("hex"),
+
+    // Fee token to use for CCIP fees
+    feeToken: FeeTokenType.LINK,
+
+    // Extra configuration for Solana
+    extraArgs: {
+      // Compute units for Solana execution
+      // Higher value needed because message processing requires compute units
+      computeUnits: 200000,
+
+      // Allow out-of-order execution
+      allowOutOfOrderExecution: true,
+
+      // Bitmap of accounts that should be made writable
+      // Binary representation: 000010 (decimal 2)
+      // Analyzing the accounts in the order they appear in the `accounts` array:
+      // [0] state PDA - NOT writable (0)
+      // [1] messages_storage PDA - writable (1)
+      // [2] token_mint - NOT writable (0)
+      // [3] source_token_account - writable (1)  (modified during token transfer)
+      // [4] token_admin - NOT writable (0)
+      // [5] recipient_token_account - NOT writable (0) (CPI makes it writable)
+      // [6] token_program - NOT writable (0)
+      //
+      // Result: Binary 0001010 = Decimal 10
+      // Only messages_storage and source_token_account need to be explicitly writable
+      accountIsWritableBitmap: BigInt(10),
+
+      // Token receiver is the token_admin PDA
+      // CCIP will create an ATA for this PDA and deposit tokens there
+      tokenReceiver: (() => {
+        const receiverProgramId = solanaConfig.receiverProgramId.toString();
+        const pdas = deriveReceiverPDAs(receiverProgramId);
+        return pdas.tokenAdmin.toString();
+      })(),
+
+      // Accounts needed for the CCIP message
+      accounts: await (async () => {
+        // State and messages storage PDAs
+        const receiverProgramId = solanaConfig.receiverProgramId.toString();
+
+        const pdas = deriveReceiverPDAs(receiverProgramId);
+
+        // Get the token mint address from config
+        const mintPubkey = new PublicKey(solanaConfig.tokenMint);
+
+        // Get the connection from solanaConfig
+        const connection = solanaConfig.connection;
+
+        // Determine the token program ID for the mint
+        // This uses our utility function to get the correct program ID
+        const tokenProgramId = await determineTokenProgramId(
+          mintPubkey,
+          connection,
+          configLogger
+        );
+
+        // Derive the Associated Token Account for the recipient
+        // This is the account where tokens will be sent
+        const recipientATA = getAssociatedTokenAddressSync(
+          mintPubkey,
+          recipientWalletAddress,
+          false, // allowOwnerOffCurve = false for regular wallet addresses
+          tokenProgramId // Use the correct token program ID
+        );
+
+        configLogger.info(
+          `Derived recipient ATA ${recipientATA.toString()} for wallet ${recipientWalletAddress.toString()}`
+        );
+
+        // Derive the Associated Token Account for the token_admin PDA
+        // This is where tokens will be initially deposited by CCIP
+        const tokenAdminATA = getAssociatedTokenAddressSync(
+          mintPubkey,
+          pdas.tokenAdmin,
+          true, // allowOwnerOffCurve = true since PDAs are off-curve
+          tokenProgramId
+        );
+
+        // Return all required accounts in order:
+        // First the state and messages storage for message processing
+        // Then the 5 token accounts needed for token transfers
+        return [
+          // [0] state PDA - Required by the CcipReceive context
+          pdas.state.toString(),
+
+          // [1] messages_storage PDA - Required by the CcipReceive context and must be writable
+          pdas.messagesStorage.toString(),
+
+          // [2] token_mint - The token mint account
+          solanaConfig.tokenMint.toString(),
+
+          // [3] source_token_account - The token account where CCIP initially deposits tokens
+          tokenAdminATA.toString(),
+
+          // [4] token_admin - The token admin PDA that has authority
+          pdas.tokenAdmin.toString(),
+
+          // [5] recipient_token_account - Where tokens will be transferred to
+          recipientATA.toString(),
+
+          // [6] token_program - Determined dynamically using determineTokenProgramId
+          tokenProgramId.toString(),
+        ];
+      })(),
     },
-  ],
 
-  // Custom message to send - must be properly encoded as hex with 0x prefix
-  data: "0x" + Buffer.from("Hello World").toString("hex"),
-
-  // Fee token to use for CCIP fees
-  feeToken: FeeTokenType.LINK,
-
-  // Extra configuration for Solana
-  extraArgs: {
-    // Compute units for Solana execution
-    // Higher value needed because message processing requires compute units
-    computeUnits: 200000,
-
-    // Allow out-of-order execution
-    allowOutOfOrderExecution: true,
-
-    // Bitmap of accounts that should be made writeable
-    // Binary representation: 000110 (decimal 6)
-    // Analyzing the accounts in the order they appear in the `accounts` array:
-    // [0] state PDA - NOT writable (0)
-    // [1] messages_storage PDA - writable (1)
-    // [2] token_mint - NOT writable (0)
-    // [3] token_vault - writable (1)
-    // [4] token_vault_authority - NOT writable (0)
-    // [5] recipient_token_account - NOT writable (0) (CPI makes it writable)
-    // [6] token_program - NOT writable (0)
-    // 
-    // Result: Binary 0000110 = Decimal 6
-    // Only messages_storage and token_vault need to be explicitly writable
-    accountIsWritableBitmap: BigInt(6), // Binary 110
-
-    // Token receiver should be the token vault where CCIP initially deposits tokens
-    // The receiver program will then forward these tokens to the recipient
-    tokenReceiver: (() => {
-      // We need to derive the token vault to use as the receiver
-      const solanaConfig = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-      const receiverProgramId = solanaConfig.receiverProgramId.toString();
-      
-      const mintPubkey = new PublicKey(solanaConfig.tokenMint);
-      
-      // Derive token vault using the receiver program ID and mint
-      const [tokenVault] = PublicKey.findProgramAddressSync(
-        [Buffer.from("token_vault"), mintPubkey.toBuffer()],
-        new PublicKey(receiverProgramId)
-      );
-      
-      return tokenVault.toString();
-    })(),
-
-    // Accounts needed for the CCIP message
-    accounts: (() => {
-      // State and messages storage PDAs
-      const receiverProgramId = getCCIPSVMConfig(
-        ChainId.SOLANA_DEVNET
-      ).receiverProgramId.toString();
-      
-      const pdas = deriveReceiverPDAs(receiverProgramId);
-      
-      // Get token accounts needed for transfers
-      const tokenAccounts = getTokenAccounts();
-      
-      // Return all required accounts in order:
-      // First the state and messages storage for message processing
-      // Then the 5 token accounts needed for token transfers
-      return [
-        // [0] state PDA - Required by the CcipReceive context
-        pdas.state.toString(),
-        
-        // [1] messages_storage PDA - Required by the CcipReceive context and must be writable
-        pdas.messagesStorage.toString(),
-        
-        // The 5 token accounts required by the ccip_receive handler as remaining_accounts:
-        // [2] token_mint - The token mint account
-        tokenAccounts.tokenMint,
-        
-        // [3] token_vault - The token vault account that must be writable
-        tokenAccounts.tokenVault,
-        
-        // [4] token_vault_authority - The vault authority PDA
-        tokenAccounts.tokenVaultAuthority, 
-        
-        // [5] recipient_token_account - Where tokens will be transferred to
-        tokenAccounts.recipientTokenAccount,
-        
-        // [6] token_program - The token program that handles the transfer
-        tokenAccounts.tokenProgram
-      ];
-    })(),
-  },
-
-  // Receiver program ID - set to the CCIP Receiver Program
-  receiver: getCCIPSVMConfig(
-    ChainId.SOLANA_DEVNET
-  ).receiverProgramId.toString(),
+    // Receiver program ID - set to the CCIP Receiver Program
+    receiver: solanaConfig.receiverProgramId.toString(),
+  };
 };
+
+// Initialize as a Promise and resolve it in the main function
+let MESSAGE_CONFIG_PROMISE = createMessageConfig();
+
 // =================================================================
 
 /**
@@ -259,7 +298,10 @@ async function dataAndTokenTransfer(): Promise<void> {
   let logger = initialLogger;
 
   try {
-    // STEP 1: Get configuration from both hardcoded values and optional command line args
+    // STEP 1: Wait for the message config to be fully initialized
+    const MESSAGE_CONFIG = await MESSAGE_CONFIG_PROMISE;
+
+    // Get configuration from both hardcoded values and optional command line args
     const cmdOptions = parseScriptArgs();
 
     // Convert tokenAmounts to the format expected by the SDK
@@ -311,7 +353,10 @@ async function dataAndTokenTransfer(): Promise<void> {
 
     // STEP 3: Get token details and validate balances
     const tokenDetails = await getTokenDetails(context, options.tokenAmounts);
-    const validatedAmounts = validateTokenAmounts(context, tokenDetails);
+    validateTokenAmounts(context, tokenDetails);
+
+    // Token program ID is already correctly set in the accounts array
+    // No need to update it here as we already used determineTokenProgramId during initialization
 
     // STEP 4: Create the CCIP message request
     const messageRequest = createCCIPMessageRequest(config, options, logger);

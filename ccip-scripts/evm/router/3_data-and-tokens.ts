@@ -193,15 +193,15 @@ const createMessageConfig = async () => {
       // Analyzing the accounts in the order they appear in the `accounts` array:
       // [0] state PDA - NOT writable (0)
       // [1] messages_storage PDA - writable (1)
-      // [2] token_mint - NOT writable (0)
+      // [2] token_mint - Writable (1)
       // [3] source_token_account - writable (1)  (modified during token transfer)
       // [4] token_admin - NOT writable (0)
       // [5] recipient_token_account - writable (1)
       // [6] token_program - NOT writable (0)
       //
-      // Result: Binary 0101010 = Decimal 42
+      // Result: Binary 0101110 = Decimal 46
       // Only messages_storage and source_token_account need to be explicitly writable
-      accountIsWritableBitmap: BigInt(42),
+      accountIsWritableBitmap: BigInt(46),
 
       // Token receiver is the token_admin PDA
       // CCIP will create an ATA for this PDA and deposit tokens there

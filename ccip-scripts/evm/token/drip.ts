@@ -35,7 +35,8 @@ async function dripTokens(): Promise<void> {
     });
 
     // Get network configuration
-    const config = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
+    const sourceChain = ChainId.ETHEREUM_SEPOLIA;
+    const config = getEVMConfig(sourceChain);
 
     // Display environment info
     logger.info("\n==== Environment Information ====");
@@ -43,7 +44,10 @@ async function dripTokens(): Promise<void> {
     logger.info(`Token Address: ${config.tokenAddress}`);
 
     // Create CCIP client for provider access
-    const client = createCCIPClient(options);
+    const client = createCCIPClient({
+      ...options,
+      chainId: config.id, // Pass chainId from config to match pattern in token-transfer.ts
+    });
 
     // Get signer address
     const signerAddress =

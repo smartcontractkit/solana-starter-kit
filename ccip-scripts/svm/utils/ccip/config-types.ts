@@ -41,6 +41,12 @@ export interface CCIPMessageConfig {
 export interface ScriptConfig {
   computeUnits: number; // Maximum compute units for Solana
   minSolRequired: number; // Minimum SOL needed for transaction
+  
+  // Default extraArgs values (used as fallbacks if not provided in message config)
+  defaultExtraArgs?: {
+    gasLimit: number;
+    allowOutOfOrderExecution: boolean;
+  };
 }
 
 /**

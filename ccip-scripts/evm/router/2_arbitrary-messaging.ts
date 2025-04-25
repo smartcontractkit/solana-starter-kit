@@ -35,12 +35,16 @@ import { printUsage } from "../utils/config-parser";
 import { createLogger, LogLevel } from "../../../ccip-lib/evm";
 import { ethers } from "ethers";
 import { PublicKey } from "@solana/web3.js";
-import { ChainId, FeeTokenType, getCCIPSVMConfig } from "../../config";
+import { ChainId, FeeTokenType, getCCIPSVMConfig, getEVMConfig } from "../../config";
 
 // Create initial logger for startup errors
 const initialLogger = createLogger("arbitrary-messaging", {
   level: LogLevel.INFO,
 });
+
+// Define the source chain
+const sourceChain = ChainId.ETHEREUM_SEPOLIA;
+const sourceChainConfig = getEVMConfig(sourceChain);
 
 // =================================================================
 // ARBITRARY MESSAGE CONFIGURATION
@@ -154,6 +158,10 @@ async function arbitraryMessaging(): Promise<void> {
       accountIsWritableBitmap: MESSAGE_CONFIG.extraArgs.accountIsWritableBitmap,
       tokenReceiver: MESSAGE_CONFIG.extraArgs.tokenReceiver,
       accounts: MESSAGE_CONFIG.extraArgs.accounts,
+
+      // Pass chainId directly from the source chain variable
+      chainId: sourceChain,
+
       // Command line arguments override hardcoded config
       ...cmdOptions,
     };

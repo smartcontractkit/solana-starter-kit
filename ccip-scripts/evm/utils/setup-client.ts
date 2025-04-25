@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { 
+import {
   createLogger,
   LogLevel,
   CCIPMessenger,
@@ -58,12 +58,17 @@ export async function setupClientContext(
   // Display environment info
   logger.info("\n==== Environment Information ====");
 
-  const config = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
+  // Use provided chainId
+  const chainId = options.chainId;
+  const config = getEVMConfig(chainId);
 
   logger.info(`Router Address: ${config.routerAddress}`);
 
-  // Create CCIP client
-  const client = createCCIPClient(options);
+  // Create CCIP client - pass chainId to client factory
+  const client = createCCIPClient({
+    ...options,
+    chainId: chainId,
+  });
 
   // Get signer address from provider
   let signerAddress: string;

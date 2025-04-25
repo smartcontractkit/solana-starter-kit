@@ -37,6 +37,7 @@ export interface CCIPScriptOptions {
     token: string;
     amount: string;
   }>;
+  chainId: ChainId;
 }
 
 /**
@@ -231,7 +232,7 @@ export function displayTransferResults(
   logger.info("\n==== Transfer Results ====");
   logger.info(`Transaction Hash: ${result.transactionHash}`);
   logger.info(
-    `Transaction URL: ${getExplorerUrl(ChainId.ETHEREUM_SEPOLIA, result.transactionHash)}`
+    `Transaction URL: ${getExplorerUrl(config.id, result.transactionHash)}`
   );
 
   if (result.messageId) {

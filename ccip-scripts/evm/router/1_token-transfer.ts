@@ -43,7 +43,7 @@ const initialLogger = createLogger("token-transfer", {
 });
 
 // Get configuration
-const config = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
+const sourceChainConfig = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
 
 // =================================================================
 // TOKEN TRANSFER CONFIGURATION
@@ -55,8 +55,8 @@ const MESSAGE_CONFIG = {
   // Each token has an address and an amount
   tokenAmounts: [
     {
-      // The BnM token address on Ethereum Sepolia
-      address: config.tokenAddress,
+      // The BnM token address on the source chain
+      address: sourceChainConfig.tokenAddress,
 
       // Token amount in raw format (with all decimals included)
       // IMPORTANT: This must be the full raw amount, not a decimal value
@@ -126,6 +126,9 @@ async function tokenTransfer(): Promise<void> {
       accountIsWritableBitmap: MESSAGE_CONFIG.extraArgs.accountIsWritableBitmap,
       tokenReceiver: MESSAGE_CONFIG.extraArgs.tokenReceiver,
       accounts: MESSAGE_CONFIG.extraArgs.accounts,
+
+      // Pass chainId directly from the source chain config
+      chainId: sourceChainConfig.id,
 
       // Use token amounts from command line or config (ensuring we always have token amounts)
       tokenAmounts:

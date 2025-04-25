@@ -201,13 +201,36 @@ export async function executeCCIPScript({
     }
 
     // STEP 7: Create extraArgs configuration
+    const defaultGasLimit = scriptConfig.defaultExtraArgs?.gasLimit ?? 200000;
+    const defaultAllowOutOfOrder = scriptConfig.defaultExtraArgs?.allowOutOfOrderExecution ?? true;
+    
     const extraArgsConfig: ExtraArgsOptions = {
-      gasLimit: options.extraArgs.gasLimit,
-      allowOutOfOrderExecution: options.extraArgs.allowOutOfOrderExecution,
+      gasLimit: options.extraArgs?.gasLimit ?? defaultGasLimit,
+      allowOutOfOrderExecution: 
+        options.extraArgs?.allowOutOfOrderExecution !== undefined 
+          ? options.extraArgs.allowOutOfOrderExecution 
+          : defaultAllowOutOfOrder,
     };
+
+    // Log warning if using default values
+    if (!options.extraArgs?.gasLimit) {
+      logger.warn(`No gasLimit provided in extraArgs, using default value: ${defaultGasLimit}`);
+    }
+    if (options.extraArgs?.allowOutOfOrderExecution === undefined) {
+      logger.warn(`No allowOutOfOrderExecution flag provided in extraArgs, using default value: ${defaultAllowOutOfOrder}`);
+    }
+
+    // Force allowOutOfOrderExecution to true to avoid error 8030
+    if (!extraArgsConfig.allowOutOfOrderExecution) {
+      logger.warn("Setting allowOutOfOrderExecution to true to avoid FeeQuoter error 8030");
+      extraArgsConfig.allowOutOfOrderExecution = true;
+    }
 
     // Generate the extraArgs buffer
     const extraArgs = ccipClient.createExtraArgs(extraArgsConfig);
+    
+    // Log the extraArgs buffer for debugging
+    logger.debug(`ExtraArgs buffer (hex): ${extraArgs.toString('hex')}`);
 
     // STEP 8: Process message data
     const messageDataBuffer = messageDataToBuffer(options.messageData);

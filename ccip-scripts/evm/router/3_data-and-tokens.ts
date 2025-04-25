@@ -53,8 +53,9 @@ const initialLogger = createLogger("data-and-tokens", {
   level: LogLevel.INFO,
 });
 
-// Get network configuration to access tokenAddress
-const config = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
+// Define the source chain
+const sourceChain = ChainId.ETHEREUM_SEPOLIA;
+const sourceChainConfig = getEVMConfig(sourceChain);
 
 /**
  * Utility function to derive PDAs for CCIP Receiver accounts
@@ -162,8 +163,8 @@ const createMessageConfig = async () => {
     // Each token has an address and an amount
     tokenAmounts: [
       {
-        // The BnM token address on Ethereum Sepolia
-        address: config.tokenAddress,
+        // The BnM token address on the source chain
+        address: sourceChainConfig.tokenAddress,
 
         // Token amount in raw format (with all decimals included)
         // IMPORTANT: This must be the full raw amount, not a decimal value
@@ -195,12 +196,12 @@ const createMessageConfig = async () => {
       // [2] token_mint - NOT writable (0)
       // [3] source_token_account - writable (1)  (modified during token transfer)
       // [4] token_admin - NOT writable (0)
-      // [5] recipient_token_account - NOT writable (0) (CPI makes it writable)
+      // [5] recipient_token_account - writable (1)
       // [6] token_program - NOT writable (0)
       //
-      // Result: Binary 0001010 = Decimal 10
+      // Result: Binary 0101010 = Decimal 42
       // Only messages_storage and source_token_account need to be explicitly writable
-      accountIsWritableBitmap: BigInt(10),
+      accountIsWritableBitmap: BigInt(42),
 
       // Token receiver is the token_admin PDA
       // CCIP will create an ATA for this PDA and deposit tokens there
@@ -326,6 +327,10 @@ async function dataAndTokenTransfer(): Promise<void> {
       accountIsWritableBitmap: MESSAGE_CONFIG.extraArgs.accountIsWritableBitmap,
       tokenReceiver: MESSAGE_CONFIG.extraArgs.tokenReceiver,
       accounts: MESSAGE_CONFIG.extraArgs.accounts,
+
+      // Pass chainId directly from the source chain variable
+      chainId: sourceChain,
+
       // Command line arguments override hardcoded config
       ...cmdOptions,
     };

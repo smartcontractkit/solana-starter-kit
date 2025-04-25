@@ -186,14 +186,37 @@ async function getFeeEstimation(): Promise<void> {
       }
     }
 
-    // Generate extra args buffer if needed
-    const extraArgs = FEE_CALCULATION_CONFIG.messageData
-      ? ccipClient.createExtraArgs({
-          gasLimit: FEE_CALCULATION_CONFIG.extraArgs.gasLimit,
-          allowOutOfOrderExecution:
-            FEE_CALCULATION_CONFIG.extraArgs.allowOutOfOrderExecution,
-        })
-      : Buffer.alloc(0);
+    // Default extraArgs values
+    const DEFAULT_GAS_LIMIT = 200000;
+    const DEFAULT_ALLOW_OUT_OF_ORDER = true;
+
+    // Generate extra args buffer - ALWAYS create it with appropriate values
+    const extraArgsConfig = {
+      gasLimit: FEE_CALCULATION_CONFIG.extraArgs?.gasLimit || DEFAULT_GAS_LIMIT,
+      allowOutOfOrderExecution: 
+        FEE_CALCULATION_CONFIG.extraArgs?.allowOutOfOrderExecution !== undefined 
+          ? FEE_CALCULATION_CONFIG.extraArgs.allowOutOfOrderExecution 
+          : DEFAULT_ALLOW_OUT_OF_ORDER,
+    };
+
+    // Log warning if using default values
+    if (!FEE_CALCULATION_CONFIG.extraArgs?.gasLimit) {
+      logger.warn(`No gasLimit provided in extraArgs, using default value: ${DEFAULT_GAS_LIMIT}`);
+    }
+    if (FEE_CALCULATION_CONFIG.extraArgs?.allowOutOfOrderExecution === undefined) {
+      logger.warn(`No allowOutOfOrderExecution flag provided in extraArgs, using default value: ${DEFAULT_ALLOW_OUT_OF_ORDER}`);
+    }
+
+    // Force allowOutOfOrderExecution to true to avoid error 8030
+    if (!extraArgsConfig.allowOutOfOrderExecution) {
+      logger.warn("Setting allowOutOfOrderExecution to true to avoid FeeQuoter error 8030");
+      extraArgsConfig.allowOutOfOrderExecution = true;
+    }
+
+    const extraArgs = ccipClient.createExtraArgs(extraArgsConfig);
+
+    // Log the extraArgs buffer for debugging
+    logger.debug(`ExtraArgs buffer (hex): ${extraArgs.toString('hex')}`);
 
     // Create the CCIPFeeRequest
     const feeRequest: CCIPFeeRequest = {

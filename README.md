@@ -12,6 +12,30 @@
 
 The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/anchor/getting-started/introduction.html) based program and client that shows developers how to use and interact with [Chainlink Price Feeds on Solana](https://docs.chain.link/solana/). The demo is configured to run on the [Devnet cluster](https://docs.solana.com/clusters#devnet), and is comprised of an on-chain program written in Rust, and an off-chain client written in JavaScript. The program takes parameters and account information from the off-chain client, retrieves the latest price data from the specified Chainlink Price Feed on Devnet, then writes the data out to the specified account, which can then be read by the off-chain client.
 
+## Environment Variables
+
+The following environment variables must be set before running the scripts:
+
+| Variable | Description | Required For |
+|----------|-------------|-------------|
+| `EVM_PRIVATE_KEY` | The private key for the EVM account | All EVM chain operations |
+| `EVM_RPC_URL` | RPC URL for Ethereum Sepolia | Operations on Ethereum Sepolia |
+| `AVAX_RPC_URL` | RPC URL for Avalanche Fuji | Operations on Avalanche Fuji |
+| `SOLANA_RPC_URL` | RPC URL for Solana Devnet (defaults to public endpoint if not set) | Operations on Solana Devnet |
+
+### Setting up Environment Variables
+
+Create a `.env` file in the root directory with the following format:
+
+```
+EVM_PRIVATE_KEY=your_private_key_here
+EVM_RPC_URL=https://your-ethereum-sepolia-rpc-url
+AVAX_RPC_URL=https://your-avalanche-fuji-rpc-url
+SOLANA_RPC_URL=https://your-solana-devnet-rpc-url
+```
+
+**Important**: The RPC URLs must be valid and accessible for the scripts to work. If an RPC URL is not provided for a chain, an error will be thrown when attempting to use that chain.
+
 ## Running the example on Devnet
 
 ### Requirements
@@ -110,7 +134,7 @@ export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
 export ANCHOR_WALLET='./id.json'
 ```
 
-Now you are ready to run the JavaScript client. Be sure to pass Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don’t specify a value. In this example, we specified the ETH/USD feed:
+Now you are ready to run the JavaScript client. Be sure to pass Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don't specify a value. In this example, we specified the ETH/USD feed:
 
 ```
 node client.js --feed	669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P

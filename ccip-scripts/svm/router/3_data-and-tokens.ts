@@ -80,6 +80,12 @@ const CCIP_MESSAGE_CONFIG: CCIPMessageConfig = {
 const SCRIPT_CONFIG = {
   computeUnits: 1_400_000, // Maximum compute units for Solana
   minSolRequired: 0.005, // Minimum SOL needed for transaction
+  
+  // Default extraArgs values (used as fallbacks if not provided in message config)
+  defaultExtraArgs: {
+    gasLimit: 200000, // Default gas limit for message execution
+    allowOutOfOrderExecution: true, // Default to allow out-of-order execution
+  },
 };
 // =================================================================
 

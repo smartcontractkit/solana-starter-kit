@@ -24,6 +24,16 @@ import {
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 
+/**
+ * IMPORTANT NOTE: All tokens that will be used in ccip_send transactions
+ * MUST be delegated to the "fee-billing" signer PDA. This includes any tokens
+ * that will be transferred across chains (not just fee tokens).
+ * 
+ * This is because the ccip-router program's implementation always uses the
+ * fee_billing_signer PDA to move tokens from the user's account to the token pool,
+ * regardless of the token type or purpose.
+ */
+
 // Maximum uint64 value for unlimited approvals - computes 2^64 - 1
 const MAX_UINT64 = ((BigInt(1) << BigInt(64)) - BigInt(1)).toString();
 
@@ -76,7 +86,7 @@ const TOKEN_DELEGATION_CONFIG = {
       // BnM token
       tokenMint: config.tokenMint,
       // Will determine program ID dynamically
-      delegationType: "token-pool" as DelegationType, // Maps to token pool signer PDA (dynamic)
+      delegationType: "fee-billing" as DelegationType, // Must use fee-billing PDA for ccip_send compatibility
       amount: MAX_UINT64, // Unlimited approval
     },
     {
@@ -250,16 +260,39 @@ async function delegateTokenAuthority(): Promise<void> {
 
     // Add any additional tokens from command line
     if (cmdOptions.tokenMint) {
+      let effectiveDelegationType: DelegationType = "fee-billing"; // Default for ccip_send compatibility
+      let customDelegateAddress: PublicKey | string | undefined = undefined;
+      
+      if (cmdOptions.delegationType === "custom") {
+        if (!cmdOptions.customDelegate) {
+          logger.error("Error: --delegation-type 'custom' requires --custom-delegate to be set.");
+          throw new Error("Custom delegate not provided for custom delegation type.");
+        }
+        effectiveDelegationType = "custom";
+        customDelegateAddress = cmdOptions.customDelegate;
+        logger.info(`Using custom delegation type for ${cmdOptions.tokenMint}.`);
+      } else if (cmdOptions.delegationType === "token-pool") {
+        // If user explicitly asks for token-pool, warn them about ccip_send compatibility
+        logger.warn(
+          `Warning: Delegation type 'token-pool' specified for ${cmdOptions.tokenMint}. ` +
+          `For ccip_send compatibility, authority will be delegated to the 'fee-billing' signer PDA. ` +
+          `If delegation to a pool-specific PDA is also needed, handle it separately.`
+        );
+        effectiveDelegationType = "fee-billing";
+      } else {
+        // Default case (no delegationType specified or fee-billing)
+        logger.info(`Using 'fee-billing' delegation type for ${cmdOptions.tokenMint} for ccip_send compatibility.`);
+      }
+
       const customTokenConfig: TokenDelegationConfig = {
         tokenMint: cmdOptions.tokenMint,
         tokenProgramId: cmdOptions.tokenProgramId,
-        delegationType: cmdOptions.delegationType || "token-pool",
+        delegationType: effectiveDelegationType,
         amount: MAX_UINT64,
       };
 
-      if (cmdOptions.customDelegate) {
-        customTokenConfig.delegationType = "custom";
-        customTokenConfig.customDelegate = cmdOptions.customDelegate;
+      if (customDelegateAddress) {
+        customTokenConfig.customDelegate = customDelegateAddress;
       }
 
       tokenDelegations.push(customTokenConfig);

@@ -189,7 +189,7 @@ const createMessageConfig = async () => {
       allowOutOfOrderExecution: true,
 
       // Bitmap of accounts that should be made writable
-      // Binary representation: 000010 (decimal 2)
+      // Binary representation: 0101110 (decimal 46)
       // Analyzing the accounts in the order they appear in the `accounts` array:
       // [0] state PDA - NOT writable (0)
       // [1] messages_storage PDA - writable (1)

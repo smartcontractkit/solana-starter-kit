@@ -19,6 +19,19 @@ import {
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 
+/**
+ * IMPORTANT NOTE: All tokens that will be used in ccip_send transactions
+ * MUST be delegated to the "fee-billing" signer PDA. This includes any tokens
+ * that will be transferred across chains (not just fee tokens).
+ * 
+ * This is because the ccip-router program's implementation always uses the
+ * fee_billing_signer PDA to move tokens from the user's account to the token pool,
+ * regardless of the token type or purpose.
+ * 
+ * Though BnM is primarily used for cross-chain transfers, it still needs the
+ * "fee-billing" delegation type for ccip_send compatibility.
+ */
+
 // Get configuration - we only support Solana Devnet for now
 const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
 
@@ -77,7 +90,7 @@ const TOKEN_APPROVAL_CONFIG = {
       // BnM token - using config value directly
       tokenMint: config.tokenMint,
       description: "BnM Token",
-      delegationType: "token-pool" as DelegationType,
+      delegationType: "fee-billing" as DelegationType, // Must use fee-billing for ccip_send compatibility
     },
     {
       // LINK token - using config value directly

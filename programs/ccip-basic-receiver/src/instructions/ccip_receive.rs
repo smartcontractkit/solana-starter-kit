@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::token_2022::spl_token_2022;
+use anchor_spl::token_2022::spl_token_2022::state::Mint;
+use anchor_lang::solana_program::program_pack::Pack;
 use crate::{
     constants::TOKEN_ADMIN_SEED,
     context::CcipReceive,
@@ -96,6 +98,10 @@ pub fn handler(
         });
         
         // Build transfer instruction using token-2022 layout
+        // Unpack the mint data to get decimals
+        let mint_data = Mint::unpack(*token_mint_info.try_borrow_data()?)?;
+        let decimals = mint_data.decimals;
+        
         let mut transfer_ix = spl_token_2022::instruction::transfer_checked(
             &spl_token_2022::ID, // Use Token-2022 to build instruction structure
             &source_token_account.key(),
@@ -104,7 +110,7 @@ pub fn handler(
             &token_admin_info.key(),
             &[],
             token_amount,
-            0, // Expected decimals, we rely on the check done by the token program
+            decimals, // Use actual decimals from the mint
         )?;
         
         // Replace with actual token program

@@ -1,5 +1,10 @@
 use anchor_lang::prelude::*;
 
+// Define maximum sizes for tutorial purposes
+pub const MAX_MESSAGE_DATA_SIZE: usize = 1024; // 1KB limit for message data
+pub const MAX_TOKEN_AMOUNTS: usize = 10;      // Limit to 10 token transfers
+pub const MAX_SENDER_ADDRESS_SIZE: usize = 64; // Max 64 bytes for sender address
+
 /// Core state account for the CCIP Receiver program
 /// This account stores essential configuration like owner and router
 #[account]

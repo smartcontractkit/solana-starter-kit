@@ -8,7 +8,10 @@ use crate::{
     context::CcipReceive,
     error::CCIPReceiverError,
     events::{MessageReceived, TokenReceived, TokensForwarded},
-    state::{Any2SVMMessage, MessageType, ReceivedMessage},
+    state::{
+        Any2SVMMessage, MessageType, ReceivedMessage,
+        MAX_MESSAGE_DATA_SIZE, MAX_TOKEN_AMOUNTS, MAX_SENDER_ADDRESS_SIZE
+    },
 };
 
 /// Process an incoming cross-chain message
@@ -30,6 +33,27 @@ pub fn handler(
     ctx: Context<CcipReceive>,
     message: Any2SVMMessage,
 ) -> Result<()> {
+    // --- Input Validation ---
+    // Validate data size against the maximum allowed
+    if message.data.len() > MAX_MESSAGE_DATA_SIZE {
+        msg!("Error: Message data size ({}) exceeds maximum allowed ({})", 
+             message.data.len(), MAX_MESSAGE_DATA_SIZE);
+        return Err(CCIPReceiverError::MessageDataTooLarge.into());
+    }
+    // Validate token count against the maximum allowed
+    if message.token_amounts.len() > MAX_TOKEN_AMOUNTS {
+        msg!("Error: Number of token transfers ({}) exceeds maximum allowed ({})", 
+             message.token_amounts.len(), MAX_TOKEN_AMOUNTS);
+        return Err(CCIPReceiverError::TooManyTokens.into());
+    }
+    // Validate sender address size against the maximum allowed
+    if message.sender.len() > MAX_SENDER_ADDRESS_SIZE {
+        msg!("Error: Sender address size ({}) exceeds maximum allowed ({})", 
+             message.sender.len(), MAX_SENDER_ADDRESS_SIZE);
+        return Err(CCIPReceiverError::SenderAddressTooLarge.into());
+    }
+    // --- End Input Validation ---
+
     // Emit detailed message received event
     emit!(MessageReceived {
         message_id: message.message_id,

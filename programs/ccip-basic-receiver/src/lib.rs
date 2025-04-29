@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::Pubkey;
 use anchor_spl::token::TokenAccount;
+// use instructions::*; // Remove this unused import
 
 /// Program constants
 mod constants;
@@ -73,5 +74,11 @@ pub mod ccip_basic_receiver {
     /// Withdraw tokens from a program token account
     pub fn withdraw_tokens(ctx: Context<WithdrawTokens>, amount: u64, decimals: u8) -> Result<()> {
         instructions::withdraw_tokens_handler(ctx, amount, decimals)
+    }
+
+    /// Closes the messages storage account and returns lamports to the owner.
+    pub fn close_storage(_ctx: Context<CloseStorage>) -> Result<()> {
+        // No handler logic needed, Anchor handles the closing via the `close` constraint
+        Ok(())
     }
 }

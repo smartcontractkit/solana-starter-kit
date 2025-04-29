@@ -3,7 +3,10 @@ use anchor_spl::token_interface::Mint;
 use crate::{
     constants::{ALLOWED_OFFRAMP, ANCHOR_DISCRIMINATOR, EXTERNAL_EXECUTION_CONFIG_SEED, MESSAGES_STORAGE_SEED, STATE_SEED, TOKEN_ADMIN_SEED},
     error::CCIPReceiverError,
-    state::{Any2SVMMessage, BaseState, MessagesStorage},
+    state::{
+        Any2SVMMessage, BaseState, MessagesStorage, SVMTokenAmount,
+        MAX_MESSAGE_DATA_SIZE, MAX_TOKEN_AMOUNTS, MAX_SENDER_ADDRESS_SIZE
+    }
 };
 
 /// Accounts required for initializing the CCIP Receiver program
@@ -27,7 +30,17 @@ pub struct Initialize<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = ANCHOR_DISCRIMINATOR + std::mem::size_of::<MessagesStorage>(),
+        space = ANCHOR_DISCRIMINATOR 
+              + 8  // last_updated (i64)
+              + 8  // message_count (u64)
+              // ReceivedMessage struct size breakdown:
+              + 32 // message_id ([u8; 32])
+              + 1  // message_type (enum)
+              + 4 + MAX_MESSAGE_DATA_SIZE // data (Vec<u8> - 4 bytes len + max data)
+              + 4 + MAX_TOKEN_AMOUNTS * std::mem::size_of::<SVMTokenAmount>() // token_amounts (Vec<SVMTokenAmount> - 4 bytes len + max items * item size)
+              + 8  // received_timestamp (i64)
+              + 8  // source_chain_selector (u64)
+              + 4 + MAX_SENDER_ADDRESS_SIZE, // sender (Vec<u8> - 4 bytes len + max data)
         seeds = [MESSAGES_STORAGE_SEED],
         bump
     )]
@@ -159,4 +172,31 @@ pub struct WithdrawTokens<'info> {
         address = state.owner @ CCIPReceiverError::Unauthorized,
     )]
     pub authority: Signer<'info>,
+}
+
+/// Accounts required for closing the messages storage account
+#[derive(Accounts)]
+pub struct CloseStorage<'info> {
+    /// Program state account for owner verification
+    #[account(
+        seeds = [STATE_SEED],
+        bump,
+    )]
+    pub state: Account<'info, BaseState>,
+
+    /// The messages storage account to close
+    #[account(
+        mut,
+        seeds = [MESSAGES_STORAGE_SEED],
+        bump,
+        close = owner // Anchor handles closing and sending lamports to owner
+    )]
+    pub messages_storage: Account<'info, MessagesStorage>,
+
+    /// The owner who will receive the rent lamports from the closed account
+    #[account(
+        mut,
+        address = state.owner @ CCIPReceiverError::Unauthorized
+    )]
+    pub owner: Signer<'info>,
 } 

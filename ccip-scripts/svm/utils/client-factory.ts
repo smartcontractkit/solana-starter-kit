@@ -5,7 +5,11 @@ import {
   LogLevel,
   createLogger,
   CCIPProvider,
+  TokenPoolType,
+  TokenPoolProgramIds,
 } from "../../../ccip-lib/svm";
+import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
+import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
 import {
   ChainId,
   getCCIPSVMConfig,
@@ -57,6 +61,91 @@ export function createCCIPClient(
 }
 
 /**
+ * Options for creating a TokenPoolManager
+ */
+export interface TokenPoolManagerOptions extends CommonOptions {
+  connection?: Connection;
+}
+
+/**
+ * Creates a TokenPoolManager for managing token pools
+ *
+ * @param burnMintPoolProgramId Program ID for the burn-mint pool
+ * @param options Client creation options
+ * @returns TokenPoolManager instance
+ */
+export function createTokenPoolManager(
+  burnMintPoolProgramId: PublicKey,
+  options: TokenPoolManagerOptions = {}
+): TokenPoolManager {
+  // We only support SOLANA_DEVNET for now
+  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  const keypairPath = getKeypairPath(options);
+
+  // Create provider from keypair path
+  const provider = createProviderFromPath(keypairPath, config.connection);
+
+  // Build context with config and provider
+  const context: CCIPContext = {
+    // Use the adapter function to convert our config to the format expected by the library
+    config: adaptSVMConfigForLibrary(config),
+    provider,
+    logger:
+      options.logLevel !== undefined
+        ? createLogger("token-pool-manager", { level: options.logLevel })
+        : undefined,
+  };
+
+  // Configure program IDs for the token pool types
+  const programIds: TokenPoolProgramIds = {
+    burnMint: burnMintPoolProgramId,
+  };
+
+  // Return the TokenPoolManager instance
+  return new TokenPoolManager(context, programIds);
+}
+
+/**
+ * Options for creating a TokenRegistryClient
+ */
+export interface TokenRegistryClientOptions extends CommonOptions {
+  connection?: Connection;
+}
+
+/**
+ * Creates a TokenRegistryClient for managing token registrations
+ *
+ * @param routerProgramId Router program ID
+ * @param options Client creation options
+ * @returns TokenRegistryClient instance
+ */
+export function createTokenRegistryClient(
+  routerProgramId: string,
+  options: TokenRegistryClientOptions = {}
+): TokenRegistryClient {
+  // We only support SOLANA_DEVNET for now
+  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  const keypairPath = getKeypairPath(options);
+
+  // Create provider from keypair path
+  const provider = createProviderFromPath(keypairPath, config.connection);
+
+  // Build context with config and provider
+  const context: CCIPContext = {
+    // Use the adapter function to convert our config to the format expected by the library
+    config: adaptSVMConfigForLibrary(config),
+    provider,
+    logger:
+      options.logLevel !== undefined
+        ? createLogger("token-registry-client", { level: options.logLevel })
+        : undefined,
+  };
+
+  // Return the TokenRegistryClient instance
+  return new TokenRegistryClient(context, new PublicKey(routerProgramId));
+}
+
+/**
  * Loads the CCIP Basic Receiver IDL and creates an Anchor Program instance
  * @param keypairPath Path to the keypair file
  * @param connection Web3 connection to use
@@ -95,8 +184,11 @@ export function loadReceiverProgram(
   // Use provided programId or get from IDL
   const programIdToUse =
     programId ||
-    (idl.address ? new PublicKey(idl.address) : 
-     (idl.metadata?.address ? new PublicKey(idl.metadata.address) : null));
+    (idl.address
+      ? new PublicKey(idl.address)
+      : idl.metadata?.address
+      ? new PublicKey(idl.metadata.address)
+      : null);
 
   if (!programIdToUse) {
     throw new Error("Program ID not provided and not found in IDL metadata");

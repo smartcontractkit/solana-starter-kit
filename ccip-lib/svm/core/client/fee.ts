@@ -5,7 +5,6 @@ import {
 } from "@solana/web3.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { AccountMeta } from "@solana/web3.js";
-import { Logger } from "../../utils/logger";
 import { createErrorEnhancer } from "../../utils/errors";
 import { CCIPFeeRequest, CCIPContext, CCIPCoreConfig } from "../models";
 import * as types from "../../bindings/types";
@@ -26,7 +25,7 @@ import {
 
 /**
  * Calculates the fee for a CCIP message
- * 
+ *
  * @param context SDK context with provider, config and logger
  * @param request Fee request parameters
  * @returns Fee result
@@ -193,9 +192,7 @@ export async function calculateFee(
     logger.trace(`Simulation logs:`, simulation.value.logs);
 
     const ccipReturnLog = simulation.value.logs.find((log) =>
-      log.includes(
-        `Program return: ${config.ccipRouterProgramId.toString()}`
-      )
+      log.includes(`Program return: ${config.ccipRouterProgramId.toString()}`)
     );
 
     if (ccipReturnLog) {
@@ -219,9 +216,7 @@ export async function calculateFee(
       }
     }
 
-    logger.error(
-      `Could not find CCIP program return log in simulation logs`
-    );
+    logger.error(`Could not find CCIP program return log in simulation logs`);
   } else {
     logger.error(`Simulation did not return any logs`);
   }
@@ -256,9 +251,7 @@ async function buildGetFeeAccounts(
     selectorBigInt,
     config.ccipRouterProgramId
   );
-  const [feeQuoterConfig] = findFqConfigPDA(
-    config.feeQuoterProgramId
-  );
+  const [feeQuoterConfig] = findFqConfigPDA(config.feeQuoterProgramId);
   const [fqDestChain] = findFqDestChainPDA(
     selectorBigInt,
     config.feeQuoterProgramId
@@ -281,4 +274,4 @@ async function buildGetFeeAccounts(
     feeQuoterBillingTokenConfig: fqBillingTokenConfig,
     feeQuoterLinkTokenConfig: fqLinkBillingTokenConfig,
   };
-} 
+}

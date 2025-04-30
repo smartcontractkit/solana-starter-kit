@@ -3,7 +3,7 @@
     "generate-types": "typechain --target ethers-v6 --out-dir ccip-evm-sdk/types/contracts ccip-evm-sdk/abi/*.json",
     "read-data": "ts-node ./read-data.ts",
     "type-check": "tsc --noEmit",
-    "ccip:fee": "ts-node ./ccip-scripts/svm/router/get-ccip-fee.ts",
+    "svm:fee": "ts-node ./ccip-scripts/svm/router/get-ccip-fee.ts",
     "svm:token-transfer": "ts-node ./ccip-scripts/svm/router/1_token-transfer.ts",
     "svm:arbitrary-messaging": "ts-node ./ccip-scripts/svm/router/2_arbitrary-messaging.ts",
     "svm:data-and-tokens": "ts-node ./ccip-scripts/svm/router/3_data-and-tokens.ts",

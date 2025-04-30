@@ -38,7 +38,10 @@ export const layout = borsh.struct([
  *
  * * `ctx` - The context containing the accounts required for initialization.
  * * `svm_chain_selector` - The chain selector for SVM.
- * * `enable_execution_after` - The minimum amount of time required between a message has been committed and can be manually executed.
+ * * `fee_aggregator` - The public key of the fee aggregator.
+ * * `fee_quoter` - The public key of the fee quoter.
+ * * `link_token_mint` - The public key of the LINK token mint.
+ * * `rmn_remote` - The public key of the RMN remote.
  */
 export function initialize(
   args: InitializeArgs,

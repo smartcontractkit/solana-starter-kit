@@ -182,4 +182,47 @@ export interface Logger {
   error(...message: any[]): void;
   setLevel(level: LogLevel): void;
   getLevel(): LogLevel;
+}
+
+/**
+ * Rate limit configuration for token pools in user-friendly format
+ */
+export interface TokenPoolRateLimitConfig {
+  /** Whether rate limiting is enabled */
+  isEnabled: boolean;
+  /** Maximum capacity of the rate limit bucket */
+  capacity: bigint;
+  /** Refill rate of tokens per second */
+  rate: bigint;
+  /** Last updated timestamp */
+  lastTxTimestamp: bigint;
+  /** Current number of tokens in the bucket */
+  currentBucketValue: bigint;
+}
+
+/**
+ * Chain configuration for burn-mint token pools with consistent naming
+ */
+export interface TokenPoolChainConfigResponse {
+  /** Chain config account address */
+  address: string;
+  /** Base configuration data */
+  base: {
+    /** Token decimals on remote chain */
+    decimals: number;
+    /** Pool addresses on remote chain */
+    poolAddresses: Array<{
+      /** Hex encoded address */
+      address: string;
+    }>;
+    /** Token address on remote chain */
+    tokenAddress: {
+      /** Hex encoded address */
+      address: string;
+    };
+    /** Inbound rate limit configuration */
+    inboundRateLimit: TokenPoolRateLimitConfig;
+    /** Outbound rate limit configuration */
+    outboundRateLimit: TokenPoolRateLimitConfig;
+  };
 } 

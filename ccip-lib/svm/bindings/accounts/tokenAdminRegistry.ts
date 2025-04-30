@@ -3,7 +3,7 @@ import BN from "bn.js" // eslint-disable-line @typescript-eslint/no-unused-vars
 import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface tokenAdminRegistryFields {
+export interface TokenAdminRegistryFields {
   version: number
   administrator: PublicKey
   pendingAdministrator: PublicKey
@@ -12,7 +12,7 @@ export interface tokenAdminRegistryFields {
   mint: PublicKey
 }
 
-export interface tokenAdminRegistryJSON {
+export interface TokenAdminRegistryJSON {
   version: number
   administrator: string
   pendingAdministrator: string
@@ -21,7 +21,7 @@ export interface tokenAdminRegistryJSON {
   mint: string
 }
 
-export class tokenAdminRegistry {
+export class TokenAdminRegistry {
   readonly version: number
   readonly administrator: PublicKey
   readonly pendingAdministrator: PublicKey
@@ -42,7 +42,7 @@ export class tokenAdminRegistry {
     borsh.publicKey("mint"),
   ])
 
-  constructor(fields: tokenAdminRegistryFields) {
+  constructor(fields: TokenAdminRegistryFields) {
     this.version = fields.version
     this.administrator = fields.administrator
     this.pendingAdministrator = fields.pendingAdministrator
@@ -55,7 +55,7 @@ export class tokenAdminRegistry {
     c: Connection,
     address: PublicKey,
     programId: PublicKey = PROGRAM_ID
-  ): Promise<tokenAdminRegistry | null> {
+  ): Promise<TokenAdminRegistry | null> {
     const info = await c.getAccountInfo(address)
 
     if (info === null) {
@@ -72,7 +72,7 @@ export class tokenAdminRegistry {
     c: Connection,
     addresses: PublicKey[],
     programId: PublicKey = PROGRAM_ID
-  ): Promise<Array<tokenAdminRegistry | null>> {
+  ): Promise<Array<TokenAdminRegistry | null>> {
     const infos = await c.getMultipleAccountsInfo(addresses)
 
     return infos.map((info) => {
@@ -87,14 +87,14 @@ export class tokenAdminRegistry {
     })
   }
 
-  static decode(data: Buffer): tokenAdminRegistry {
-    if (!data.slice(0, 8).equals(tokenAdminRegistry.discriminator)) {
+  static decode(data: Buffer): TokenAdminRegistry {
+    if (!data.slice(0, 8).equals(TokenAdminRegistry.discriminator)) {
       throw new Error("invalid account discriminator")
     }
 
-    const dec = tokenAdminRegistry.layout.decode(data.slice(8))
+    const dec = TokenAdminRegistry.layout.decode(data.slice(8))
 
-    return new tokenAdminRegistry({
+    return new TokenAdminRegistry({
       version: dec.version,
       administrator: dec.administrator,
       pendingAdministrator: dec.pendingAdministrator,
@@ -104,7 +104,7 @@ export class tokenAdminRegistry {
     })
   }
 
-  toJSON(): tokenAdminRegistryJSON {
+  toJSON(): TokenAdminRegistryJSON {
     return {
       version: this.version,
       administrator: this.administrator.toString(),
@@ -115,8 +115,8 @@ export class tokenAdminRegistry {
     }
   }
 
-  static fromJSON(obj: tokenAdminRegistryJSON): tokenAdminRegistry {
-    return new tokenAdminRegistry({
+  static fromJSON(obj: TokenAdminRegistryJSON): TokenAdminRegistry {
+    return new TokenAdminRegistry({
       version: obj.version,
       administrator: new PublicKey(obj.administrator),
       pendingAdministrator: new PublicKey(obj.pendingAdministrator),

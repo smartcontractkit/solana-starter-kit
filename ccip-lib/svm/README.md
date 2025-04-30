@@ -24,6 +24,7 @@ import { CCIPClient } from "../path/to/ccip-lib/svm";
 - Anchor-generated bindings for all CCIP accounts and instructions
 - Flexible configuration management with dependency injection
 - Structured logging throughout the SDK
+- Token pool management (burn-mint pools) for cross-chain token transfers
 
 ## Architecture
 
@@ -31,9 +32,15 @@ The SDK follows a modular architecture with clear separation of concerns:
 
 ### Core Components
 
-- **CCIPClient**: Main entry point for SDK functionality (fee calculation, message sending)
+- **CCIPClient**: Main entry point for SDK functionality (fee calculation, message sending, token pool access)
 - **CCIPAccountReader**: Handles fetching and decoding on-chain CCIP accounts
 - **Models**: Type definitions shared across all components
+
+### Token Pools
+
+- **TokenPoolClient**: Abstract interface for token pool operations
+- **BurnMintTokenPoolClient**: Implementation for burn-mint token pools
+- **TokenPoolFactory**: Factory for creating and detecting token pool types
 
 ### Bindings
 
@@ -341,6 +348,89 @@ const [tokenPoolsSigner] = await findDynamicTokenPoolsSignerPDA(
   routerProgramId,
   connection
 );
+```
+
+## Token Pool Support
+
+The SDK provides support for interacting with different types of token pools used by CCIP for cross-chain transfers.
+
+### Token Pool Types
+
+Currently, the SDK supports the following pool types:
+
+- **Burn-Mint Pools**: Tokens are burned on the source chain and minted on the destination chain.
+
+### Using Token Pools
+
+Token pools can be accessed through the `CCIPClient`:
+
+```typescript
+// Get a burn-mint token pool client
+const burnMintPool = client.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+// Or auto-detect the pool type for a specific token mint
+const pool = await client.getTokenPoolClientForMint(tokenMint);
+
+// Create a new pool for a token
+const txSignature = await pool.createPool(tokenMint);
+
+// Configure a chain for cross-chain transfers
+const chainConfig = {
+  enabled: true,
+  maxTokensPerMessage: new BN(1000000000), // 1 token with 9 decimals
+  feeBps: 10 // 0.1% fee
+};
+await pool.configureChain(tokenMint, destinationChainSelector, chainConfig);
+
+// Set rate limits for a token
+await pool.setRateLimit(
+  tokenMint,
+  new BN(1000000000), // Capacity: 1 token with 9 decimals
+  new BN(100000000)   // Rate: 0.1 tokens per second
+);
+
+// Transfer admin role for a token pool
+await pool.transferAdminRole(tokenMint, newAdminPublicKey);
+```
+
+### Token Pool Factory
+
+For advanced usage, you can use the `TokenPoolFactory` directly:
+
+```typescript
+import { TokenPoolFactory, TokenPoolType } from "../path/to/ccip-lib/svm";
+
+// Create a specific token pool type
+const pool = TokenPoolFactory.create(TokenPoolType.BURN_MINT, context);
+
+// Auto-detect the token pool type for a mint
+const poolType = await TokenPoolFactory.detectPoolType(tokenMint, context);
+const pool = TokenPoolFactory.create(poolType, context);
+```
+
+### PDA Utilities for Token Pools
+
+The SDK provides functions to derive all program-derived addresses used in token pools:
+
+```typescript
+import {
+  findBurnMintPoolConfigPDA,
+  findBurnMintPoolChainConfigPDA,
+  findRateLimitPDA
+} from "../path/to/ccip-lib/svm";
+
+// Get the pool config PDA
+const [poolConfigPDA] = findBurnMintPoolConfigPDA(tokenMint, burnMintPoolProgramId);
+
+// Get the chain config PDA
+const [chainConfigPDA] = findBurnMintPoolChainConfigPDA(
+  chainSelector,
+  tokenMint, 
+  burnMintPoolProgramId
+);
+
+// Get the rate limit PDA
+const [rateLimitPDA] = findRateLimitPDA(tokenMint, burnMintPoolProgramId);
 ```
 
 ## Error Handling

@@ -1,6 +1,16 @@
 import { Logger } from "./logger";
 
 /**
+ * Base CCIP error class for standardized error handling
+ */
+export class CCIPError extends Error {
+  constructor(message: string, public context?: Record<string, unknown>) {
+    super(message);
+    this.name = "CCIPError";
+  }
+}
+
+/**
  * Enhances an error with additional context for better diagnostics
  * @param error Original error
  * @param context Additional context to add

@@ -8,6 +8,10 @@ import {
 import { CCIPProvider, AddressConversion } from "../../../ccip-lib/svm";
 import fs from "fs";
 import { KEYPAIR_PATHS } from "./config-parser";
+import { AnchorProvider, Wallet } from '@coral-xyz/anchor';
+import { createLogger } from "../../../ccip-lib/svm/utils/logger";
+
+const logger = createLogger('Provider');
 
 /**
  * Loads a keypair from a file
@@ -20,9 +24,39 @@ export function loadKeypair(filePath: string = KEYPAIR_PATHS.DEFAULT): Keypair {
     const keypairJson = JSON.parse(keypairData);
     return Keypair.fromSecretKey(Buffer.from(keypairJson));
   } catch (error) {
-    console.error(`Error loading keypair from ${filePath}:`, error);
+    logger.error(`Error loading keypair from ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
+}
+
+/**
+ * Get a connection to the Solana network
+ * @returns Connection
+ */
+export function getConnection(): Connection {
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  logger.info(`Connecting to ${rpcUrl}`);
+  return new Connection(rpcUrl, 'confirmed');
+}
+
+/**
+ * Get a provider for interacting with Solana using Anchor
+ * @returns AnchorProvider with publicKey property
+ */
+export async function getProvider(): Promise<AnchorProvider & { publicKey: PublicKey }> {
+  const keypair = loadKeypair();
+  const connection = getConnection();
+
+  const provider = new AnchorProvider(
+    connection,
+    new Wallet(keypair),
+    AnchorProvider.defaultOptions()
+  );
+
+  // Add the publicKey directly to the provider for convenience
+  (provider as any).publicKey = keypair.publicKey;
+
+  return provider as AnchorProvider & { publicKey: PublicKey };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js" // eslint-disable-line @typescript-eslint/no-unused-vars
 import BN from "bn.js" // eslint-disable-line @typescript-eslint/no-unused-vars
-import * as types from "." // eslint-disable-line @typescript-eslint/no-unused-vars
+import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import * as borsh from "@coral-xyz/borsh"
 
 export interface DestChainConfigFields {

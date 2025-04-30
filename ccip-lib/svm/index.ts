@@ -28,5 +28,11 @@ export * from "./utils/keypair";
 export * from "./bindings/types";
 export * from "./bindings/accounts";
 
+// Token Pool exports
+export * from "./tokenpools/abstract";
+export * from "./tokenpools/factory";
+export { BurnMintTokenPoolClient } from "./tokenpools/burnmint";
+export type { BurnMintChainConfigOptions } from "./tokenpools";
+
 // Export version
 export const SDK_VERSION = "0.1.0";

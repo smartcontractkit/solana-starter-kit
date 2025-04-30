@@ -71,7 +71,7 @@ export function ccipSend(
     {
       pubkey: accounts.feeTokenUserAssociatedAccount,
       isSigner: false,
-      isWritable: true,
+      isWritable: false,
     },
     { pubkey: accounts.feeTokenReceiver, isSigner: false, isWritable: true },
     { pubkey: accounts.feeBillingSigner, isSigner: false, isWritable: false },

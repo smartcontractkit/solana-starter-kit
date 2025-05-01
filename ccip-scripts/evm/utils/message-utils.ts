@@ -278,5 +278,5 @@ export function displayTransferResults(
     );
   }
 
-  logger.info("\n✅ Cross-chain transfer completed");
+  logger.info("\n✅ Transaction completed on the source chain");
 }

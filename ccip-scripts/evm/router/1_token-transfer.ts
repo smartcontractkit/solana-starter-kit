@@ -56,12 +56,12 @@ const MESSAGE_CONFIG = {
   tokenAmounts: [
     {
       // The BnM token address on the source chain
-      address: sourceChainConfig.tokenAddress,
+      address: sourceChainConfig.bnmTokenAddress,
 
       // Token amount in raw format (with all decimals included)
       // IMPORTANT: This must be the full raw amount, not a decimal value
-      // For example: 1 token with 18 decimals would be "1000000000000000000"
-      amount: "1000000000000000", // 0.001 tokens with 18 decimals
+      // For example: 1 token with 18 decimals would be "100000000000000000"
+      amount: "100000000000000000", // 0.1 tokens with 18 decimals
     },
   ],
 

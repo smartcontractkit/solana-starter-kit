@@ -1,4 +1,4 @@
-import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { PublicKey, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
 import { getCCIPSVMConfig, ChainId } from "../../config";
@@ -6,10 +6,10 @@ import { loadKeypair, loadReceiverProgram } from "../utils";
 import { KEYPAIR_PATHS } from "../utils/config-parser";
 
 /**
- * Closes the CCIP Basic Receiver messages storage account.
+ * Closes the CCIP Basic Receiver state and messages storage accounts.
  * Sends the rent lamports back to the owner (payer).
  * 
- * This is useful for resetting the storage account if its size needs to change.
+ * This is useful for resetting the program state if its size needs to change.
  * After running this, you MUST run the initialize script again.
  */
 
@@ -24,7 +24,7 @@ const KEYPAIR_PATH = process.env.KEYPAIR_PATH || KEYPAIR_PATHS.DEFAULT;
 async function main() {
   // Create logger
   const logger = createLogger("ccip-receiver-close-storage", { level: LogLevel.INFO });
-  logger.info("Attempting to close CCIP Basic Receiver messages storage account...");
+  logger.info("Attempting to close CCIP Basic Receiver state and messages storage accounts...");
 
   // Load configuration
   const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
@@ -53,19 +53,47 @@ async function main() {
         [Buffer.from("messages_storage")],
         programId
       );
+      const [tokenAdminPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("token_admin")],
+        programId
+      );
       
       logger.info(`State PDA: ${statePda.toString()}`);
       logger.info(`Messages Storage PDA: ${messagesStoragePda.toString()}`);
+      logger.info(`Token Admin PDA: ${tokenAdminPda.toString()} (will not be closed)`);
       
-      // Check if messages storage account exists
+      // Check if accounts exist
+      const stateInfo = await program.provider.connection.getAccountInfo(statePda);
       const messagesStorageInfo = await program.provider.connection.getAccountInfo(messagesStoragePda);
+      const tokenAdminInfo = await program.provider.connection.getAccountInfo(tokenAdminPda);
+      
+      // Show current account states
+      if (stateInfo === null) {
+        logger.info("State account does not exist or has already been closed.");
+      } else {
+        logger.info(`State account exists (${stateInfo.data.length} bytes, ${stateInfo.lamports / LAMPORTS_PER_SOL} SOL)`);
+      }
+      
       if (messagesStorageInfo === null) {
         logger.info("Messages storage account does not exist or has already been closed.");
+      } else {
+        logger.info(`Messages storage account exists (${messagesStorageInfo.data.length} bytes, ${messagesStorageInfo.lamports / LAMPORTS_PER_SOL} SOL)`);
+      }
+      
+      if (tokenAdminInfo === null) {
+        logger.info("Token admin account does not exist.");
+      } else {
+        logger.info(`Token admin account exists (${tokenAdminInfo.data.length} bytes, ${tokenAdminInfo.lamports / LAMPORTS_PER_SOL} SOL)`);
+        logger.info("Note: Token admin account will remain open after this operation.");
+      }
+      
+      if (stateInfo === null && messagesStorageInfo === null) {
+        logger.info("No accounts to close. All accounts are already closed.");
         process.exit(0);
       }
-
-      logger.info("Found messages storage account. Attempting to close...");
-        
+      
+      logger.info("Found accounts to close. Attempting to close...");
+      
       // Execute the close_storage instruction
       const tx = await program.methods
         .closeStorage()
@@ -73,12 +101,28 @@ async function main() {
           state: statePda,
           messagesStorage: messagesStoragePda,
           owner: ownerKeypair.publicKey,
+          systemProgram: SystemProgram.programId,
         })
-        // Sign with the owner's keypair
         .signers([ownerKeypair]) 
         .rpc();
       
-      logger.info(`Messages storage account closed successfully. Transaction: ${tx}`);
+      // Verify account closure
+      const postStateInfo = await program.provider.connection.getAccountInfo(statePda);
+      const postMessagesStorageInfo = await program.provider.connection.getAccountInfo(messagesStoragePda);
+      
+      if (postStateInfo === null) {
+        logger.info("✅ State account successfully closed.");
+      } else {
+        logger.warn("⚠️ State account still exists after close operation!");
+      }
+      
+      if (postMessagesStorageInfo === null) {
+        logger.info("✅ Messages storage account successfully closed.");
+      } else {
+        logger.warn("⚠️ Messages storage account still exists after close operation!");
+      }
+      
+      logger.info(`Transaction: ${tx}`);
       logger.info(`Solana Explorer: ${config.explorerUrl}${tx}`);
       logger.info("\n======== IMPORTANT ========");
       logger.info("You MUST run the initialize script again before the receiver can function.");

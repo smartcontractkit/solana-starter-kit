@@ -4,9 +4,7 @@ import {
   LAMPORTS_PER_SOL,
   ComputeBudgetProgram,
 } from "@solana/web3.js";
-import {
-  NATIVE_MINT,
-} from "@solana/spl-token";
+import { NATIVE_MINT } from "@solana/spl-token";
 import {
   CCIPSendRequest,
   CCIPSendOptions,
@@ -36,7 +34,7 @@ import { ExecutorOptions, CCIPOptions } from "./config-types";
  * Core executor function for CCIP scripts
  * This function handles the common workflow across all CCIP scripts
  * while allowing for script-specific configurations
- * 
+ *
  * @param options Executor options including script-specific configurations
  */
 export async function executeCCIPScript({
@@ -93,7 +91,7 @@ export async function executeCCIPScript({
 
     // Get configuration
     const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-    
+
     // STEP 4: Check wallet balance
     logger.info("\n==== Wallet Balance Information ====");
     const connection = config.connection;
@@ -202,35 +200,42 @@ export async function executeCCIPScript({
 
     // STEP 7: Create extraArgs configuration
     const defaultGasLimit = scriptConfig.defaultExtraArgs?.gasLimit ?? 200000;
-    const defaultAllowOutOfOrder = scriptConfig.defaultExtraArgs?.allowOutOfOrderExecution ?? true;
-    
+    const defaultAllowOutOfOrder =
+      scriptConfig.defaultExtraArgs?.allowOutOfOrderExecution ?? true;
+
     const extraArgsConfig: ExtraArgsOptions = {
       gasLimit: options.extraArgs?.gasLimit ?? defaultGasLimit,
-      allowOutOfOrderExecution: 
-        options.extraArgs?.allowOutOfOrderExecution !== undefined 
-          ? options.extraArgs.allowOutOfOrderExecution 
+      allowOutOfOrderExecution:
+        options.extraArgs?.allowOutOfOrderExecution !== undefined
+          ? options.extraArgs.allowOutOfOrderExecution
           : defaultAllowOutOfOrder,
     };
 
     // Log warning if using default values
     if (!options.extraArgs?.gasLimit) {
-      logger.warn(`No gasLimit provided in extraArgs, using default value: ${defaultGasLimit}`);
+      logger.warn(
+        `No gasLimit provided in extraArgs, using default value: ${defaultGasLimit}`
+      );
     }
     if (options.extraArgs?.allowOutOfOrderExecution === undefined) {
-      logger.warn(`No allowOutOfOrderExecution flag provided in extraArgs, using default value: ${defaultAllowOutOfOrder}`);
+      logger.warn(
+        `No allowOutOfOrderExecution flag provided in extraArgs, using default value: ${defaultAllowOutOfOrder}`
+      );
     }
 
     // Force allowOutOfOrderExecution to true to avoid error 8030
     if (!extraArgsConfig.allowOutOfOrderExecution) {
-      logger.warn("Setting allowOutOfOrderExecution to true to avoid FeeQuoter error 8030");
+      logger.warn(
+        "Setting allowOutOfOrderExecution to true to avoid FeeQuoter error 8030"
+      );
       extraArgsConfig.allowOutOfOrderExecution = true;
     }
 
     // Generate the extraArgs buffer
     const extraArgs = ccipClient.createExtraArgs(extraArgsConfig);
-    
+
     // Log the extraArgs buffer for debugging
-    logger.debug(`ExtraArgs buffer (hex): ${extraArgs.toString('hex')}`);
+    logger.debug(`ExtraArgs buffer (hex): ${extraArgs.toString("hex")}`);
 
     // STEP 8: Process message data
     const messageDataBuffer = messageDataToBuffer(options.messageData);
@@ -326,9 +331,9 @@ export async function executeCCIPScript({
 
     // Validate SOL balance
     await validateSolBalance(
-      connection, 
-      walletKeypair.publicKey, 
-      options.minSolRequired, 
+      connection,
+      walletKeypair.publicKey,
+      options.minSolRequired,
       logger
     );
 
@@ -363,7 +368,7 @@ export async function executeCCIPScript({
     if (result.messageId) {
       logger.info(`Message ID: ${result.messageId}`);
       logger.info(
-        `Open the CCIP explorer: https://ccip-ui-staging.vercel.app/msg/${result.messageId}`
+        `Open the CCIP explorer: ${getCCIPExplorerUrl(result.messageId)}`
       );
     } else {
       logger.warn("Message ID not available in transaction logs.");
@@ -396,4 +401,9 @@ export async function executeCCIPScript({
 }
 
 // Import these after function to avoid circular dependencies
-import { determineTokenProgramId, fetchTokenDecimals, formatTokenAmount } from "../token-utils"; 
+import {
+  determineTokenProgramId,
+  fetchTokenDecimals,
+  formatTokenAmount,
+} from "../token-utils";
+import { getCCIPExplorerUrl } from "../../../evm/utils";

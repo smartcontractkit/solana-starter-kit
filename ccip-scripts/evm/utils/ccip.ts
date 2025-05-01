@@ -25,16 +25,10 @@ export function getExplorerUrl(
  * Gets the CCIP Explorer URL for a message
  *
  * @param messageId CCIP message ID
- * @param isProduction Whether to use production or staging URL
  * @returns CCIP Explorer URL for the message
  */
-export function getCCIPExplorerUrl(
-  messageId: string,
-  isProduction: boolean = false
-): string {
-  const baseUrl = isProduction
-    ? "https://ccip.chain.link/msg/"
-    : "https://ccip-ui-staging.vercel.app/msg/";
+export function getCCIPExplorerUrl(messageId: string): string {
+  const baseUrl = "https://ccip.chain.link/msg/";
 
   return `${baseUrl}${messageId}`;
-} 
+}

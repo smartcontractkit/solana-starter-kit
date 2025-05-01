@@ -41,7 +41,7 @@ async function dripTokens(): Promise<void> {
     // Display environment info
     logger.info("\n==== Environment Information ====");
     logger.info(`Network: ${config.name}`);
-    logger.info(`Token Address: ${config.tokenAddress}`);
+    logger.info(`Token Address: ${config.bnmTokenAddress}`);
 
     // Create CCIP client for provider access
     const client = createCCIPClient({
@@ -88,7 +88,7 @@ async function dripTokens(): Promise<void> {
     // Create BurnMintERC677Helper client using the factory function
     const tokenClient = createBurnMintERC677HelperClient(
       tokenContext,
-      config.tokenAddress
+      config.bnmTokenAddress
     );
 
     // Get token details
@@ -96,7 +96,7 @@ async function dripTokens(): Promise<void> {
 
     // Display drip summary
     logger.info("\n==== Drip Configuration ====");
-    logger.info(`Token: ${tokenSymbol} (${config.tokenAddress})`);
+    logger.info(`Token: ${tokenSymbol} (${config.bnmTokenAddress})`);
     logger.info(`Receiver: ${receiver}`);
     logger.info(`Number of Drips: ${loopCount}`);
 

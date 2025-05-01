@@ -177,10 +177,12 @@ pub struct WithdrawTokens<'info> {
 /// Accounts required for closing the messages storage account
 #[derive(Accounts)]
 pub struct CloseStorage<'info> {
-    /// Program state account for owner verification
+    /// Program state account for owner verification and closing
     #[account(
+        mut,
         seeds = [STATE_SEED],
         bump,
+        close = owner // Anchor handles closing and sending lamports to owner
     )]
     pub state: Account<'info, BaseState>,
 
@@ -199,4 +201,7 @@ pub struct CloseStorage<'info> {
         address = state.owner @ CCIPReceiverError::Unauthorized
     )]
     pub owner: Signer<'info>,
+    
+    /// System program needed for closing accounts
+    pub system_program: Program<'info, System>,
 } 

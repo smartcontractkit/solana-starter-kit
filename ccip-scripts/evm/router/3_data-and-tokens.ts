@@ -164,7 +164,7 @@ const createMessageConfig = async () => {
     tokenAmounts: [
       {
         // The BnM token address on the source chain
-        address: sourceChainConfig.tokenAddress,
+        address: sourceChainConfig.bnmTokenAddress,
 
         // Token amount in raw format (with all decimals included)
         // IMPORTANT: This must be the full raw amount, not a decimal value
@@ -219,7 +219,7 @@ const createMessageConfig = async () => {
         const pdas = deriveReceiverPDAs(receiverProgramId);
 
         // Get the token mint address from config
-        const mintPubkey = new PublicKey(solanaConfig.tokenMint);
+        const mintPubkey = new PublicKey(solanaConfig.bnmTokenMint);
 
         // Get the connection from solanaConfig
         const connection = solanaConfig.connection;
@@ -265,7 +265,7 @@ const createMessageConfig = async () => {
           pdas.messagesStorage.toString(),
 
           // [2] token_mint - The token mint account
-          solanaConfig.tokenMint.toString(),
+          solanaConfig.bnmTokenMint.toString(),
 
           // [3] source_token_account - The token account where CCIP initially deposits tokens
           tokenAdminATA.toString(),

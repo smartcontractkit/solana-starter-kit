@@ -88,7 +88,7 @@ const TOKEN_APPROVAL_CONFIG = {
     },
     {
       // BnM token - using config value directly
-      tokenMint: config.tokenMint,
+      tokenMint: config.bnmTokenMint,
       description: "BnM Token",
       delegationType: "fee-billing" as DelegationType, // Must use fee-billing for ccip_send compatibility
     },

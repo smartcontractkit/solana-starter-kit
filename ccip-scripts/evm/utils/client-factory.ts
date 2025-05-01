@@ -30,16 +30,15 @@ export function createCCIPClient(options: ClientFactoryOptions): CCIPMessenger {
     const chainId = options.chainId;
     const config = getEVMConfig(chainId);
 
-    console.log(`Creating client for chain: ${config.name} (${chainId})`);
-    console.log(`Using RPC URL: ${config.rpcUrl}`);
-
-    // Create provider
-    const provider = createProvider(options.privateKey, config.rpcUrl);
-
     // Create logger
     const logger = createLogger("ccip-messenger", {
       level: options.logLevel ?? LogLevel.INFO,
     });
+
+    logger.info(`Creating client for chain: ${config.name} (${chainId})`);
+
+    // Create provider
+    const provider = createProvider(options.privateKey, config.rpcUrl);
 
     // Create context
     const context = {

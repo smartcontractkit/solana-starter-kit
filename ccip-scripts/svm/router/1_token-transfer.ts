@@ -63,7 +63,7 @@ const CCIP_MESSAGE_CONFIG: CCIPMessageConfig = {
   // Token transfers configuration - supports multiple tokens
   tokenAmounts: [
     {
-      tokenMint: config.tokenMint, // BnM token on Solana Devnet
+      tokenMint: config.bnmTokenMint, // BnM token on Solana Devnet
       amount: "10000000", // String representation of raw token amount (0.01 with 9 decimals)
     },
   ],

@@ -1,6 +1,9 @@
 .anchor
 .DS_Store
-target
+target/*
+!target/idl
+target/idl/*
+!target/idl/ccip_basic_receiver.json
 **/*.rs.bk
 node_modules
 test-ledger

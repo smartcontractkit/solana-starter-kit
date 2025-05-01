@@ -168,7 +168,7 @@ export function displayTransferSummary(
       if (
         tokenInfo &&
         (token === tokenInfo.symbol ||
-          token.toLowerCase() === config.tokenAddress.toLowerCase())
+          token.toLowerCase() === config.bnmTokenAddress.toLowerCase())
       ) {
         formattedAmount = ethers.formatUnits(amount, tokenInfo.decimals);
         logger.info(

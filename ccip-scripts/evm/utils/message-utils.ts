@@ -118,6 +118,27 @@ export function createCCIPMessageRequest(
 }
 
 /**
+ * Calculates the byte length of a hex string.
+ * @param hexString - The hex string to measure (with or without '0x' prefix)
+ * @returns The number of bytes represented by the hex string
+ */
+function getHexByteLength(hexString: string | undefined | null): number {
+  if (!hexString) return 0;
+  
+  // Remove '0x' prefix if present
+  const cleanHex = hexString.startsWith('0x') ? hexString.slice(2) : hexString;
+  
+  // Validate hex string format
+  if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
+    console.warn('Invalid hex string detected');
+    return 0;
+  }
+  
+  // Each byte is represented by 2 hex characters
+  return cleanHex.length / 2;
+}
+
+/**
  * Display CCIP transfer summary information
  * @param config Network configuration
  * @param options Message options
@@ -185,6 +206,8 @@ export function displayTransferSummary(
   // Display message data if any
   if (messageRequest.data && messageRequest.data !== "0x") {
     logger.info(`\nMessage Data: ${messageRequest.data}`);
+    logger.info(`Message Data Size: ${getHexByteLength(messageRequest.data)} bytes`);
+    
     // Try to decode as UTF-8 if it looks like text
     try {
       const dataWithout0x = messageRequest.data.startsWith("0x")
@@ -202,7 +225,7 @@ export function displayTransferSummary(
 
   // Display extra args info
   logger.info(
-    `\nExtra Args: Solana-specific, ${messageRequest.extraArgs.length} bytes`
+    `\nExtra Args: Solana-specific, ${getHexByteLength(messageRequest.extraArgs)} bytes`
   );
 
   // Display accounts if any

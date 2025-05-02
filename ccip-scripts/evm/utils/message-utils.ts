@@ -260,7 +260,7 @@ export function displayTransferResults(
 
   if (result.messageId) {
     logger.info(`Message ID: ${result.messageId}`);
-    logger.info(`CCIP Explorer: ${getCCIPExplorerUrl(result.messageId)}`);
+    logger.info(`👉 CCIP Explorer: ${getCCIPExplorerUrl(result.messageId)}`);
 
     if (result.destinationChainSelector) {
       logger.info(

@@ -113,7 +113,8 @@ export class ERC20Client extends BaseContract {
    * @returns Transaction receipt
    */
   async approve(spenderAddress: string, amount: bigint): Promise<ethers.TransactionReceipt> {
-    this._logger.info(`Approving ${amount} tokens for ${spenderAddress}`);
+    const formattedAmount = await this.formatAmount(amount);
+    this._logger.info(`Approving ${formattedAmount} tokens for ${spenderAddress}`);
     
     try {
       const contract = this.getWriteContract();

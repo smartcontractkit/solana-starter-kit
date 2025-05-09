@@ -163,7 +163,7 @@ export async function sendCCIPMessage(
   // Get recent blockhash with longer validity
   const { blockhash, lastValidBlockHeight } =
     await connection.getLatestBlockhash({
-      commitment: "finalized" // Using finalized for longer validity
+      commitment: "finalized", // Using finalized for longer validity
     });
 
   // Create the transaction instructions array
@@ -195,11 +195,14 @@ export async function sendCCIPMessage(
   });
 
   // Wait for transaction confirmation with improved options
-  await connection.confirmTransaction({
-    signature,
-    blockhash,
-    lastValidBlockHeight,
-  }, "confirmed"); // Using confirmed commitment for better balance
+  await connection.confirmTransaction(
+    {
+      signature,
+      blockhash,
+      lastValidBlockHeight,
+    },
+    "finalized"
+  ); // Using finalized
 
   logger.info(`CCIP message sent successfully: ${signature}`);
 

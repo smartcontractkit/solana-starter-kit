@@ -146,7 +146,7 @@ const SVM_CONFIGS: Record<ChainId.SOLANA_DEVNET, SVMChainConfig> = {
     ),
     bnmTokenMint: new PublicKey("3PjyGzj1jGVgHSKS4VR1Hr1memm63PmN8L9rtPDKwzZ6"), // BnM on Solana Devnet
     linkTokenMint: new PublicKey(
-      "GAn1RmBY76BjdqPAFnqM4jhqSSeeo9Zf7ASqHoWLdwZb"
+      "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"
     ),
     wrappedNativeMint: NATIVE_MINT,
     explorerUrl: "https://explorer.solana.com/tx/",

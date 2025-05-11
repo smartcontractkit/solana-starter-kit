@@ -1,37 +1,37 @@
-import { PublicKey, Connection } from "@solana/web3.js"
-import BN from "bn.js" // eslint-disable-line @typescript-eslint/no-unused-vars
-import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-eslint/no-unused-vars
-import { PROGRAM_ID } from "../programId"
+import { PublicKey, Connection } from "@solana/web3.js";
+import BN from "bn.js"; // eslint-disable-line @typescript-eslint/no-unused-vars
+import * as borsh from "@coral-xyz/borsh"; // eslint-disable-line @typescript-eslint/no-unused-vars
+import { PROGRAM_ID } from "../programId";
 
 export interface TokenAdminRegistryFields {
-  version: number
-  administrator: PublicKey
-  pendingAdministrator: PublicKey
-  lookupTable: PublicKey
-  writableIndexes: Array<BN>
-  mint: PublicKey
+  version: number;
+  administrator: PublicKey;
+  pendingAdministrator: PublicKey;
+  lookupTable: PublicKey;
+  writableIndexes: Array<BN>;
+  mint: PublicKey;
 }
 
 export interface TokenAdminRegistryJSON {
-  version: number
-  administrator: string
-  pendingAdministrator: string
-  lookupTable: string
-  writableIndexes: Array<string>
-  mint: string
+  version: number;
+  administrator: string;
+  pendingAdministrator: string;
+  lookupTable: string;
+  writableIndexes: Array<string>;
+  mint: string;
 }
 
 export class TokenAdminRegistry {
-  readonly version: number
-  readonly administrator: PublicKey
-  readonly pendingAdministrator: PublicKey
-  readonly lookupTable: PublicKey
-  readonly writableIndexes: Array<BN>
-  readonly mint: PublicKey
+  readonly version: number;
+  readonly administrator: PublicKey;
+  readonly pendingAdministrator: PublicKey;
+  readonly lookupTable: PublicKey;
+  readonly writableIndexes: Array<BN>;
+  readonly mint: PublicKey;
 
   static readonly discriminator = Buffer.from([
     70, 92, 207, 200, 76, 17, 57, 114,
-  ])
+  ]);
 
   static readonly layout = borsh.struct([
     borsh.u8("version"),
@@ -40,15 +40,15 @@ export class TokenAdminRegistry {
     borsh.publicKey("lookupTable"),
     borsh.array(borsh.u128(), 2, "writableIndexes"),
     borsh.publicKey("mint"),
-  ])
+  ]);
 
   constructor(fields: TokenAdminRegistryFields) {
-    this.version = fields.version
-    this.administrator = fields.administrator
-    this.pendingAdministrator = fields.pendingAdministrator
-    this.lookupTable = fields.lookupTable
-    this.writableIndexes = fields.writableIndexes
-    this.mint = fields.mint
+    this.version = fields.version;
+    this.administrator = fields.administrator;
+    this.pendingAdministrator = fields.pendingAdministrator;
+    this.lookupTable = fields.lookupTable;
+    this.writableIndexes = fields.writableIndexes;
+    this.mint = fields.mint;
   }
 
   static async fetch(
@@ -56,16 +56,16 @@ export class TokenAdminRegistry {
     address: PublicKey,
     programId: PublicKey = PROGRAM_ID
   ): Promise<TokenAdminRegistry | null> {
-    const info = await c.getAccountInfo(address)
+    const info = await c.getAccountInfo(address);
 
     if (info === null) {
-      return null
+      return null;
     }
     if (!info.owner.equals(programId)) {
-      throw new Error("account doesn't belong to this program")
+      throw new Error("account doesn't belong to this program");
     }
 
-    return this.decode(info.data)
+    return this.decode(info.data);
   }
 
   static async fetchMultiple(
@@ -73,26 +73,26 @@ export class TokenAdminRegistry {
     addresses: PublicKey[],
     programId: PublicKey = PROGRAM_ID
   ): Promise<Array<TokenAdminRegistry | null>> {
-    const infos = await c.getMultipleAccountsInfo(addresses)
+    const infos = await c.getMultipleAccountsInfo(addresses);
 
     return infos.map((info) => {
       if (info === null) {
-        return null
+        return null;
       }
       if (!info.owner.equals(programId)) {
-        throw new Error("account doesn't belong to this program")
+        throw new Error("account doesn't belong to this program");
       }
 
-      return this.decode(info.data)
-    })
+      return this.decode(info.data);
+    });
   }
 
   static decode(data: Buffer): TokenAdminRegistry {
     if (!data.slice(0, 8).equals(TokenAdminRegistry.discriminator)) {
-      throw new Error("invalid account discriminator")
+      throw new Error("invalid account discriminator");
     }
 
-    const dec = TokenAdminRegistry.layout.decode(data.slice(8))
+    const dec = TokenAdminRegistry.layout.decode(data.slice(8));
 
     return new TokenAdminRegistry({
       version: dec.version,
@@ -101,7 +101,7 @@ export class TokenAdminRegistry {
       lookupTable: dec.lookupTable,
       writableIndexes: dec.writableIndexes,
       mint: dec.mint,
-    })
+    });
   }
 
   toJSON(): TokenAdminRegistryJSON {
@@ -112,7 +112,7 @@ export class TokenAdminRegistry {
       lookupTable: this.lookupTable.toString(),
       writableIndexes: this.writableIndexes.map((item) => item.toString()),
       mint: this.mint.toString(),
-    }
+    };
   }
 
   static fromJSON(obj: TokenAdminRegistryJSON): TokenAdminRegistry {
@@ -123,6 +123,6 @@ export class TokenAdminRegistry {
       lookupTable: new PublicKey(obj.lookupTable),
       writableIndexes: obj.writableIndexes.map((item) => new BN(item)),
       mint: new PublicKey(obj.mint),
-    })
+    });
   }
 }

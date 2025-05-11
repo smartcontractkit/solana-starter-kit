@@ -1,42 +1,46 @@
-import { TransactionInstruction, PublicKey, AccountMeta } from "@solana/web3.js" // eslint-disable-line @typescript-eslint/no-unused-vars
-import BN from "bn.js" // eslint-disable-line @typescript-eslint/no-unused-vars
-import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-eslint/no-unused-vars
-import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
-import { PROGRAM_ID } from "../programId"
+import {
+  TransactionInstruction,
+  PublicKey,
+  AccountMeta,
+} from "@solana/web3.js"; // eslint-disable-line @typescript-eslint/no-unused-vars
+import BN from "bn.js"; // eslint-disable-line @typescript-eslint/no-unused-vars
+import * as borsh from "@coral-xyz/borsh"; // eslint-disable-line @typescript-eslint/no-unused-vars
+import * as types from "../types"; // eslint-disable-line @typescript-eslint/no-unused-vars
+import { PROGRAM_ID } from "../programId";
 
 export interface CcipSendArgs {
-  destChainSelector: BN
-  message: types.SVM2AnyMessageFields
-  tokenIndexes: Uint8Array
+  destChainSelector: BN;
+  message: types.SVM2AnyMessageFields;
+  tokenIndexes: Uint8Array;
 }
 
 export interface CcipSendAccounts {
-  config: PublicKey
-  destChainState: PublicKey
-  nonce: PublicKey
-  authority: PublicKey
-  systemProgram: PublicKey
-  feeTokenProgram: PublicKey
-  feeTokenMint: PublicKey
+  config: PublicKey;
+  destChainState: PublicKey;
+  nonce: PublicKey;
+  authority: PublicKey;
+  systemProgram: PublicKey;
+  feeTokenProgram: PublicKey;
+  feeTokenMint: PublicKey;
   /** If paying with native SOL, this must be the zero address. */
-  feeTokenUserAssociatedAccount: PublicKey
-  feeTokenReceiver: PublicKey
-  feeBillingSigner: PublicKey
-  feeQuoter: PublicKey
-  feeQuoterConfig: PublicKey
-  feeQuoterDestChain: PublicKey
-  feeQuoterBillingTokenConfig: PublicKey
-  feeQuoterLinkTokenConfig: PublicKey
-  rmnRemote: PublicKey
-  rmnRemoteCurses: PublicKey
-  rmnRemoteConfig: PublicKey
+  feeTokenUserAssociatedAccount: PublicKey;
+  feeTokenReceiver: PublicKey;
+  feeBillingSigner: PublicKey;
+  feeQuoter: PublicKey;
+  feeQuoterConfig: PublicKey;
+  feeQuoterDestChain: PublicKey;
+  feeQuoterBillingTokenConfig: PublicKey;
+  feeQuoterLinkTokenConfig: PublicKey;
+  rmnRemote: PublicKey;
+  rmnRemoteCurses: PublicKey;
+  rmnRemoteConfig: PublicKey;
 }
 
 export const layout = borsh.struct([
   borsh.u64("destChainSelector"),
   types.SVM2AnyMessage.layout("message"),
   borsh.vecU8("tokenIndexes"),
-])
+]);
 
 /**
  * On Ramp Flow //
@@ -71,7 +75,7 @@ export function ccipSend(
     {
       pubkey: accounts.feeTokenUserAssociatedAccount,
       isSigner: false,
-      isWritable: false,
+      isWritable: true,
     },
     { pubkey: accounts.feeTokenReceiver, isSigner: false, isWritable: true },
     { pubkey: accounts.feeBillingSigner, isSigner: false, isWritable: false },
@@ -91,9 +95,9 @@ export function ccipSend(
     { pubkey: accounts.rmnRemote, isSigner: false, isWritable: false },
     { pubkey: accounts.rmnRemoteCurses, isSigner: false, isWritable: false },
     { pubkey: accounts.rmnRemoteConfig, isSigner: false, isWritable: false },
-  ]
-  const identifier = Buffer.from([108, 216, 134, 191, 249, 234, 33, 84])
-  const buffer = Buffer.alloc(1000)
+  ];
+  const identifier = Buffer.from([108, 216, 134, 191, 249, 234, 33, 84]);
+  const buffer = Buffer.alloc(1000);
   const len = layout.encode(
     {
       destChainSelector: args.destChainSelector,
@@ -105,8 +109,8 @@ export function ccipSend(
       ),
     },
     buffer
-  )
-  const data = Buffer.concat([identifier, buffer]).slice(0, 8 + len)
-  const ix = new TransactionInstruction({ keys, programId, data })
-  return ix
+  );
+  const data = Buffer.concat([identifier, buffer]).slice(0, 8 + len);
+  const ix = new TransactionInstruction({ keys, programId, data });
+  return ix;
 }

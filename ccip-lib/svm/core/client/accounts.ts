@@ -62,7 +62,7 @@ export class CCIPAccountReader {
       this.logger.debug(
         `Fetching token admin registry for mint: ${mint.toString()}`
       );
-      this.logger.trace(`Program ID: ${this.programId.toString()}`);
+      this.logger.trace(`Router program ID: ${this.programId.toString()}`);
       const [pda] = findTokenAdminRegistryPDA(mint, this.programId);
       this.logger.trace(`Token admin registry PDA: ${pda.toString()}`);
 
@@ -80,6 +80,7 @@ export class CCIPAccountReader {
       }
 
       this.logger.trace("Retrieved token admin registry:", {
+        pda: pda.toString(),
         mint: tokenRegistry.mint.toString(),
         administrator: tokenRegistry.administrator.toString(),
         lookupTable: tokenRegistry.lookupTable.toString(),

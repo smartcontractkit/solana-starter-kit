@@ -354,7 +354,7 @@ async function buildTokenAccountsForSend(
       );
 
       // Determine token program from token mint
-      let tokenProgram = feeTokenProgramId;
+      let tokenProgram = PublicKey.default;
       try {
         const tokenMintInfo = await connection.getAccountInfo(tokenMint);
         if (tokenMintInfo) {
@@ -364,8 +364,9 @@ async function buildTokenAccountsForSend(
           );
         } else {
           logger.warn(
-            `Token mint info not found for ${tokenMint.toString()}, using fallback token program`
+            `Token mint info not found for ${tokenMint.toString()}, using fallback token program ${TOKEN_2022_PROGRAM_ID}`
           );
+          tokenProgram = TOKEN_2022_PROGRAM_ID;
         }
       } catch (error) {
         logger.warn(
@@ -379,8 +380,11 @@ async function buildTokenAccountsForSend(
       const tokenAdminRegistry = await accountReader.getTokenAdminRegistry(
         tokenMint
       );
-      logger.debug(
-        `Retrieved token admin registry for ${tokenMint.toString()}`
+
+      logger.trace(
+        `Retrieved token admin registry for ${tokenMint.toString()}: ${JSON.stringify(
+          tokenAdminRegistry
+        )}`
       );
 
       // Get lookup table for this token
@@ -394,6 +398,10 @@ async function buildTokenAccountsForSend(
       // Get the lookup table addresses
       const lookupTableAddresses = lookupTable.state.addresses;
 
+      logger.trace(
+        `Lookup table addresses: ${JSON.stringify(lookupTableAddresses)}`
+      );
+
       // Extract pool program from lookup table
       const poolProgram = getPoolProgram(lookupTableAddresses, logger);
 
@@ -406,6 +414,10 @@ async function buildTokenAccountsForSend(
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
 
+      logger.trace(
+        `Signer public key: ${signerPublicKey.toString()}, Signer user token account: ${userTokenAccount.toString()}`
+      );
+
       // Get token chain config
       const [tokenBillingConfig] = findFqPerChainPerTokenConfigPDA(
         BigInt(request.destChainSelector.toString()),
@@ -413,11 +425,19 @@ async function buildTokenAccountsForSend(
         config.feeQuoterProgramId
       );
 
+      logger.trace(
+        `Token billing config for destination chain selector ${request.destChainSelector.toString()}, token mint ${tokenMint.toString()}, feeQuoterProgramId ${config.feeQuoterProgramId.toString()}: ${tokenBillingConfig.toString()}`
+      );
+
       // Get pool chain config
       const [poolChainConfig] = findTokenPoolChainConfigPDA(
         BigInt(request.destChainSelector.toString()),
         tokenMint,
         poolProgram
+      );
+
+      logger.trace(
+        `Pool chain config for destination chain selector ${request.destChainSelector.toString()}, token mint ${tokenMint.toString()}, poolProgram ${poolProgram.toString()}: ${poolChainConfig.toString()}`
       );
 
       // Build token accounts using lookup table
@@ -438,6 +458,7 @@ async function buildTokenAccountsForSend(
       logger.debug(
         `Added ${currentLen} token-specific accounts for ${tokenMint.toString()}`
       );
+      logger.trace(`Remaining accounts: ${JSON.stringify(remainingAccounts)}`);
     } catch (error) {
       throw enhanceError(error, {
         operation: "buildTokenAccountsForSend",
@@ -555,6 +576,11 @@ function buildTokenLookupAccounts(
   // Add the remaining lookup table entries with correct writable flags
   const remainingAccounts = lookupTableEntries.slice(1).map((pubkey, index) => {
     const isWrit = isWritable(index + 1, writableIndexes, logger);
+    logger.trace(
+      `Index: ${
+        index + 1
+      }, isWritable: ${isWrit}, Account pubkey: ${pubkey.toString()}`
+    );
     return {
       pubkey,
       isSigner: false,

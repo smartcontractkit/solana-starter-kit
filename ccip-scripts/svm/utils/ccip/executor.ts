@@ -367,9 +367,7 @@ export async function executeCCIPScript({
 
     if (result.messageId) {
       logger.info(`Message ID: ${result.messageId}`);
-      logger.info(
-        `Open the CCIP explorer: ${getCCIPExplorerUrl(result.messageId)}`
-      );
+      logger.info(`👉 CCIP Explorer: ${getCCIPExplorerUrl(result.messageId)}`);
     } else {
       logger.warn("Message ID not available in transaction logs.");
     }

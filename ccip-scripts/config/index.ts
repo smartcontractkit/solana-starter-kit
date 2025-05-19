@@ -19,7 +19,12 @@ import { NATIVE_MINT } from "@solana/spl-token";
  */
 export enum ChainId {
   ETHEREUM_SEPOLIA = "ethereum-sepolia",
+  BASE_SEPOLIA = "base-sepolia",
+  OPTIMISM_SEPOLIA = "optimism-sepolia",
+  BSC_TESTNET = "bsc-testnet",
+  ARBITRUM_SEPOLIA = "arbitrum-sepolia",
   SOLANA_DEVNET = "solana-devnet",
+  SONIC_BLAZE = "sonic-blaze",
 }
 
 /**
@@ -27,7 +32,12 @@ export enum ChainId {
  */
 export const CHAIN_SELECTORS: Record<ChainId, bigint> = {
   [ChainId.ETHEREUM_SEPOLIA]: BigInt("16015286601757825753"),
+  [ChainId.BASE_SEPOLIA]: BigInt("10344971235874465080"),
+  [ChainId.OPTIMISM_SEPOLIA]: BigInt("5224473277236331295"),
+  [ChainId.BSC_TESTNET]: BigInt("13264668187771770619"),
+  [ChainId.ARBITRUM_SEPOLIA]: BigInt("3478487238524512106"),
   [ChainId.SOLANA_DEVNET]: BigInt("16423721717087811551"),
+  [ChainId.SONIC_BLAZE]: BigInt("3676871237479449268"),
 };
 
 /**
@@ -85,7 +95,15 @@ const DEFAULT_SOLANA_DEVNET_RPC_URL = "https://api.devnet.solana.com";
 /**
  * EVM Chain Configurations
  */
-const EVM_CONFIGS: Record<ChainId.ETHEREUM_SEPOLIA, EVMChainConfig> = {
+const EVM_CONFIGS: Record<
+  | ChainId.ETHEREUM_SEPOLIA
+  | ChainId.BASE_SEPOLIA
+  | ChainId.OPTIMISM_SEPOLIA
+  | ChainId.BSC_TESTNET
+  | ChainId.ARBITRUM_SEPOLIA
+  | ChainId.SONIC_BLAZE,
+  EVMChainConfig
+> = {
   [ChainId.ETHEREUM_SEPOLIA]: {
     id: ChainId.ETHEREUM_SEPOLIA,
     name: "Ethereum Sepolia",
@@ -99,6 +117,81 @@ const EVM_CONFIGS: Record<ChainId.ETHEREUM_SEPOLIA, EVMChainConfig> = {
     linkTokenAddress: "0x779877A7B0D9E8603169DdbD7836e478b4624789",
     wrappedNativeAddress: "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
     explorerBaseUrl: "https://sepolia.etherscan.io/",
+    confirmations: 3, // Wait for 3 blocks for better reliability
+  },
+  [ChainId.BASE_SEPOLIA]: {
+    id: ChainId.BASE_SEPOLIA,
+    name: "Base Sepolia",
+    rpcUrl: "",
+    chainId: 84532,
+    chainSelector: CHAIN_SELECTORS[ChainId.BASE_SEPOLIA],
+    routerAddress: "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
+    tokenAdminRegistryAddress: "0x736D0bBb318c1B27Ff686cd19804094E66250e17",
+    bnmTokenAddress: "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+    faucetAddress: "",
+    linkTokenAddress: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410",
+    wrappedNativeAddress: "0x4200000000000000000000000000000000000006",
+    explorerBaseUrl: "https://sepolia.basescan.org/",
+    confirmations: 3, // Wait for 3 blocks for better reliability
+  },
+  [ChainId.OPTIMISM_SEPOLIA]: {
+    id: ChainId.OPTIMISM_SEPOLIA,
+    name: "Optimism Sepolia",
+    rpcUrl: "",
+    chainId: 11155420,
+    chainSelector: CHAIN_SELECTORS[ChainId.OPTIMISM_SEPOLIA],
+    routerAddress: "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
+    tokenAdminRegistryAddress: "0x1d702b1FA12F347f0921C722f9D9166F00DEB67A",
+    bnmTokenAddress: "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+    faucetAddress: "",
+    linkTokenAddress: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410",
+    wrappedNativeAddress: "0x4200000000000000000000000000000000000006",
+    explorerBaseUrl: "sepolia-optimism.etherscan.io/",
+    confirmations: 3, // Wait for 3 blocks for better reliability
+  },
+  [ChainId.BSC_TESTNET]: {
+    id: ChainId.BSC_TESTNET,
+    name: "BSC Testnet",
+    rpcUrl: "",
+    chainId: 97,
+    chainSelector: CHAIN_SELECTORS[ChainId.BSC_TESTNET],
+    routerAddress: "0xE1053aE1857476f36A3C62580FF9b016E8EE8F6f",
+    tokenAdminRegistryAddress: "0xF8f2A4466039Ac8adf9944fD67DBb3bb13888f2B",
+    bnmTokenAddress: "0xbFA2ACd33ED6EEc0ed3Cc06bF1ac38d22b36B9e9",
+    faucetAddress: "",
+    linkTokenAddress: "0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06",
+    wrappedNativeAddress: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+    explorerBaseUrl: "https://testnet.bscscan.com/",
+    confirmations: 3, // Wait for 3 blocks for better reliability
+  },
+  [ChainId.ARBITRUM_SEPOLIA]: {
+    id: ChainId.ARBITRUM_SEPOLIA,
+    name: "Arbitrum Sepolia",
+    rpcUrl: "",
+    chainId: 421614,
+    chainSelector: CHAIN_SELECTORS[ChainId.ARBITRUM_SEPOLIA],
+    routerAddress: "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165",
+    tokenAdminRegistryAddress: "0x8126bE56454B628a88C17849B9ED99dd5a11Bd2f",
+    bnmTokenAddress: "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+    faucetAddress: "",
+    linkTokenAddress: "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E",
+    wrappedNativeAddress: "0xE591bf0A0CF924A0674d7792db046B23CEbF5f34",
+    explorerBaseUrl: "https://sepolia.arbiscan.io/",
+    confirmations: 3, // Wait for 3 blocks for better reliability
+  },
+  [ChainId.SONIC_BLAZE]: {
+    id: ChainId.SONIC_BLAZE,
+    name: "Sonic Blaze",
+    rpcUrl: "",
+    chainId: 57054,
+    chainSelector: CHAIN_SELECTORS[ChainId.SONIC_BLAZE],
+    routerAddress: "0x2fBd4659774D468Db5ca5bacE37869905d8EfA34",
+    tokenAdminRegistryAddress: "0xB87d268E7E5d921c72d1D999fa6a2Bfc6A5dBC5C",
+    bnmTokenAddress: "0x230c46b9a7c8929A80863bDe89082B372a4c7A99",
+    faucetAddress: "",
+    linkTokenAddress: "0xd8C1eEE32341240A62eC8BC9988320bcC13c8580",
+    wrappedNativeAddress: "0x917FE4b784d1895187Df169aeCc687C03ba12662",
+    explorerBaseUrl: "https://testnet.sonicscan.org/",
     confirmations: 3, // Wait for 3 blocks for better reliability
   },
 };
@@ -176,33 +269,76 @@ export interface CCIPMessageOptions {
  * Get EVM chain configuration by chain ID
  */
 export function getEVMConfig(chainId: ChainId): EVMChainConfig {
-  // Validate supported chains
+  // Ensure that the chainId is valid and a base configuration exists.
+  // This check should ideally be at the very beginning of the function.
+  // We assume EVM_CONFIGS is defined and accessible in the function scope.
+  if (!EVM_CONFIGS[chainId]) {
+    throw new Error(
+      `Unsupported or unconfigured EVM chain ID in EVM_CONFIGS: ${chainId}`
+    );
+  }
+
+  const config: EVMChainConfig = EVM_CONFIGS[chainId];
+
+  // Variable to store the name of the environment variable for the RPC URL.
+  let envVarName: string;
+
+  // User's original log line, kept for consistency.
+  console.log("chainId", chainId);
+
+  // Determine the environment variable name and load the RPC URL based on the chainId.
   switch (chainId) {
     case ChainId.ETHEREUM_SEPOLIA:
-      const config = EVM_CONFIGS[chainId];
-
-      // Get environment variable name based on chain
-      console.log("chainId", chainId);
-      let envVarName: string;
-      switch (chainId) {
-        case ChainId.ETHEREUM_SEPOLIA:
-          config.rpcUrl = process.env.EVM_RPC_URL;
-        default:
-          envVarName = "UNKNOWN_RPC_URL";
-      }
-
-      // Validate that the RPC URL is available
-      if (!config.rpcUrl) {
-        throw new Error(
-          `RPC URL for ${chainId} is not set. Please set ${envVarName} in your environment variables.`
-        );
-      }
-
-      return config;
-
+      envVarName = "EVM_RPC_URL";
+      config.rpcUrl = process.env[envVarName];
+      break;
+    case ChainId.BASE_SEPOLIA:
+      envVarName = "BASE_SEPOLIA_RPC_URL";
+      config.rpcUrl = process.env[envVarName];
+      break;
+    case ChainId.OPTIMISM_SEPOLIA:
+      envVarName = "OPTIMISM_SEPOLIA_RPC_URL";
+      config.rpcUrl = process.env[envVarName];
+      break;
+    case ChainId.BSC_TESTNET:
+      envVarName = "BSC_TESTNET_RPC_URL";
+      config.rpcUrl = process.env[envVarName];
+      break;
+    case ChainId.ARBITRUM_SEPOLIA:
+      envVarName = "ARBITRUM_SEPOLIA_RPC_URL";
+      config.rpcUrl = process.env[envVarName];
+      break;
+    // Add other explicitly supported EVMChainIds here if they have specific env var names.
+    // For example:
+    // case ChainId.AVALANCHE_FUJI:
+    //   envVarName = "AVALANCHE_FUJI_RPC_URL"; // Or specific name for this chain
+    //   config.rpcUrl = process.env[envVarName];
+    //   break;
     default:
-      throw new Error(`Unsupported EVM chain ID: ${chainId}`);
+      // For other EVMChainIds not explicitly listed above but present in EVM_CONFIGS.
+      // We'll try a generic environment variable pattern.
+      // If an rpcUrl is already set in EVM_CONFIGS for this chain, it might be used if the env var is not found.
+      const chainIdString = String(chainId).toUpperCase().replace(/-/g, "_");
+      envVarName = `${chainIdString}_RPC_URL`;
+      const envRpc = process.env[envVarName];
+      if (typeof envRpc === "string") {
+        // Check if the environment variable is set (it could be an empty string)
+        config.rpcUrl = envRpc; // Prefer the environment variable if set.
+      }
+      // If envRpc is undefined, config.rpcUrl (which might have been pre-set from EVM_CONFIGS) remains.
+      // The validation below will catch cases where rpcUrl is ultimately missing or empty.
+      break;
   }
+
+  // Validate that the RPC URL is now set and is not an empty string.
+  if (!config.rpcUrl) {
+    // This condition also catches an empty string.
+    throw new Error(
+      `RPC URL for chain ${chainId} is not set or is empty. Please set the environment variable '${envVarName}' or ensure it's correctly configured in EVM_CONFIGS.`
+    );
+  }
+
+  return config;
 }
 
 /**
@@ -308,7 +444,14 @@ export function getSVMFeeToken(
  * Get explorer URL for a specific chain and transaction hash
  */
 export function getExplorerUrl(chainId: ChainId, txHash: string): string {
-  if (chainId === ChainId.ETHEREUM_SEPOLIA) {
+  if (
+    chainId === ChainId.ETHEREUM_SEPOLIA ||
+    chainId === ChainId.BASE_SEPOLIA ||
+    chainId === ChainId.OPTIMISM_SEPOLIA ||
+    chainId === ChainId.BSC_TESTNET ||
+    chainId === ChainId.ARBITRUM_SEPOLIA ||
+    chainId === ChainId.SONIC_BLAZE
+  ) {
     const baseUrl = EVM_CONFIGS[chainId].explorerBaseUrl;
     // Ensure base URL ends with a slash for proper URL joining
     const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;

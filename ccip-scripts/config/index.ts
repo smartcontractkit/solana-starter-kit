@@ -94,7 +94,7 @@ const EVM_CONFIGS: Record<ChainId.ETHEREUM_SEPOLIA, EVMChainConfig> = {
     chainSelector: CHAIN_SELECTORS[ChainId.ETHEREUM_SEPOLIA],
     routerAddress: "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
     tokenAdminRegistryAddress: "0x95F29FEE11c5C55d26cCcf1DB6772DE953B37B82",
-    bnmTokenAddress: "0x43fB1Bd190796F2c1C882E76DeD7729f1c0E177e", // BnM on Sepolia
+    bnmTokenAddress: "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", // BnM on Sepolia
     faucetAddress: "0x12B0a29ac7dF641e480D195aD79BC1ae2c0B9BcA",
     linkTokenAddress: "0x779877A7B0D9E8603169DdbD7836e478b4624789",
     wrappedNativeAddress: "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
@@ -127,7 +127,7 @@ const SVM_CONFIGS: Record<ChainId.SOLANA_DEVNET, SVMChainConfig> = {
     rmnRemoteProgramId: new PublicKey(
       "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7"
     ),
-    bnmTokenMint: new PublicKey("B3W6NraUuTaykFcufhhuVzR5joQMkqicNsVSGXnJJasN"), // BnM on Solana Devnet
+    bnmTokenMint: new PublicKey("3PjyGzj1jGVgHSKS4VR1Hr1memm63PmN8L9rtPDKwzZ6"), // BnM on Solana Devnet
     linkTokenMint: new PublicKey("LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"),
     wrappedNativeMint: NATIVE_MINT,
     explorerUrl: "https://explorer.solana.com/tx/",

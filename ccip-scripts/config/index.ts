@@ -19,7 +19,6 @@ import { NATIVE_MINT } from "@solana/spl-token";
  */
 export enum ChainId {
   ETHEREUM_SEPOLIA = "ethereum-sepolia",
-  AVALANCHE_FUJI = "avalanche-fuji",
   SOLANA_DEVNET = "solana-devnet",
 }
 
@@ -28,7 +27,6 @@ export enum ChainId {
  */
 export const CHAIN_SELECTORS: Record<ChainId, bigint> = {
   [ChainId.ETHEREUM_SEPOLIA]: BigInt("16015286601757825753"),
-  [ChainId.AVALANCHE_FUJI]: BigInt("14767482510784806043"),
   [ChainId.SOLANA_DEVNET]: BigInt("16423721717087811551"),
 };
 
@@ -53,6 +51,7 @@ export interface EVMChainConfig {
   routerAddress: string;
   tokenAdminRegistryAddress: string;
   bnmTokenAddress: string;
+  faucetAddress?: string;
   linkTokenAddress: string;
   wrappedNativeAddress: string;
   explorerBaseUrl: string;
@@ -86,10 +85,7 @@ const DEFAULT_SOLANA_DEVNET_RPC_URL = "https://api.devnet.solana.com";
 /**
  * EVM Chain Configurations
  */
-const EVM_CONFIGS: Record<
-  ChainId.ETHEREUM_SEPOLIA | ChainId.AVALANCHE_FUJI,
-  EVMChainConfig
-> = {
+const EVM_CONFIGS: Record<ChainId.ETHEREUM_SEPOLIA, EVMChainConfig> = {
   [ChainId.ETHEREUM_SEPOLIA]: {
     id: ChainId.ETHEREUM_SEPOLIA,
     name: "Ethereum Sepolia",
@@ -98,24 +94,11 @@ const EVM_CONFIGS: Record<
     chainSelector: CHAIN_SELECTORS[ChainId.ETHEREUM_SEPOLIA],
     routerAddress: "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
     tokenAdminRegistryAddress: "0x95F29FEE11c5C55d26cCcf1DB6772DE953B37B82",
-    bnmTokenAddress: "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", // BnM on Sepolia
+    bnmTokenAddress: "0x43fB1Bd190796F2c1C882E76DeD7729f1c0E177e", // BnM on Sepolia
+    faucetAddress: "0x12B0a29ac7dF641e480D195aD79BC1ae2c0B9BcA",
     linkTokenAddress: "0x779877A7B0D9E8603169DdbD7836e478b4624789",
     wrappedNativeAddress: "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
     explorerBaseUrl: "https://sepolia.etherscan.io/",
-    confirmations: 3, // Wait for 3 blocks for better reliability
-  },
-  [ChainId.AVALANCHE_FUJI]: {
-    id: ChainId.AVALANCHE_FUJI,
-    name: "Avalanche Fuji",
-    rpcUrl: "",
-    chainId: 43113,
-    chainSelector: CHAIN_SELECTORS[ChainId.AVALANCHE_FUJI],
-    routerAddress: "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
-    tokenAdminRegistryAddress: "0xA92053a4a3922084d992fD2835bdBa4caC6877e6",
-    bnmTokenAddress: "0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4",
-    linkTokenAddress: "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846",
-    wrappedNativeAddress: "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
-    explorerBaseUrl: "https://testnet.snowtrace.io/",
     confirmations: 3, // Wait for 3 blocks for better reliability
   },
 };
@@ -144,7 +127,7 @@ const SVM_CONFIGS: Record<ChainId.SOLANA_DEVNET, SVMChainConfig> = {
     rmnRemoteProgramId: new PublicKey(
       "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7"
     ),
-    bnmTokenMint: new PublicKey("3PjyGzj1jGVgHSKS4VR1Hr1memm63PmN8L9rtPDKwzZ6"), // BnM on Solana Devnet
+    bnmTokenMint: new PublicKey("B3W6NraUuTaykFcufhhuVzR5joQMkqicNsVSGXnJJasN"), // BnM on Solana Devnet
     linkTokenMint: new PublicKey("LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"),
     wrappedNativeMint: NATIVE_MINT,
     explorerUrl: "https://explorer.solana.com/tx/",
@@ -196,7 +179,6 @@ export function getEVMConfig(chainId: ChainId): EVMChainConfig {
   // Validate supported chains
   switch (chainId) {
     case ChainId.ETHEREUM_SEPOLIA:
-    case ChainId.AVALANCHE_FUJI:
       const config = EVM_CONFIGS[chainId];
 
       // Get environment variable name based on chain
@@ -205,10 +187,6 @@ export function getEVMConfig(chainId: ChainId): EVMChainConfig {
       switch (chainId) {
         case ChainId.ETHEREUM_SEPOLIA:
           config.rpcUrl = process.env.EVM_RPC_URL;
-          break;
-        case ChainId.AVALANCHE_FUJI:
-          config.rpcUrl = process.env.AVAX_RPC_URL;
-          break;
         default:
           envVarName = "UNKNOWN_RPC_URL";
       }
@@ -330,10 +308,7 @@ export function getSVMFeeToken(
  * Get explorer URL for a specific chain and transaction hash
  */
 export function getExplorerUrl(chainId: ChainId, txHash: string): string {
-  if (
-    chainId === ChainId.ETHEREUM_SEPOLIA ||
-    chainId === ChainId.AVALANCHE_FUJI
-  ) {
+  if (chainId === ChainId.ETHEREUM_SEPOLIA) {
     const baseUrl = EVM_CONFIGS[chainId].explorerBaseUrl;
     // Ensure base URL ends with a slash for proper URL joining
     const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;

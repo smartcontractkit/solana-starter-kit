@@ -1,0 +1,96 @@
+name: Solana Starter Kit Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: 1.73.0
+          components: rustfmt, clippy
+
+      - name: Verify Rust version
+        run: rustc --version
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-1.73.0-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-1.73.0-
+
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v1.17.31/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          
+      - name: Verify Solana installation
+        run: solana --version
+
+      - name: Install Anchor CLI  
+        run: |
+          npm install -g @coral-xyz/anchor-cli@0.29.0
+          anchor --version
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build program
+        run: |
+          rustup default 1.73.0
+          rustc --version
+          anchor build
+          
+      - name: Sync program keys
+        run: |
+          PROGRAM_ID=$(solana-keygen pubkey target/deploy/chainlink_solana_demo-keypair.json)
+          sed -i "s/declare_id!(\".*\")/declare_id!(\"$PROGRAM_ID\")/" programs/chainlink_solana_demo/src/lib.rs
+          anchor build
+
+      - name: Run unit tests with coverage
+        run: |
+          cd programs/chainlink_solana_demo
+          echo "Running unit tests..."
+          cargo test --verbose
+          echo "Generating code coverage report using llvm-cov..."
+          rustup component add llvm-tools-preview
+          cargo install cargo-llvm-cov --version 0.6.15 || echo "cargo-llvm-cov already installed"
+          cargo llvm-cov --lcov --output-path lcov.info
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./programs/chainlink_solana_demo/lcov.info
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Build and validate (skip integration tests)
+        run: |
+          echo "Skipping integration tests in CI - they require devnet SOL funding"
+          echo "Integration tests should be run locally with: anchor test --provider.cluster devnet"
+          echo "CI validates: compilation, unit tests, and program build only"

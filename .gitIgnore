@@ -6,3 +6,10 @@ node_modules
 test-ledger
 .yarn
 id.json
+program-keypair.json
+
+# Coverage reports
+lcov.info
+coverage/
+cobertura.xml
+*.profraw

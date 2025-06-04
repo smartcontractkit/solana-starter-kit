@@ -7,7 +7,8 @@
 <br/>
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/smartcontractkit/solana-starter-kit)
-
+[![CI](https://github.com/smartcontractkit/solana-starter-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/smartcontractkit/solana-starter-kit/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/smartcontractkit/solana-starter-kit/branch/main/graph/badge.svg)](https://codecov.io/gh/smartcontractkit/solana-starter-kit)
 
 # Chainlink Solana Starter Kit
 The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/anchor/getting-started/introduction.html) based program and client that shows developers how to use and interact with [Chainlink Price Feeds on Solana](https://docs.chain.link/solana/). The demo is configured to run on the [Devnet cluster](https://docs.solana.com/clusters#devnet), and is comprised of an on-chain program written in Rust, and an off-chain client written in JavaScript. The program takes parameters and account information from the off-chain client, retrieves the latest price data from the specified Chainlink Price Feed on Devnet, then writes the data out to the specified account, which can then be read by the off-chain client.
@@ -195,22 +196,36 @@ pappas99@Pappas solana-starter-kit % npm run read-data
 
 ### Testing
 
-You can execute the [integration test](./tests/chainlink-solana-demo-int-test.ts) with the following command
+This project includes comprehensive unit tests and integration tests to ensure code quality and reliability.
+
+#### Unit Tests
+Run fast, local unit tests that cover the Decimal struct and formatting logic:
 
 ```bash
-anchor test
+npm run test:unit
+```
+
+Generate an HTML coverage report:
+```bash
+npm run test:unit:coverage
+open programs/chainlink_solana_demo/coverage/index.html
+```
+
+#### Integration Tests
+Integration tests require devnet access and SOL for transaction fees:
+
+```bash
+npm run test:integration
 ```
 
 The integration test checks that the value of the specified price feed account (defaulted to SOL/USD) on Devnet is greater than 0.
 
+#### Code Quality
+Run linting and formatting:
 ```bash
- solana-starter-kit
-
-Price Is: 105.52
-    ✔ Query SOL/USD Price Feed! (4521ms)
-
-
-  1 passing (5s)
-
-✨  Done in 10.49s.
+npm run lint
+npm run format
 ```
+
+#### Test Coverage
+The project maintains high test coverage for core functionality. View coverage reports at [codecov.io](https://codecov.io/gh/smartcontractkit/solana-starter-kit) or generate local HTML reports with `npm run test:unit:coverage`.

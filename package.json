@@ -1,10 +1,19 @@
 {
     "scripts": {
-        "read-data": "ts-node ./read-data.ts"
+        "build": "anchor build",
+        "test": "anchor test --skip-deploy",
+        "test:unit": "cd programs/chainlink_solana_demo && cargo test",
+        "test:unit:coverage": "cd programs/chainlink_solana_demo && cargo llvm-cov --html --output-dir coverage",
+        "test:integration": "anchor test --provider.cluster devnet",
+        "lint": "cd programs/chainlink_solana_demo && cargo clippy --all-targets -- -D warnings",
+        "format": "cd programs/chainlink_solana_demo && cargo fmt --all",
+        "read-data": "ts-node ./read-data.ts",
+        "read-data:js": "node ./read-data.js",
+        "client": "node ./client.js"
     },
     "dependencies": {
         "@chainlink/solana-sdk": "^0.2.2",
-        "@coral-xyz/anchor": "^0.30.1",
+        "@coral-xyz/anchor": "^0.29.0",
         "bn.js": "^5.2.0",
         "borsh": "^0.7.0",
         "typescript": "^5.5.4"

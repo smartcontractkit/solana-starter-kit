@@ -117,6 +117,19 @@ export interface DeleteChainConfigOptions {
 
 export interface TokenPoolClient {
   /**
+   * Gets the global configuration information for the token pool program
+   * @returns Global configuration information
+   */
+  getGlobalConfigInfo(): Promise<any>;
+
+  /**
+   * Initializes the global configuration for the token pool program
+   * @param options The options for initializing global config
+   * @returns Transaction signature
+   */
+  initializeGlobalConfig(options?: { txOptions?: any }): Promise<string>;
+
+  /**
    * Gets information about the token pool
    * @param options The options for getting pool info
    * @returns Pool information
@@ -242,14 +255,50 @@ export async function createTokenPoolClient(
 
   // Create a wrapper around the SDK client that implements our interface
   return {
+    getGlobalConfigInfo: async () => {
+      logger.info(`Fetching global config info for program: ${programId}`);
+      try {
+        const globalConfigInfo = await sdkClient.getGlobalConfigInfo();
+
+        logger.debug(`Global config info retrieved successfully`);
+        return globalConfigInfo;
+      } catch (error) {
+        logger.error(
+          `Failed to fetch global config info: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
+    initializeGlobalConfig: async (options?: { txOptions?: any }) => {
+      logger.info(`Initializing global config for program: ${programId}`);
+      try {
+        const tx = await sdkClient.initializeGlobalConfig(options);
+
+        logger.info(
+          `Global config initialized successfully. Transaction: ${tx}`
+        );
+        return tx;
+      } catch (error) {
+        logger.error(
+          `Failed to initialize global config: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
     getPoolInfo: async () => {
-      logger.info(`Fetching pool info for token: ${tokenMint}`);
+      logger.debug(`Fetching pool info for token: ${tokenMint}`);
       try {
         const sdkPoolInfo = (await sdkClient.getPoolInfo(
           mintPubkey
         )) as BurnMintTokenPoolInfo;
 
-        logger.debug(`Pool info retrieved: ${JSON.stringify(sdkPoolInfo)}`);
+        logger.debug(`Pool info retrieved successfully`);
         return sdkPoolInfo;
       } catch (error) {
         logger.error(
@@ -349,7 +398,7 @@ export async function createTokenPoolClient(
       logger.info(
         `Checking if chain config exists for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
       );
-      
+
       try {
         // First check if the pool exists at all
         try {
@@ -358,21 +407,23 @@ export async function createTokenPoolClient(
           logger.debug(`No pool found for mint: ${mint.toString()}`);
           return false;
         }
-        
+
         // If available, prefer a direct exists check method
         const accountReader = sdkClient.getAccountReader();
-        
+
         // Check specifically for chain config existence
         // Use appropriate SDK method if available (hasChainConfig, existsChainConfig, etc.)
-        // If no direct check method available, fetch with minimal data 
+        // If no direct check method available, fetch with minimal data
         const chainConfig = await accountReader.getChainConfig(
-          mint, 
+          mint,
           remoteChainSelector
         );
-        
+
         const exists = !!chainConfig;
         logger.debug(
-          `Chain config ${exists ? "exists" : "does not exist"} for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
+          `Chain config ${
+            exists ? "exists" : "does not exist"
+          } for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
         );
         return exists;
       } catch (error) {

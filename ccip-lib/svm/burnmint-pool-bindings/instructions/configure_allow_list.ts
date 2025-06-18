@@ -4,29 +4,26 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface InitializeArgs {
-  router: PublicKey
-  rmn_remote: PublicKey
+export interface Configure_allow_listArgs {
+  add: Array<PublicKey>
+  enabled: boolean
 }
 
-export interface InitializeAccounts {
+export interface Configure_allow_listAccounts {
   state: PublicKey
   mint: PublicKey
   authority: PublicKey
   system_program: PublicKey
-  program: PublicKey
-  program_data: PublicKey
-  config: PublicKey
 }
 
 export const layout = borsh.struct([
-  borsh.publicKey("router"),
-  borsh.publicKey("rmn_remote"),
+  borsh.vec(borsh.publicKey(), "add"),
+  borsh.bool("enabled"),
 ])
 
-export function initialize(
-  args: InitializeArgs,
-  accounts: InitializeAccounts,
+export function configure_allow_list(
+  args: Configure_allow_listArgs,
+  accounts: Configure_allow_listAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
@@ -34,16 +31,13 @@ export function initialize(
     { pubkey: accounts.mint, isSigner: false, isWritable: false },
     { pubkey: accounts.authority, isSigner: true, isWritable: true },
     { pubkey: accounts.system_program, isSigner: false, isWritable: false },
-    { pubkey: accounts.program, isSigner: false, isWritable: false },
-    { pubkey: accounts.program_data, isSigner: false, isWritable: false },
-    { pubkey: accounts.config, isSigner: false, isWritable: false },
   ]
-  const identifier = Buffer.from([175, 175, 109, 31, 13, 152, 155, 237])
+  const identifier = Buffer.from([18, 180, 102, 187, 209, 0, 130, 191])
   const buffer = Buffer.alloc(1000)
   const len = layout.encode(
     {
-      router: args.router,
-      rmn_remote: args.rmn_remote,
+      add: args.add,
+      enabled: args.enabled,
     },
     buffer
   )

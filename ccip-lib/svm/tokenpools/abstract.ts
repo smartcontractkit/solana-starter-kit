@@ -140,6 +140,17 @@ export interface BurnMintSetRateLimitOptions {
  */
 export interface TokenPoolAccountReader {
   /**
+   * Fetch the global configuration for the token pool program
+   *
+   * Retrieves the program-wide configuration that applies to all pools,
+   * including global settings like self-served pool creation permissions.
+   *
+   * @returns Global configuration data including version and global settings
+   * @throws Error if global configuration is not found or not initialized
+   */
+  getGlobalConfigInfo(): Promise<any>;
+
+  /**
    * Fetch the base configuration for a token pool
    *
    * Retrieves the foundational configuration for a specific token mint's pool,
@@ -294,6 +305,28 @@ export interface TokenPoolClient {
   getProgramId(): PublicKey;
 
   /**
+   * Get the global configuration information for the token pool program
+   *
+   * Retrieves the program-wide configuration that applies to all pools.
+   *
+   * @returns Global configuration data including version and global settings
+   * @throws Error if global configuration is not found or not initialized
+   */
+  getGlobalConfigInfo(): Promise<any>;
+
+  /**
+   * Initialize the global configuration for the token pool program.
+   *
+   * This must be called once per program deployment before any pools can be initialized.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Optional transaction execution settings
+   * @returns A Promise resolving to the transaction signature string
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails
+   */
+  initializeGlobalConfig(options?: { txOptions?: TxOptions }): Promise<string>;
+
+  /**
    * Get information about the token pool
    * @param mint Token mint
    */
@@ -403,7 +436,10 @@ export interface TokenPoolClient {
    * @returns A Promise resolving to the transaction signature string.
    * @throws Error if the caller is not the proposed owner or if the transaction fails.
    */
-  acceptAdminRole(mint: PublicKey, options?: AcceptAdminRoleOptions): Promise<string>;
+  acceptAdminRole(
+    mint: PublicKey,
+    options?: AcceptAdminRoleOptions
+  ): Promise<string>;
 
   /**
    * Sets the router address for the token pool.
@@ -426,7 +462,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including remote chain selector, addresses, and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  appendRemotePoolAddresses(mint: PublicKey, options: AppendRemotePoolAddressesOptions): Promise<string>;
+  appendRemotePoolAddresses(
+    mint: PublicKey,
+    options: AppendRemotePoolAddressesOptions
+  ): Promise<string>;
 
   /**
    * Deletes the configuration for a specific remote chain.
@@ -438,7 +477,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including remote chain selector and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  deleteChainConfig(mint: PublicKey, options: DeleteChainConfigOptions): Promise<string>;
+  deleteChainConfig(
+    mint: PublicKey,
+    options: DeleteChainConfigOptions
+  ): Promise<string>;
 
   /**
    * Configures the sender allowlist for the token pool.
@@ -449,7 +491,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including addresses to add, enabled flag, and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  configureAllowlist(mint: PublicKey, options: ConfigureAllowlistOptions): Promise<string>;
+  configureAllowlist(
+    mint: PublicKey,
+    options: ConfigureAllowlistOptions
+  ): Promise<string>;
 
   /**
    * Removes addresses from the sender allowlist for the token pool.
@@ -460,7 +505,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including addresses to remove and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  removeFromAllowlist(mint: PublicKey, options: RemoveFromAllowlistOptions): Promise<string>;
+  removeFromAllowlist(
+    mint: PublicKey,
+    options: RemoveFromAllowlistOptions
+  ): Promise<string>;
 
   /**
    * Initializes the state version of a pool if it's currently uninitialized (version 0).
@@ -472,5 +520,8 @@ export interface TokenPoolClient {
    * @param options Optional transaction execution settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  initializeStateVersion(mint: PublicKey, options?: InitializeStateVersionOptions): Promise<string>;
+  initializeStateVersion(
+    mint: PublicKey,
+    options?: InitializeStateVersionOptions
+  ): Promise<string>;
 }

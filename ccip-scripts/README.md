@@ -2,14 +2,17 @@
 
 This directory contains reference implementation scripts for interacting with the Cross-Chain Interoperability Protocol (CCIP).
 
+> 🎯 **This is the main overview and quick reference guide**  
+> For detailed documentation: [SVM (Solana)](./svm/README.md) | [EVM (Ethereum)](./evm/README.md)
+
 ## Table of Contents
 
 - [Directory Structure](#directory-structure)
 - [Configuration](#configuration)
+- [Quick Start](#quick-start)
 - [Running Scripts](#running-scripts)
   - [Solana VM (SVM) Scripts](#solana-vm-svm-scripts)
   - [Ethereum VM (EVM) Scripts](#ethereum-vm-evm-scripts)
-- [Token Management](#token-management)
 - [Configuration Testing](#configuration-testing)
 - [Troubleshooting](#troubleshooting)
 
@@ -88,32 +91,24 @@ yarn svm:data-and-tokens
 #### Token Operations
 
 ```bash
-# Create a new SPL Token-2022 with metadata
-yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json"
+# Create SPL Token-2022 with metadata
+yarn svm:token:create
 
-# Create token with initial supply
-yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --initial-supply 1000000
+# Mint tokens
+yarn svm:token:mint
 
+# Token pool management (2-step process)
+yarn svm:pool:init-global-config    # Step 1: Global config (once per deployment)
+yarn svm:pool:initialize            # Step 2: Token pool (once per token)
+yarn svm:pool:get-info              # Get detailed information about existing pools
 
-
-# Mint tokens to your wallet
-yarn svm:token:mint --mint <mint_address> --amount 1000
-
-# Mint tokens to another wallet
-yarn svm:token:mint --mint <mint_address> --amount 500 --recipient <recipient_address>
-
-# Wrap native SOL to wSOL (needed for token operations)
-yarn svm:token:wrap
-
-# Specify custom amount in lamports
-yarn svm:token:wrap --amount 20000000
-
-# Delegate token authority (required for CCIP transfers)
-yarn svm:token:delegate
-
-# Check token approval status
-yarn svm:token:check
+# Token preparation for CCIP
+yarn svm:token:wrap                 # Wrap SOL to wSOL
+yarn svm:token:delegate             # Delegate authority to CCIP
+yarn svm:token:check                # Verify delegations
 ```
+
+> 📖 **For detailed usage, options, and troubleshooting**: See [SVM Scripts Documentation](./svm/README.md)
 
 ### Ethereum VM (EVM) Scripts
 
@@ -137,61 +132,22 @@ yarn evm:data-and-tokens
 yarn evm:token:drip
 ```
 
-## Token Management
+## Quick Start
 
-### Creating SPL Token-2022 Tokens
+### For Solana (SVM) Development
 
-The project includes comprehensive tools for creating and managing SPL Token-2022 tokens with Metaplex metadata:
+1. Set up your Solana wallet and fund with SOL
+2. Create tokens: `yarn svm:token:create`
+3. Set up token pools: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize`
+4. Prepare for CCIP: `yarn svm:token:wrap` → `yarn svm:token:delegate`
 
-1. **Create a new token** with custom metadata:
+### For Ethereum (EVM) Development
 
-   ```bash
-   yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --decimals 6 --initial-supply 1000000
-   ```
+1. Set up your EVM wallet and fund with test tokens
+2. Get test tokens: `yarn evm:token:drip`
+3. Send messages: `yarn evm:transfer` / `yarn evm:arbitrary-messaging`
 
-2. **Mint additional tokens** to any wallet:
-   ```bash
-   yarn svm:token:mint --mint <mint_address> --amount 1000 --recipient <wallet_address>
-   ```
-
-The metadata URI should point to a JSON file with this structure:
-
-```json
-{
-  "name": "My Token",
-  "symbol": "MTK",
-  "description": "A sample SPL Token-2022",
-  "image": "https://example.com/image.png",
-  "external_url": "https://example.com",
-  "attributes": [
-    {
-      "trait_type": "Type",
-      "value": "Utility"
-    }
-  ]
-}
-```
-
-### CCIP Token Operations
-
-Before sending tokens through CCIP from Solana, you must perform these steps:
-
-1. Wrap SOL if you're using native SOL as the source token:
-
-   ```bash
-   yarn svm:token:wrap
-   ```
-
-2. Delegate token authority to the CCIP program:
-
-   ```bash
-   yarn svm:token:delegate
-   ```
-
-3. Verify token approvals before attempting transfers:
-   ```bash
-   yarn svm:token:check
-   ```
+> 📖 **Detailed guides**: [SVM Documentation](./svm/README.md) | [EVM Documentation](./evm/README.md)
 
 ## Configuration Testing
 
@@ -199,12 +155,10 @@ To verify that the configuration is working correctly, you can inspect the confi
 
 ## Troubleshooting
 
-### Common Issues
+### Quick Fixes
 
-1. **Transaction Timeout** - If you encounter "block height exceeded" errors, try increasing the commitment levels or adding retries in your transactions.
+- **Insufficient Balance**: Ensure you have enough tokens/ETH/SOL for transactions
+- **Permission Errors**: Run delegation scripts before CCIP transfers
+- **Network Issues**: Try increasing gas/priority fees during congestion
 
-2. **Insufficient Balance** - Ensure you have enough balance for both the token transfer and gas fees. For Solana, remember that token operations require wrapped SOL.
-
-3. **Missing Token Delegation** - CCIP transfers from Solana require token delegation to the CCIP program. Run `yarn svm:token:delegate` before token transfers.
-
-4. **Network Congestion** - During peak usage times, consider adjusting the confirmation options or increasing transaction priority.
+> 🔧 **Detailed troubleshooting guides**: [SVM Troubleshooting](./svm/README.md#troubleshooting) | [EVM Troubleshooting](./evm/README.md)

@@ -5,14 +5,15 @@ import { uint64ToLE } from "./common";
  * Token Pool PDA utilities
  */
 
-// Token Pool seed constants
-export const TOKEN_POOL_STATE_SEED = "state";
-export const TOKEN_POOL_CHAIN_CONFIG_SEED = "chain_config";
-export const TOKEN_POOL_POOL_SIGNER_SEED = "pool_signer";
+// Token Pool seed constants (must match Rust base-token-pool constants)
+export const TOKEN_POOL_STATE_SEED = "ccip_tokenpool_config";
+export const TOKEN_POOL_CHAIN_CONFIG_SEED = "ccip_tokenpool_chainconfig";
+export const TOKEN_POOL_POOL_SIGNER_SEED = "ccip_tokenpool_signer";
 export const TOKEN_POOL_RATE_LIMIT_STATE_SEED = "rate_limit_state";
 export const TOKEN_POOL_CHAIN_RATE_LIMIT_SEED = "chain_rate_limit";
 export const TOKEN_POOL_BURN_TRACKING_SEED = "burn_tracking";
 export const TOKEN_POOL_MINT_TRACKING_SEED = "mint_tracking";
+export const TOKEN_POOL_GLOBAL_CONFIG_SEED = "config";
 
 // Solana system program IDs
 // Use the official BPF Loader Upgradeable Program ID
@@ -68,6 +69,19 @@ export function findProgramDataPDA(programId: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [programId.toBuffer()],
     BPF_LOADER_UPGRADEABLE_PROGRAM_ID
+  );
+}
+
+/**
+ * Finds the Global Config PDA for the burn-mint pool program
+ * This is used for global program configuration
+ * @param programId Burn-mint pool program ID
+ * @returns [PDA, bump]
+ */
+export function findGlobalConfigPDA(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(TOKEN_POOL_GLOBAL_CONFIG_SEED)],
+    programId
   );
 }
 

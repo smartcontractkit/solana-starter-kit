@@ -1,11 +1,9 @@
-export { BaseConfig } from "./BaseConfig"
-export type { BaseConfigFields, BaseConfigJSON } from "./BaseConfig"
 export { BaseChain } from "./BaseChain"
 export type { BaseChainFields, BaseChainJSON } from "./BaseChain"
-export { RemoteConfig } from "./RemoteConfig"
-export type { RemoteConfigFields, RemoteConfigJSON } from "./RemoteConfig"
-export { RemoteAddress } from "./RemoteAddress"
-export type { RemoteAddressFields, RemoteAddressJSON } from "./RemoteAddress"
+export { BaseConfig } from "./BaseConfig"
+export type { BaseConfigFields, BaseConfigJSON } from "./BaseConfig"
+export { ChainConfig } from "./ChainConfig"
+export type { ChainConfigFields, ChainConfigJSON } from "./ChainConfig"
 export { LockOrBurnInV1 } from "./LockOrBurnInV1"
 export type { LockOrBurnInV1Fields, LockOrBurnInV1JSON } from "./LockOrBurnInV1"
 export { LockOrBurnOutV1 } from "./LockOrBurnOutV1"
@@ -13,6 +11,18 @@ export type {
   LockOrBurnOutV1Fields,
   LockOrBurnOutV1JSON,
 } from "./LockOrBurnOutV1"
+export { PoolConfig } from "./PoolConfig"
+export type { PoolConfigFields, PoolConfigJSON } from "./PoolConfig"
+export { RateLimitConfig } from "./RateLimitConfig"
+export type {
+  RateLimitConfigFields,
+  RateLimitConfigJSON,
+} from "./RateLimitConfig"
+export { RateLimitTokenBucket } from "./RateLimitTokenBucket"
+export type {
+  RateLimitTokenBucketFields,
+  RateLimitTokenBucketJSON,
+} from "./RateLimitTokenBucket"
 export { ReleaseOrMintInV1 } from "./ReleaseOrMintInV1"
 export type {
   ReleaseOrMintInV1Fields,
@@ -23,13 +33,9 @@ export type {
   ReleaseOrMintOutV1Fields,
   ReleaseOrMintOutV1JSON,
 } from "./ReleaseOrMintOutV1"
-export { RateLimitTokenBucket } from "./RateLimitTokenBucket"
-export type {
-  RateLimitTokenBucketFields,
-  RateLimitTokenBucketJSON,
-} from "./RateLimitTokenBucket"
-export { RateLimitConfig } from "./RateLimitConfig"
-export type {
-  RateLimitConfigFields,
-  RateLimitConfigJSON,
-} from "./RateLimitConfig"
+export { RemoteAddress } from "./RemoteAddress"
+export type { RemoteAddressFields, RemoteAddressJSON } from "./RemoteAddress"
+export { RemoteConfig } from "./RemoteConfig"
+export type { RemoteConfigFields, RemoteConfigJSON } from "./RemoteConfig"
+export { State } from "./State"
+export type { StateFields, StateJSON } from "./State"

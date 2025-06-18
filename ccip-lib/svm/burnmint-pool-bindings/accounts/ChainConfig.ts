@@ -4,26 +4,18 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface ChainConfigFields {
-  base: types.BaseChainFields
-}
+export interface ChainConfigFields {}
 
-export interface ChainConfigJSON {
-  base: types.BaseChainJSON
-}
+export interface ChainConfigJSON {}
 
 export class ChainConfig {
-  readonly base: types.BaseChain
-
   static readonly discriminator = Buffer.from([
     13, 177, 233, 141, 212, 29, 148, 56,
   ])
 
-  static readonly layout = borsh.struct([types.BaseChain.layout("base")])
+  static readonly layout = borsh.struct([])
 
-  constructor(fields: ChainConfigFields) {
-    this.base = new types.BaseChain({ ...fields.base })
-  }
+  constructor(fields: ChainConfigFields) {}
 
   static async fetch(
     c: Connection,
@@ -68,20 +60,14 @@ export class ChainConfig {
 
     const dec = ChainConfig.layout.decode(data.slice(8))
 
-    return new ChainConfig({
-      base: types.BaseChain.fromDecoded(dec.base),
-    })
+    return new ChainConfig({})
   }
 
   toJSON(): ChainConfigJSON {
-    return {
-      base: this.base.toJSON(),
-    }
+    return {}
   }
 
   static fromJSON(obj: ChainConfigJSON): ChainConfig {
-    return new ChainConfig({
-      base: types.BaseChain.fromJSON(obj.base),
-    })
+    return new ChainConfig({})
   }
 }

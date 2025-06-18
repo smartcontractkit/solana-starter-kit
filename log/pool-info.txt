@@ -1,0 +1,123 @@
+$ yarn svm:pool:get-info --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz --log-level DEBUG
+yarn run v1.22.22
+warning package.json: No license field
+$ ts-node ./ccip-scripts/svm/pool/get-pool-info.ts --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz --log-level DEBUG
+Current working directory: /Users/aelmanaa/Documents/Blockchain/chainlink/solana-starter-kit
+Found .env file at: /Users/aelmanaa/Documents/Blockchain/chainlink/solana-starter-kit/.env
+Successfully loaded environment variables from /Users/aelmanaa/Documents/Blockchain/chainlink/solana-starter-kit/.env
+[2025-06-18T16:40:04.298Z] 🏊 CCIP Token Pool Information
+[2025-06-18T16:40:04.299Z] Using keypair from /Users/aelmanaa/.config/solana/id.json...
+[2025-06-18T16:40:04.331Z] Querying as: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+[2025-06-18T16:40:04.331Z] Token Mint: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+[2025-06-18T16:40:04.331Z] Program ID: 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+[2025-06-18T16:40:04.331Z] Query configuration:
+[2025-06-18T16:40:04.331Z]   Network: solana-devnet
+[2025-06-18T16:40:04.332Z]   Connection endpoint: https://api.devnet.solana.com
+[2025-06-18T16:40:04.332Z]   Log level: 1
+[2025-06-18T16:40:04.332Z]   Wallet: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+[2025-06-18T16:40:04.332Z] TokenPoolManager initialized
+[2025-06-18T16:40:04.333Z] Creating token pool client of type: burn_mint
+[2025-06-18T16:40:04.333Z] BurnMintTokenPoolAccountReader initialized: programId=4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+[2025-06-18T16:40:04.333Z] BurnMintTokenPoolClient initialized: programId=4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+[2025-06-18T16:40:04.333Z] Created token pool client for program: 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz, token: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+[2025-06-18T16:40:04.333Z] Checking if pool exists...
+[2025-06-18T16:40:04.333Z] Checking pool existence for mint: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+[2025-06-18T16:40:04.333Z] Fetching burn-mint pool config for mint: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+[2025-06-18T16:40:04.334Z] Pool config PDA: 75ArY9qBotNbyZFNL3Uq82qci26HX6xUbsYJiZtYNexa (bump: 255)
+[2025-06-18T16:40:05.268Z] Account found: owner=4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz, dataLength=368, lamports=3452160
+[2025-06-18T16:40:05.275Z] Successfully decoded pool config: {
+  version: 1,
+  mint: '4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY',
+  owner: 'EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB',
+  decimals: 9,
+  router: 'Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C'
+}
+[2025-06-18T16:40:05.276Z] Pool exists: true
+[2025-06-18T16:40:05.276Z] Fetching pool information...
+[2025-06-18T16:40:05.276Z] Retrieving complete pool configuration...
+[2025-06-18T16:40:05.294Z] Fetching burn-mint pool config for mint: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+[2025-06-18T16:40:05.295Z] Pool config PDA: 75ArY9qBotNbyZFNL3Uq82qci26HX6xUbsYJiZtYNexa (bump: 255)
+[2025-06-18T16:40:05.564Z] Account found: owner=4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz, dataLength=368, lamports=3452160
+[2025-06-18T16:40:05.566Z] Successfully decoded pool config: {
+  version: 1,
+  mint: '4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY',
+  owner: 'EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB',
+  decimals: 9,
+  router: 'Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C'
+}
+[2025-06-18T16:40:05.567Z] Pool info retrieved: {
+  poolType: 'burn-mint',
+  version: 1,
+  owner: 'EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB',
+  mint: '4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY',
+  decimals: 9
+}
+[2025-06-18T16:40:05.567Z] Fetching global configuration...
+[2025-06-18T16:40:05.568Z] Fetching global config info for program: 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+[2025-06-18T16:40:05.573Z] Getting global config info
+[2025-06-18T16:40:05.573Z] Fetching global config for program: 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+[2025-06-18T16:40:05.575Z] Global config PDA: 73WwhTFwVrKHcHEZwHqUvsH6jgvRiLSdccKnw2jpWEHT (bump: 254)
+[2025-06-18T16:40:05.805Z] Global config account found: owner=4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz, dataLength=10, lamports=960480
+[2025-06-18T16:40:05.805Z] Successfully decoded global config: { version: 1, selfServedAllowed: false }
+[2025-06-18T16:40:05.805Z] Global config retrieved: { version: 1, selfServedAllowed: false }
+
+================================================================================
+🏊 BURN-MINT TOKEN POOL INFORMATION
+================================================================================
+
+🌍 GLOBAL CONFIGURATION
+----------------------------------------
+Program Version: 1
+Self-Served Pools: ❌ Disabled
+
+📋 BASIC INFORMATION
+----------------------------------------
+Pool Type: burn-mint
+Version: 1
+Token Mint: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+Decimals: 9
+
+👥 OWNERSHIP & PERMISSIONS
+----------------------------------------
+Current Owner: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+Proposed Owner: 11111111111111111111111111111111 (default/unset)
+Rate Limit Admin: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+
+🪙 TOKEN CONFIGURATION
+----------------------------------------
+Token Program: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+Pool Signer PDA: 5aWw5TTbPDZvcwyy1fR6JLXS9RbG2hDPpzDtrbiEsaN8
+Pool Token Account: DC4nBwHb6z5gAFJmi4Hkhn1TqaVDmhunqktSro16dAod
+
+🌉 CCIP INTEGRATION
+----------------------------------------
+CCIP Router: Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C
+Router Onramp Authority: 93tqaAf3fut2Tq2RT5i4yMWqcwazyw7FEUfGH675N34u
+RMN Remote: RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7
+
+🔒 SECURITY & CONTROLS
+----------------------------------------
+Allowlist: ❌ Disabled
+
+⚖️ REBALANCING (Lock/Release Only)
+----------------------------------------
+Rebalancer: 11111111111111111111111111111111 (default/unset)
+Can Accept Liquidity: ❌ Disabled
+
+📍 ADDRESS SUMMARY
+----------------------------------------
+Token Mint:           4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+Pool Program:         4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+Pool Owner:           EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+Pool Signer PDA:      5aWw5TTbPDZvcwyy1fR6JLXS9RbG2hDPpzDtrbiEsaN8
+
+================================================================================
+✅ Pool information retrieved successfully!
+
+💡 NEXT STEPS
+----------------------------------------
+• Configure remote chains for cross-chain transfers
+• Set up rate limits for security
+• Configure allowlists if needed
+• Transfer ownership if this is a temporary deployer
+✨  Done in 4.21s.

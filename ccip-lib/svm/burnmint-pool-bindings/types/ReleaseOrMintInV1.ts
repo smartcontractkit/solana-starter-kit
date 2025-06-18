@@ -4,76 +4,78 @@ import * as types from "../types" // eslint-disable-line @typescript-eslint/no-u
 import * as borsh from "@coral-xyz/borsh"
 
 export interface ReleaseOrMintInV1Fields {
-  originalSender: types.RemoteAddressFields
-  remoteChainSelector: BN
+  original_sender: types.RemoteAddressFields
+  remote_chain_selector: BN
   receiver: PublicKey
   amount: Array<number>
-  localToken: PublicKey
+  local_token: PublicKey
   /**
    * @dev WARNING: sourcePoolAddress should be checked prior to any processing of funds. Make sure it matches the
    * expected pool address for the given remoteChainSelector.
    */
-  sourcePoolAddress: types.RemoteAddressFields
-  sourcePoolData: Uint8Array
+  source_pool_address: types.RemoteAddressFields
+  source_pool_data: Uint8Array
   /** @dev WARNING: offchainTokenData is untrusted data. */
-  offchainTokenData: Uint8Array
+  offchain_token_data: Uint8Array
 }
 
 export interface ReleaseOrMintInV1JSON {
-  originalSender: types.RemoteAddressJSON
-  remoteChainSelector: string
+  original_sender: types.RemoteAddressJSON
+  remote_chain_selector: string
   receiver: string
   amount: Array<number>
-  localToken: string
+  local_token: string
   /**
    * @dev WARNING: sourcePoolAddress should be checked prior to any processing of funds. Make sure it matches the
    * expected pool address for the given remoteChainSelector.
    */
-  sourcePoolAddress: types.RemoteAddressJSON
-  sourcePoolData: Array<number>
+  source_pool_address: types.RemoteAddressJSON
+  source_pool_data: Array<number>
   /** @dev WARNING: offchainTokenData is untrusted data. */
-  offchainTokenData: Array<number>
+  offchain_token_data: Array<number>
 }
 
 export class ReleaseOrMintInV1 {
-  readonly originalSender: types.RemoteAddress
-  readonly remoteChainSelector: BN
+  readonly original_sender: types.RemoteAddress
+  readonly remote_chain_selector: BN
   readonly receiver: PublicKey
   readonly amount: Array<number>
-  readonly localToken: PublicKey
+  readonly local_token: PublicKey
   /**
    * @dev WARNING: sourcePoolAddress should be checked prior to any processing of funds. Make sure it matches the
    * expected pool address for the given remoteChainSelector.
    */
-  readonly sourcePoolAddress: types.RemoteAddress
-  readonly sourcePoolData: Uint8Array
+  readonly source_pool_address: types.RemoteAddress
+  readonly source_pool_data: Uint8Array
   /** @dev WARNING: offchainTokenData is untrusted data. */
-  readonly offchainTokenData: Uint8Array
+  readonly offchain_token_data: Uint8Array
 
   constructor(fields: ReleaseOrMintInV1Fields) {
-    this.originalSender = new types.RemoteAddress({ ...fields.originalSender })
-    this.remoteChainSelector = fields.remoteChainSelector
+    this.original_sender = new types.RemoteAddress({
+      ...fields.original_sender,
+    })
+    this.remote_chain_selector = fields.remote_chain_selector
     this.receiver = fields.receiver
     this.amount = fields.amount
-    this.localToken = fields.localToken
-    this.sourcePoolAddress = new types.RemoteAddress({
-      ...fields.sourcePoolAddress,
+    this.local_token = fields.local_token
+    this.source_pool_address = new types.RemoteAddress({
+      ...fields.source_pool_address,
     })
-    this.sourcePoolData = fields.sourcePoolData
-    this.offchainTokenData = fields.offchainTokenData
+    this.source_pool_data = fields.source_pool_data
+    this.offchain_token_data = fields.offchain_token_data
   }
 
   static layout(property?: string) {
     return borsh.struct(
       [
-        types.RemoteAddress.layout("originalSender"),
-        borsh.u64("remoteChainSelector"),
+        types.RemoteAddress.layout("original_sender"),
+        borsh.u64("remote_chain_selector"),
         borsh.publicKey("receiver"),
         borsh.array(borsh.u8(), 32, "amount"),
-        borsh.publicKey("localToken"),
-        types.RemoteAddress.layout("sourcePoolAddress"),
-        borsh.vecU8("sourcePoolData"),
-        borsh.vecU8("offchainTokenData"),
+        borsh.publicKey("local_token"),
+        types.RemoteAddress.layout("source_pool_address"),
+        borsh.vecU8("source_pool_data"),
+        borsh.vecU8("offchain_token_data"),
       ],
       property
     )
@@ -82,71 +84,75 @@ export class ReleaseOrMintInV1 {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static fromDecoded(obj: any) {
     return new ReleaseOrMintInV1({
-      originalSender: types.RemoteAddress.fromDecoded(obj.originalSender),
-      remoteChainSelector: obj.remoteChainSelector,
-      receiver: obj.receiver,
+      original_sender: types.RemoteAddress.fromDecoded(obj.original_sender),
+      remote_chain_selector: obj.remote_chain_selector,
+      receiver: new PublicKey(obj.receiver),
       amount: obj.amount,
-      localToken: obj.localToken,
-      sourcePoolAddress: types.RemoteAddress.fromDecoded(obj.sourcePoolAddress),
-      sourcePoolData: new Uint8Array(
-        obj.sourcePoolData.buffer,
-        obj.sourcePoolData.byteOffset,
-        obj.sourcePoolData.length
+      local_token: new PublicKey(obj.local_token),
+      source_pool_address: types.RemoteAddress.fromDecoded(
+        obj.source_pool_address
       ),
-      offchainTokenData: new Uint8Array(
-        obj.offchainTokenData.buffer,
-        obj.offchainTokenData.byteOffset,
-        obj.offchainTokenData.length
+      source_pool_data: new Uint8Array(
+        obj.source_pool_data.buffer,
+        obj.source_pool_data.byteOffset,
+        obj.source_pool_data.length
+      ),
+      offchain_token_data: new Uint8Array(
+        obj.offchain_token_data.buffer,
+        obj.offchain_token_data.byteOffset,
+        obj.offchain_token_data.length
       ),
     })
   }
 
   static toEncodable(fields: ReleaseOrMintInV1Fields) {
     return {
-      originalSender: types.RemoteAddress.toEncodable(fields.originalSender),
-      remoteChainSelector: fields.remoteChainSelector,
+      original_sender: types.RemoteAddress.toEncodable(fields.original_sender),
+      remote_chain_selector: fields.remote_chain_selector,
       receiver: fields.receiver,
       amount: fields.amount,
-      localToken: fields.localToken,
-      sourcePoolAddress: types.RemoteAddress.toEncodable(
-        fields.sourcePoolAddress
+      local_token: fields.local_token,
+      source_pool_address: types.RemoteAddress.toEncodable(
+        fields.source_pool_address
       ),
-      sourcePoolData: Buffer.from(
-        fields.sourcePoolData.buffer,
-        fields.sourcePoolData.byteOffset,
-        fields.sourcePoolData.length
+      source_pool_data: Buffer.from(
+        fields.source_pool_data.buffer,
+        fields.source_pool_data.byteOffset,
+        fields.source_pool_data.length
       ),
-      offchainTokenData: Buffer.from(
-        fields.offchainTokenData.buffer,
-        fields.offchainTokenData.byteOffset,
-        fields.offchainTokenData.length
+      offchain_token_data: Buffer.from(
+        fields.offchain_token_data.buffer,
+        fields.offchain_token_data.byteOffset,
+        fields.offchain_token_data.length
       ),
     }
   }
 
   toJSON(): ReleaseOrMintInV1JSON {
     return {
-      originalSender: this.originalSender.toJSON(),
-      remoteChainSelector: this.remoteChainSelector.toString(),
+      original_sender: this.original_sender.toJSON(),
+      remote_chain_selector: this.remote_chain_selector.toString(),
       receiver: this.receiver.toString(),
       amount: this.amount,
-      localToken: this.localToken.toString(),
-      sourcePoolAddress: this.sourcePoolAddress.toJSON(),
-      sourcePoolData: Array.from(this.sourcePoolData.values()),
-      offchainTokenData: Array.from(this.offchainTokenData.values()),
+      local_token: this.local_token.toString(),
+      source_pool_address: this.source_pool_address.toJSON(),
+      source_pool_data: Array.from(this.source_pool_data.values()),
+      offchain_token_data: Array.from(this.offchain_token_data.values()),
     }
   }
 
   static fromJSON(obj: ReleaseOrMintInV1JSON): ReleaseOrMintInV1 {
     return new ReleaseOrMintInV1({
-      originalSender: types.RemoteAddress.fromJSON(obj.originalSender),
-      remoteChainSelector: new BN(obj.remoteChainSelector),
+      original_sender: types.RemoteAddress.fromJSON(obj.original_sender),
+      remote_chain_selector: new BN(obj.remote_chain_selector),
       receiver: new PublicKey(obj.receiver),
       amount: obj.amount,
-      localToken: new PublicKey(obj.localToken),
-      sourcePoolAddress: types.RemoteAddress.fromJSON(obj.sourcePoolAddress),
-      sourcePoolData: Uint8Array.from(obj.sourcePoolData),
-      offchainTokenData: Uint8Array.from(obj.offchainTokenData),
+      local_token: new PublicKey(obj.local_token),
+      source_pool_address: types.RemoteAddress.fromJSON(
+        obj.source_pool_address
+      ),
+      source_pool_data: Uint8Array.from(obj.source_pool_data),
+      offchain_token_data: Uint8Array.from(obj.offchain_token_data),
     })
   }
 

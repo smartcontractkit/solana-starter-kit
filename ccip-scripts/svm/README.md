@@ -2,6 +2,9 @@
 
 This directory contains scripts for interacting with the Cross-Chain Interoperability Protocol (CCIP) on Solana. These tools help you estimate fees and send cross-chain messages using Chainlink's CCIP infrastructure.
 
+> 📖 **This is the comprehensive technical guide for Solana/SVM operations**  
+> For overview and quick start: [Main README](../README.md)
+
 ## Prerequisites
 
 - Node.js v20+ (v23.11.0 recommended)
@@ -41,6 +44,7 @@ yarn token:wrap:test
 ```
 
 The script:
+
 - Checks your SOL balance
 - Wraps the specified amount (1 SOL by default) into wSOL
 - Displays before and after balances
@@ -58,11 +62,13 @@ yarn token:delegate:test
 ```
 
 This script:
+
 - Delegates wSOL to the Fee Billing Signer PDA
 - Delegates BnM tokens to the BnM Token Pool Signer PDA
 - Delegates LINK tokens to the Fee Billing Signer PDA
 
 **These delegations are necessary for:**
+
 1. Transferring tokens cross-chain via CCIP
 2. Using non-native tokens (like wSOL or LINK) to pay for CCIP fees
 
@@ -81,11 +87,13 @@ yarn token:check:test
 ```
 
 This script:
+
 - Displays token balances
 - Shows which addresses have delegation authority
 - Shows how many tokens are delegated
 
 Example output:
+
 ```
 ==== Summary ====
 Mint | Token Account | Balance | Delegate | Delegated Amount
@@ -95,7 +103,171 @@ So111111... | aVmjJoty... | 2000009520 | 2bsR7jPW... | 18446744073709551615
 D3HCrigx... | 8U9xkMZU... | 0 | 2bsR7jPW... | 18446744073709551615
 ```
 
-### 2. Get CCIP Fee Estimations
+### 2. Token Pool Management
+
+**⚠️ IMPORTANT:** Token pool operations must follow a specific order:
+
+1. **Initialize Global Config** (once per program deployment) - Only by program upgrade authority
+2. **Initialize Token Pool** (once per token) - By upgrade authority or mint authority
+
+#### 2.1. Initialize Global Config
+
+The `initialize-global-config.ts` script initializes the global configuration for a burn-mint token pool program. This **MUST** be run once per program deployment before any individual pools can be created.
+
+```bash
+# Initialize global config (must be run by program upgrade authority)
+yarn svm:pool:init-global-config \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
+
+# With debug logging
+yarn svm:pool:init-global-config \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--burn-mint-pool-program <id>`: Burn-mint token pool program ID
+
+##### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file (must be program upgrade authority)
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip transaction preflight checks
+
+##### Important Notes
+
+- **Authority Required**: Only the program upgrade authority can run this script
+- **One-Time Operation**: This only needs to be run ONCE per program deployment
+- **Prerequisite**: This must succeed before any token pools can be initialized
+- **Scope**: Creates program-wide configuration, not token-specific settings
+
+#### 2.2. Initialize Token Pool
+
+The `initialize-pool.ts` script initializes a burn-mint token pool for CCIP cross-chain token transfers.
+
+```bash
+# Initialize a token pool
+yarn svm:pool:initialize \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
+
+# With debug logging
+yarn svm:pool:initialize \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
+  --log-level DEBUG
+```
+
+#### Required Options
+
+- `--token-mint <address>`: Token mint address to create pool for
+- `--burn-mint-pool-program <id>`: Burn-mint token pool program ID
+
+#### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip transaction preflight checks
+
+This script:
+
+- Checks if a pool already exists for the token mint
+- Initializes the burn-mint token pool with the CCIP router and RMN remote
+- Sets the wallet as the pool administrator
+- Verifies the pool was created successfully
+
+**Prerequisites:**
+
+1. **Global config must be initialized first** (use `yarn svm:pool:init-global-config`)
+2. Token mint must already exist (use `yarn svm:token:create` to create one)
+3. Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
+4. Burn-mint pool program must be deployed and accessible
+
+#### 2.3. Get Pool Information
+
+The `get-pool-info.ts` script provides comprehensive information about an existing burn-mint token pool. This displays all configuration details, ownership information, and security settings.
+
+```bash
+# Get detailed pool information
+yarn svm:pool:get-info \
+  --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \
+  --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+
+# With debug logging
+yarn svm:pool:get-info \
+  --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \
+  --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address to get information for
+- `--burn-mint-pool-program <id>`: Burn-mint token pool program ID
+
+##### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+
+##### What This Script Shows
+
+The script provides comprehensive pool information organized into sections:
+
+1. **Basic Information**: Pool type, version, token mint, decimals
+2. **Ownership & Permissions**: Current owner, proposed owner, rate limit admin
+3. **Token Configuration**: Token program, pool signer PDA, pool token account
+4. **CCIP Integration**: Router addresses, onramp authority, RMN remote
+5. **Security & Controls**: Allowlist status and entries
+6. **Address Summary**: Quick reference for all important addresses
+
+##### Example Output
+
+```
+================================================================================
+🏊 BURN-MINT TOKEN POOL INFORMATION
+================================================================================
+
+📋 BASIC INFORMATION
+----------------------------------------
+Pool Type: burn-mint
+Version: 1
+Token Mint: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+Decimals: 6
+
+👥 OWNERSHIP & PERMISSIONS
+----------------------------------------
+Current Owner: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+Proposed Owner: 11111111111111111111111111111111 (default/unset)
+Rate Limit Admin: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+
+🔒 SECURITY & CONTROLS
+----------------------------------------
+Allowlist: ❌ Disabled
+
+💡 NEXT STEPS
+----------------------------------------
+• Configure remote chains for cross-chain transfers
+• Set up rate limits for security
+• Configure allowlists if needed
+• Transfer ownership if this is a temporary deployer
+```
+
+**Prerequisites:**
+
+- Pool must be initialized (run `yarn svm:pool:initialize` first)
+- Token mint and program ID must be valid
+
+**Use Cases:**
+
+- Verify pool initialization was successful
+- Check current ownership and configuration
+- Audit security settings before production use
+- Get addresses for integration with other tools
+- Debug pool-related issues
+
+### 3. Get CCIP Fee Estimations
 
 The `get-ccip-fee.ts` script provides fee estimations for cross-chain message delivery using CCIP.
 
@@ -125,26 +297,31 @@ yarn ts-node ccip-scripts/router/get-ccip-fee.ts [options]
 #### Examples
 
 Basic usage with default settings:
+
 ```bash
 yarn ccip:fee
 ```
 
 With increased log level for debugging:
+
 ```bash
 yarn ccip:fee:debug
 ```
 
 Maximum logging for troubleshooting:
+
 ```bash
 yarn ccip:fee:trace
 ```
 
 Using test keypair:
+
 ```bash
 yarn ccip:fee:test
 ```
 
 Skip preflight checks:
+
 ```bash
 yarn ccip:fee:skip
 ```
@@ -153,11 +330,12 @@ yarn ccip:fee:skip
 
 The script uses Wrapped SOL (wSOL) for fee estimations. This is configured in the script to ensure consistent fee calculation with the Solana CCIP implementation.
 
-### 3. Send CCIP Cross-Chain Messages
+### 4. Send CCIP Cross-Chain Messages
 
 The `ccip-send.ts` script sends tokens from Solana to Ethereum using Chainlink's CCIP router.
 
 **⚠️ PREREQUISITES:**
+
 1. For non-native fee tokens (LINK, wSOL): Run `yarn token:delegate` first
 2. For token transfers: Run `yarn token:delegate` first
 3. Ensure you have sufficient SOL for transaction fees
@@ -213,31 +391,37 @@ yarn ts-node ccip-scripts/router/ccip-send.ts [options]
 #### Examples
 
 Send with native SOL as the fee token (default):
+
 ```bash
 yarn ccip:send
 ```
 
 Send using LINK as the fee token:
+
 ```bash
 yarn ccip:send:link
 ```
 
 Send using wrapped SOL as the fee token:
+
 ```bash
 yarn ccip:send:wrapped
 ```
 
 Send with detailed logging:
+
 ```bash
 yarn ccip:send:debug
 ```
 
 Send with test keypair:
+
 ```bash
 yarn ccip:send:test
 ```
 
 Send with custom keypair:
+
 ```bash
 yarn ccip:send -- --keypair /path/to/keypair.json
 ```
@@ -245,6 +429,7 @@ yarn ccip:send -- --keypair /path/to/keypair.json
 #### Process Overview
 
 The script:
+
 1. Loads wallet and checks balances
 2. Checks token accounts and delegations
 3. Calculates CCIP fees
@@ -269,7 +454,7 @@ https://explorer.solana.com/tx/3pVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KR
 The scripts use the following approach for keypair selection:
 
 1. **Default Behavior**: Uses the standard Solana keypair at `~/.config/solana/id.json`
-2. **Custom Keypair**: Specify a custom path with `--keypair <path>` 
+2. **Custom Keypair**: Specify a custom path with `--keypair <path>`
 3. **Test Keypair**: Use the test keypair at `~/.config/solana/keytest.json` with the `--use-test-keypair` flag
 
 ### Configuration
@@ -311,6 +496,7 @@ Based on our testing:
 #### Permission Errors
 
 If you see errors like "owner does not match" or permission-related errors:
+
 1. **Make sure** you've run `yarn token:delegate` to grant the necessary permissions
 2. Run `yarn token:check` to verify delegations are correctly set
 3. If using a non-native fee token, verify it has been delegated to the Fee Billing Signer
@@ -323,4 +509,4 @@ If you see errors like "owner does not match" or permission-related errors:
 
 ## License
 
-This project is licensed under MIT - see the LICENSE file for details. 
+This project is licensed under MIT - see the LICENSE file for details.

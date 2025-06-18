@@ -5,43 +5,43 @@ import * as borsh from "@coral-xyz/borsh"
 
 export interface LockOrBurnInV1Fields {
   receiver: Uint8Array
-  remoteChainSelector: BN
-  originalSender: PublicKey
+  remote_chain_selector: BN
+  original_sender: PublicKey
   amount: BN
-  localToken: PublicKey
+  local_token: PublicKey
 }
 
 export interface LockOrBurnInV1JSON {
   receiver: Array<number>
-  remoteChainSelector: string
-  originalSender: string
+  remote_chain_selector: string
+  original_sender: string
   amount: string
-  localToken: string
+  local_token: string
 }
 
 export class LockOrBurnInV1 {
   readonly receiver: Uint8Array
-  readonly remoteChainSelector: BN
-  readonly originalSender: PublicKey
+  readonly remote_chain_selector: BN
+  readonly original_sender: PublicKey
   readonly amount: BN
-  readonly localToken: PublicKey
+  readonly local_token: PublicKey
 
   constructor(fields: LockOrBurnInV1Fields) {
     this.receiver = fields.receiver
-    this.remoteChainSelector = fields.remoteChainSelector
-    this.originalSender = fields.originalSender
+    this.remote_chain_selector = fields.remote_chain_selector
+    this.original_sender = fields.original_sender
     this.amount = fields.amount
-    this.localToken = fields.localToken
+    this.local_token = fields.local_token
   }
 
   static layout(property?: string) {
     return borsh.struct(
       [
         borsh.vecU8("receiver"),
-        borsh.u64("remoteChainSelector"),
-        borsh.publicKey("originalSender"),
+        borsh.u64("remote_chain_selector"),
+        borsh.publicKey("original_sender"),
         borsh.u64("amount"),
-        borsh.publicKey("localToken"),
+        borsh.publicKey("local_token"),
       ],
       property
     )
@@ -55,10 +55,10 @@ export class LockOrBurnInV1 {
         obj.receiver.byteOffset,
         obj.receiver.length
       ),
-      remoteChainSelector: obj.remoteChainSelector,
-      originalSender: obj.originalSender,
+      remote_chain_selector: obj.remote_chain_selector,
+      original_sender: new PublicKey(obj.original_sender),
       amount: obj.amount,
-      localToken: obj.localToken,
+      local_token: new PublicKey(obj.local_token),
     })
   }
 
@@ -69,30 +69,30 @@ export class LockOrBurnInV1 {
         fields.receiver.byteOffset,
         fields.receiver.length
       ),
-      remoteChainSelector: fields.remoteChainSelector,
-      originalSender: fields.originalSender,
+      remote_chain_selector: fields.remote_chain_selector,
+      original_sender: fields.original_sender,
       amount: fields.amount,
-      localToken: fields.localToken,
+      local_token: fields.local_token,
     }
   }
 
   toJSON(): LockOrBurnInV1JSON {
     return {
       receiver: Array.from(this.receiver.values()),
-      remoteChainSelector: this.remoteChainSelector.toString(),
-      originalSender: this.originalSender.toString(),
+      remote_chain_selector: this.remote_chain_selector.toString(),
+      original_sender: this.original_sender.toString(),
       amount: this.amount.toString(),
-      localToken: this.localToken.toString(),
+      local_token: this.local_token.toString(),
     }
   }
 
   static fromJSON(obj: LockOrBurnInV1JSON): LockOrBurnInV1 {
     return new LockOrBurnInV1({
       receiver: Uint8Array.from(obj.receiver),
-      remoteChainSelector: new BN(obj.remoteChainSelector),
-      originalSender: new PublicKey(obj.originalSender),
+      remote_chain_selector: new BN(obj.remote_chain_selector),
+      original_sender: new PublicKey(obj.original_sender),
       amount: new BN(obj.amount),
-      localToken: new PublicKey(obj.localToken),
+      local_token: new PublicKey(obj.local_token),
     })
   }
 

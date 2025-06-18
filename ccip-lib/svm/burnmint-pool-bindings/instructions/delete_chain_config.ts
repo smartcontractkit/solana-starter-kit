@@ -4,43 +4,38 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface InitChainRemoteConfigArgs {
-  remoteChainSelector: BN
+export interface Delete_chain_configArgs {
+  remote_chain_selector: BN
   mint: PublicKey
-  cfg: types.RemoteConfigFields
 }
 
-export interface InitChainRemoteConfigAccounts {
+export interface Delete_chain_configAccounts {
   state: PublicKey
-  chainConfig: PublicKey
+  chain_config: PublicKey
   authority: PublicKey
-  systemProgram: PublicKey
 }
 
 export const layout = borsh.struct([
-  borsh.u64("remoteChainSelector"),
+  borsh.u64("remote_chain_selector"),
   borsh.publicKey("mint"),
-  types.RemoteConfig.layout("cfg"),
 ])
 
-export function initChainRemoteConfig(
-  args: InitChainRemoteConfigArgs,
-  accounts: InitChainRemoteConfigAccounts,
+export function delete_chain_config(
+  args: Delete_chain_configArgs,
+  accounts: Delete_chain_configAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
     { pubkey: accounts.state, isSigner: false, isWritable: false },
-    { pubkey: accounts.chainConfig, isSigner: false, isWritable: true },
+    { pubkey: accounts.chain_config, isSigner: false, isWritable: true },
     { pubkey: accounts.authority, isSigner: true, isWritable: true },
-    { pubkey: accounts.systemProgram, isSigner: false, isWritable: false },
   ]
-  const identifier = Buffer.from([21, 150, 133, 36, 2, 116, 199, 129])
+  const identifier = Buffer.from([241, 159, 142, 210, 64, 173, 77, 179])
   const buffer = Buffer.alloc(1000)
   const len = layout.encode(
     {
-      remoteChainSelector: args.remoteChainSelector,
+      remote_chain_selector: args.remote_chain_selector,
       mint: args.mint,
-      cfg: types.RemoteConfig.toEncodable(args.cfg),
     },
     buffer
   )

@@ -4,24 +4,24 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface StateFields {}
+export interface PoolConfigFields {}
 
-export interface StateJSON {}
+export interface PoolConfigJSON {}
 
-export class State {
+export class PoolConfig {
   static readonly discriminator = Buffer.from([
-    216, 146, 107, 94, 104, 75, 182, 177,
+    26, 108, 14, 123, 116, 230, 129, 43,
   ])
 
   static readonly layout = borsh.struct([])
 
-  constructor(fields: StateFields) {}
+  constructor(fields: PoolConfigFields) {}
 
   static async fetch(
     c: Connection,
     address: PublicKey,
     programId: PublicKey = PROGRAM_ID
-  ): Promise<State | null> {
+  ): Promise<PoolConfig | null> {
     const info = await c.getAccountInfo(address)
 
     if (info === null) {
@@ -38,7 +38,7 @@ export class State {
     c: Connection,
     addresses: PublicKey[],
     programId: PublicKey = PROGRAM_ID
-  ): Promise<Array<State | null>> {
+  ): Promise<Array<PoolConfig | null>> {
     const infos = await c.getMultipleAccountsInfo(addresses)
 
     return infos.map((info) => {
@@ -53,21 +53,21 @@ export class State {
     })
   }
 
-  static decode(data: Buffer): State {
-    if (!data.slice(0, 8).equals(State.discriminator)) {
+  static decode(data: Buffer): PoolConfig {
+    if (!data.slice(0, 8).equals(PoolConfig.discriminator)) {
       throw new Error("invalid account discriminator")
     }
 
-    const dec = State.layout.decode(data.slice(8))
+    const dec = PoolConfig.layout.decode(data.slice(8))
 
-    return new State({})
+    return new PoolConfig({})
   }
 
-  toJSON(): StateJSON {
+  toJSON(): PoolConfigJSON {
     return {}
   }
 
-  static fromJSON(obj: StateJSON): State {
-    return new State({})
+  static fromJSON(obj: PoolConfigJSON): PoolConfig {
+    return new PoolConfig({})
   }
 }

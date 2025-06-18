@@ -4,19 +4,19 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface InitializeStateVersionArgs {
-  mint: PublicKey
+export interface Initialize_state_versionArgs {
+  _mint: PublicKey
 }
 
-export interface InitializeStateVersionAccounts {
+export interface Initialize_state_versionAccounts {
   state: PublicKey
 }
 
-export const layout = borsh.struct([borsh.publicKey("mint")])
+export const layout = borsh.struct([borsh.publicKey("_mint")])
 
-export function initializeStateVersion(
-  args: InitializeStateVersionArgs,
-  accounts: InitializeStateVersionAccounts,
+export function initialize_state_version(
+  args: Initialize_state_versionArgs,
+  accounts: Initialize_state_versionAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
@@ -26,7 +26,7 @@ export function initializeStateVersion(
   const buffer = Buffer.alloc(1000)
   const len = layout.encode(
     {
-      mint: args.mint,
+      _mint: args._mint,
     },
     buffer
   )

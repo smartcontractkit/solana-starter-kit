@@ -4,35 +4,33 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface RemoveFromAllowListArgs {
-  remove: Array<PublicKey>
+export interface Set_routerArgs {
+  new_router: PublicKey
 }
 
-export interface RemoveFromAllowListAccounts {
+export interface Set_routerAccounts {
   state: PublicKey
   mint: PublicKey
   authority: PublicKey
-  systemProgram: PublicKey
 }
 
-export const layout = borsh.struct([borsh.vec(borsh.publicKey(), "remove")])
+export const layout = borsh.struct([borsh.publicKey("new_router")])
 
-export function removeFromAllowList(
-  args: RemoveFromAllowListArgs,
-  accounts: RemoveFromAllowListAccounts,
+export function set_router(
+  args: Set_routerArgs,
+  accounts: Set_routerAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
     { pubkey: accounts.state, isSigner: false, isWritable: true },
     { pubkey: accounts.mint, isSigner: false, isWritable: false },
-    { pubkey: accounts.authority, isSigner: true, isWritable: true },
-    { pubkey: accounts.systemProgram, isSigner: false, isWritable: false },
+    { pubkey: accounts.authority, isSigner: true, isWritable: false },
   ]
-  const identifier = Buffer.from([44, 46, 123, 213, 40, 11, 107, 18])
+  const identifier = Buffer.from([236, 248, 107, 200, 151, 160, 44, 250])
   const buffer = Buffer.alloc(1000)
   const len = layout.encode(
     {
-      remove: args.remove,
+      new_router: args.new_router,
     },
     buffer
   )

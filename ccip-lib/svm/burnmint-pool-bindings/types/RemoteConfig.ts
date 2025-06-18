@@ -4,35 +4,35 @@ import * as types from "../types" // eslint-disable-line @typescript-eslint/no-u
 import * as borsh from "@coral-xyz/borsh"
 
 export interface RemoteConfigFields {
-  poolAddresses: Array<types.RemoteAddressFields>
-  tokenAddress: types.RemoteAddressFields
+  pool_addresses: Array<types.RemoteAddressFields>
+  token_address: types.RemoteAddressFields
   decimals: number
 }
 
 export interface RemoteConfigJSON {
-  poolAddresses: Array<types.RemoteAddressJSON>
-  tokenAddress: types.RemoteAddressJSON
+  pool_addresses: Array<types.RemoteAddressJSON>
+  token_address: types.RemoteAddressJSON
   decimals: number
 }
 
 export class RemoteConfig {
-  readonly poolAddresses: Array<types.RemoteAddress>
-  readonly tokenAddress: types.RemoteAddress
+  readonly pool_addresses: Array<types.RemoteAddress>
+  readonly token_address: types.RemoteAddress
   readonly decimals: number
 
   constructor(fields: RemoteConfigFields) {
-    this.poolAddresses = fields.poolAddresses.map(
+    this.pool_addresses = fields.pool_addresses.map(
       (item) => new types.RemoteAddress({ ...item })
     )
-    this.tokenAddress = new types.RemoteAddress({ ...fields.tokenAddress })
+    this.token_address = new types.RemoteAddress({ ...fields.token_address })
     this.decimals = fields.decimals
   }
 
   static layout(property?: string) {
     return borsh.struct(
       [
-        borsh.vec(types.RemoteAddress.layout(), "poolAddresses"),
-        types.RemoteAddress.layout("tokenAddress"),
+        borsh.vec(types.RemoteAddress.layout(), "pool_addresses"),
+        types.RemoteAddress.layout("token_address"),
         borsh.u8("decimals"),
       ],
       property
@@ -42,40 +42,40 @@ export class RemoteConfig {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static fromDecoded(obj: any) {
     return new RemoteConfig({
-      poolAddresses: obj.poolAddresses.map(
+      pool_addresses: obj.pool_addresses.map(
         (
           item: any /* eslint-disable-line @typescript-eslint/no-explicit-any */
         ) => types.RemoteAddress.fromDecoded(item)
       ),
-      tokenAddress: types.RemoteAddress.fromDecoded(obj.tokenAddress),
+      token_address: types.RemoteAddress.fromDecoded(obj.token_address),
       decimals: obj.decimals,
     })
   }
 
   static toEncodable(fields: RemoteConfigFields) {
     return {
-      poolAddresses: fields.poolAddresses.map((item) =>
+      pool_addresses: fields.pool_addresses.map((item) =>
         types.RemoteAddress.toEncodable(item)
       ),
-      tokenAddress: types.RemoteAddress.toEncodable(fields.tokenAddress),
+      token_address: types.RemoteAddress.toEncodable(fields.token_address),
       decimals: fields.decimals,
     }
   }
 
   toJSON(): RemoteConfigJSON {
     return {
-      poolAddresses: this.poolAddresses.map((item) => item.toJSON()),
-      tokenAddress: this.tokenAddress.toJSON(),
+      pool_addresses: this.pool_addresses.map((item) => item.toJSON()),
+      token_address: this.token_address.toJSON(),
       decimals: this.decimals,
     }
   }
 
   static fromJSON(obj: RemoteConfigJSON): RemoteConfig {
     return new RemoteConfig({
-      poolAddresses: obj.poolAddresses.map((item) =>
+      pool_addresses: obj.pool_addresses.map((item) =>
         types.RemoteAddress.fromJSON(item)
       ),
-      tokenAddress: types.RemoteAddress.fromJSON(obj.tokenAddress),
+      token_address: types.RemoteAddress.fromJSON(obj.token_address),
       decimals: obj.decimals,
     })
   }

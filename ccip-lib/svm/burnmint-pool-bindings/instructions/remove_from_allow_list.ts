@@ -4,40 +4,35 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface ConfigureAllowListArgs {
-  add: Array<PublicKey>
-  enabled: boolean
+export interface Remove_from_allow_listArgs {
+  remove: Array<PublicKey>
 }
 
-export interface ConfigureAllowListAccounts {
+export interface Remove_from_allow_listAccounts {
   state: PublicKey
   mint: PublicKey
   authority: PublicKey
-  systemProgram: PublicKey
+  system_program: PublicKey
 }
 
-export const layout = borsh.struct([
-  borsh.vec(borsh.publicKey(), "add"),
-  borsh.bool("enabled"),
-])
+export const layout = borsh.struct([borsh.vec(borsh.publicKey(), "remove")])
 
-export function configureAllowList(
-  args: ConfigureAllowListArgs,
-  accounts: ConfigureAllowListAccounts,
+export function remove_from_allow_list(
+  args: Remove_from_allow_listArgs,
+  accounts: Remove_from_allow_listAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
     { pubkey: accounts.state, isSigner: false, isWritable: true },
     { pubkey: accounts.mint, isSigner: false, isWritable: false },
     { pubkey: accounts.authority, isSigner: true, isWritable: true },
-    { pubkey: accounts.systemProgram, isSigner: false, isWritable: false },
+    { pubkey: accounts.system_program, isSigner: false, isWritable: false },
   ]
-  const identifier = Buffer.from([18, 180, 102, 187, 209, 0, 130, 191])
+  const identifier = Buffer.from([44, 46, 123, 213, 40, 11, 107, 18])
   const buffer = Buffer.alloc(1000)
   const len = layout.encode(
     {
-      add: args.add,
-      enabled: args.enabled,
+      remove: args.remove,
     },
     buffer
   )

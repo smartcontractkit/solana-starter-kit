@@ -4,21 +4,21 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface TransferOwnershipArgs {
-  proposedOwner: PublicKey
+export interface Transfer_ownershipArgs {
+  proposed_owner: PublicKey
 }
 
-export interface TransferOwnershipAccounts {
+export interface Transfer_ownershipAccounts {
   state: PublicKey
   mint: PublicKey
   authority: PublicKey
 }
 
-export const layout = borsh.struct([borsh.publicKey("proposedOwner")])
+export const layout = borsh.struct([borsh.publicKey("proposed_owner")])
 
-export function transferOwnership(
-  args: TransferOwnershipArgs,
-  accounts: TransferOwnershipAccounts,
+export function transfer_ownership(
+  args: Transfer_ownershipArgs,
+  accounts: Transfer_ownershipAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
@@ -30,7 +30,7 @@ export function transferOwnership(
   const buffer = Buffer.alloc(1000)
   const len = layout.encode(
     {
-      proposedOwner: args.proposedOwner,
+      proposed_owner: args.proposed_owner,
     },
     buffer
   )

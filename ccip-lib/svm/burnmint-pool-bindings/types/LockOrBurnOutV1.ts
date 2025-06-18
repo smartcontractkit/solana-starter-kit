@@ -4,31 +4,31 @@ import * as types from "../types" // eslint-disable-line @typescript-eslint/no-u
 import * as borsh from "@coral-xyz/borsh"
 
 export interface LockOrBurnOutV1Fields {
-  destTokenAddress: types.RemoteAddressFields
-  destPoolData: Uint8Array
+  dest_token_address: types.RemoteAddressFields
+  dest_pool_data: Uint8Array
 }
 
 export interface LockOrBurnOutV1JSON {
-  destTokenAddress: types.RemoteAddressJSON
-  destPoolData: Array<number>
+  dest_token_address: types.RemoteAddressJSON
+  dest_pool_data: Array<number>
 }
 
 export class LockOrBurnOutV1 {
-  readonly destTokenAddress: types.RemoteAddress
-  readonly destPoolData: Uint8Array
+  readonly dest_token_address: types.RemoteAddress
+  readonly dest_pool_data: Uint8Array
 
   constructor(fields: LockOrBurnOutV1Fields) {
-    this.destTokenAddress = new types.RemoteAddress({
-      ...fields.destTokenAddress,
+    this.dest_token_address = new types.RemoteAddress({
+      ...fields.dest_token_address,
     })
-    this.destPoolData = fields.destPoolData
+    this.dest_pool_data = fields.dest_pool_data
   }
 
   static layout(property?: string) {
     return borsh.struct(
       [
-        types.RemoteAddress.layout("destTokenAddress"),
-        borsh.vecU8("destPoolData"),
+        types.RemoteAddress.layout("dest_token_address"),
+        borsh.vecU8("dest_pool_data"),
       ],
       property
     )
@@ -37,39 +37,41 @@ export class LockOrBurnOutV1 {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static fromDecoded(obj: any) {
     return new LockOrBurnOutV1({
-      destTokenAddress: types.RemoteAddress.fromDecoded(obj.destTokenAddress),
-      destPoolData: new Uint8Array(
-        obj.destPoolData.buffer,
-        obj.destPoolData.byteOffset,
-        obj.destPoolData.length
+      dest_token_address: types.RemoteAddress.fromDecoded(
+        obj.dest_token_address
+      ),
+      dest_pool_data: new Uint8Array(
+        obj.dest_pool_data.buffer,
+        obj.dest_pool_data.byteOffset,
+        obj.dest_pool_data.length
       ),
     })
   }
 
   static toEncodable(fields: LockOrBurnOutV1Fields) {
     return {
-      destTokenAddress: types.RemoteAddress.toEncodable(
-        fields.destTokenAddress
+      dest_token_address: types.RemoteAddress.toEncodable(
+        fields.dest_token_address
       ),
-      destPoolData: Buffer.from(
-        fields.destPoolData.buffer,
-        fields.destPoolData.byteOffset,
-        fields.destPoolData.length
+      dest_pool_data: Buffer.from(
+        fields.dest_pool_data.buffer,
+        fields.dest_pool_data.byteOffset,
+        fields.dest_pool_data.length
       ),
     }
   }
 
   toJSON(): LockOrBurnOutV1JSON {
     return {
-      destTokenAddress: this.destTokenAddress.toJSON(),
-      destPoolData: Array.from(this.destPoolData.values()),
+      dest_token_address: this.dest_token_address.toJSON(),
+      dest_pool_data: Array.from(this.dest_pool_data.values()),
     }
   }
 
   static fromJSON(obj: LockOrBurnOutV1JSON): LockOrBurnOutV1 {
     return new LockOrBurnOutV1({
-      destTokenAddress: types.RemoteAddress.fromJSON(obj.destTokenAddress),
-      destPoolData: Uint8Array.from(obj.destPoolData),
+      dest_token_address: types.RemoteAddress.fromJSON(obj.dest_token_address),
+      dest_pool_data: Uint8Array.from(obj.dest_pool_data),
     })
   }
 

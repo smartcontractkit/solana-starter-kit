@@ -5,7 +5,7 @@
  * without actually sending any messages or tokens.
  *
  * INSTRUCTIONS:
- * 1. Run the script with: npm run ccip:fee
+ * 1. Run the script with: yarn ccip:fee
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)

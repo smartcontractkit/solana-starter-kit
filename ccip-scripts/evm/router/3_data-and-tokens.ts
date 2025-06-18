@@ -11,7 +11,7 @@
  *
  * 2. Customize the message parameters below if needed
  *
- * 3. Run the script with: npm run evm:data-and-tokens
+ * 3. Run the script with: yarn evm:data-and-tokens
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)
@@ -22,7 +22,7 @@
  * --log-level       : Logging verbosity (0-5, where 0 is most verbose)
  *
  * Example:
- * npm run evm:data-and-tokens -- --amount 50000000000000000 --data "Custom transfer message"
+ * yarn evm:data-and-tokens -- --amount 50000000000000000 --data "Custom transfer message"
  */
 
 import { parseScriptArgs } from "../utils/message-utils";

@@ -10,7 +10,7 @@
  *
  * 2. Customize the message parameters below if needed
  *
- * 3. Run the script with: npm run svm:arbitrary-messaging
+ * 3. Run the script with: yarn svm:arbitrary-messaging
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)

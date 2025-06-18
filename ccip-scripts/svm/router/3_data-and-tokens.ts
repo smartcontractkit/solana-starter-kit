@@ -11,7 +11,7 @@
  *
  * 2. Customize the message parameters below if needed
  *
- * 3. Run the script with: npm run svm:data-and-tokens
+ * 3. Run the script with: yarn svm:data-and-tokens
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)

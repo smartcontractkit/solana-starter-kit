@@ -464,3 +464,26 @@ export function getExplorerUrl(chainId: ChainId, txHash: string): string {
   }
   throw new Error(`No explorer URL available for chain ID: ${chainId}`);
 }
+
+/**
+ * Get explorer URL for a specific chain and address (mint, token account, wallet, etc.)
+ */
+export function getExplorerAddressUrl(chainId: ChainId, address: string): string {
+  if (
+    chainId === ChainId.ETHEREUM_SEPOLIA ||
+    chainId === ChainId.BASE_SEPOLIA ||
+    chainId === ChainId.OPTIMISM_SEPOLIA ||
+    chainId === ChainId.BSC_TESTNET ||
+    chainId === ChainId.ARBITRUM_SEPOLIA ||
+    chainId === ChainId.SONIC_BLAZE
+  ) {
+    const baseUrl = EVM_CONFIGS[chainId].explorerBaseUrl;
+    // Ensure base URL ends with a slash for proper URL joining
+    const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+    return `${normalizedBaseUrl}address/${address}`;
+  } else if (chainId === ChainId.SOLANA_DEVNET) {
+    // For Solana, use /address/ path instead of /tx/
+    return `https://explorer.solana.com/address/${address}?cluster=devnet`;
+  }
+  throw new Error(`No explorer address URL available for chain ID: ${chainId}`);
+}

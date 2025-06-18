@@ -196,7 +196,7 @@ Once you save your file, you can then execute the client. There is a [Typescript
 Typescript:
 
 ```
-npm run read-data
+yarn read-data
 ```
 
 JavaScript:
@@ -208,7 +208,7 @@ node read-data.js
 The client will query the specified price feed using the published [Chainlink Solana NPM package](https://www.npmjs.com/package/@chainlink/solana-sdk), and will then continuously just print the latest price to the console.
 
 ```
-pappas99@Pappas solana-starter-kit % npm run read-data
+pappas99@Pappas solana-starter-kit % yarn read-data
 > @ read-data /Users/pappas99/GitHub/22-hackathon/solana-starter-kit
 > ts-node ./read-data.ts
 

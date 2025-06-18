@@ -11,7 +11,7 @@
  *
  * 2. Customize the message parameters below if needed
  *
- * 3. Run the script with: npm run evm:arbitrary-message
+ * 3. Run the script with: yarn evm:arbitrary-message
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)
@@ -21,7 +21,7 @@
  * --log-level       : Logging verbosity (0-5, where 0 is most verbose)
  *
  * Example:
- * npm run evm:arbitrary-message -- --data "Hello, Solana!"
+ * yarn evm:arbitrary-message -- --data "Hello, Solana!"
  */
 
 import { parseScriptArgs } from "../utils/message-utils";

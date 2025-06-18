@@ -43,13 +43,13 @@ The configuration system has been unified to provide a consistent approach for b
 
 ```typescript
 // Import configuration elements
-import { 
-  ChainId, 
-  getEVMConfig, 
-  getCCIPSVMConfig, 
+import {
+  ChainId,
+  getEVMConfig,
+  getCCIPSVMConfig,
   getEVMFeeTokenAddress,
-  FeeTokenType
-} from './config';
+  FeeTokenType,
+} from "./config";
 
 // Get Ethereum configuration
 const evmConfig = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
@@ -88,6 +88,20 @@ yarn svm:data-and-tokens
 #### Token Operations
 
 ```bash
+# Create a new SPL Token-2022 with metadata
+yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json"
+
+# Create token with initial supply
+yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --initial-supply 1000000
+
+
+
+# Mint tokens to your wallet
+yarn svm:token:mint --mint <mint_address> --amount 1000
+
+# Mint tokens to another wallet
+yarn svm:token:mint --mint <mint_address> --amount 500 --recipient <recipient_address>
+
 # Wrap native SOL to wSOL (needed for token operations)
 yarn svm:token:wrap
 
@@ -125,14 +139,51 @@ yarn evm:token:drip
 
 ## Token Management
 
+### Creating SPL Token-2022 Tokens
+
+The project includes comprehensive tools for creating and managing SPL Token-2022 tokens with Metaplex metadata:
+
+1. **Create a new token** with custom metadata:
+
+   ```bash
+   yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --decimals 6 --initial-supply 1000000
+   ```
+
+2. **Mint additional tokens** to any wallet:
+   ```bash
+   yarn svm:token:mint --mint <mint_address> --amount 1000 --recipient <wallet_address>
+   ```
+
+The metadata URI should point to a JSON file with this structure:
+
+```json
+{
+  "name": "My Token",
+  "symbol": "MTK",
+  "description": "A sample SPL Token-2022",
+  "image": "https://example.com/image.png",
+  "external_url": "https://example.com",
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Utility"
+    }
+  ]
+}
+```
+
+### CCIP Token Operations
+
 Before sending tokens through CCIP from Solana, you must perform these steps:
 
 1. Wrap SOL if you're using native SOL as the source token:
+
    ```bash
    yarn svm:token:wrap
    ```
 
 2. Delegate token authority to the CCIP program:
+
    ```bash
    yarn svm:token:delegate
    ```
@@ -156,4 +207,4 @@ To verify that the configuration is working correctly, you can inspect the confi
 
 3. **Missing Token Delegation** - CCIP transfers from Solana require token delegation to the CCIP program. Run `yarn svm:token:delegate` before token transfers.
 
-4. **Network Congestion** - During peak usage times, consider adjusting the confirmation options or increasing transaction priority. 
+4. **Network Congestion** - During peak usage times, consider adjusting the confirmation options or increasing transaction priority.

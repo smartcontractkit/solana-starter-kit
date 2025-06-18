@@ -11,4 +11,4 @@ test-ledger
 id.json
 .env
 .env.enc
-logs/*
+log/*

@@ -1,0 +1,1070 @@
+{
+  "address": "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq",
+  "metadata": {
+    "name": "ccip_basic_receiver",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "docs": [
+    "CCIP Basic Receiver Program",
+    "",
+    "A Solana program that demonstrates how to receive and process CCIP messages.",
+    "It supports receiving both arbitrary data and token transfers from other chains."
+  ],
+  "instructions": [
+    {
+      "name": "ccip_receive",
+      "docs": [
+        "Receive a CCIP message"
+      ],
+      "discriminator": [
+        11,
+        244,
+        9,
+        249,
+        44,
+        83,
+        47,
+        245
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "The authority PDA from the offramp program that must sign the transaction",
+            "This ensures only authorized offramp programs can call this function"
+          ],
+          "signer": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  120,
+                  116,
+                  101,
+                  114,
+                  110,
+                  97,
+                  108,
+                  95,
+                  101,
+                  120,
+                  101,
+                  99,
+                  117,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  161,
+                  19,
+                  50,
+                  85,
+                  105,
+                  68,
+                  66,
+                  212,
+                  95,
+                  70,
+                  203,
+                  207,
+                  1,
+                  218,
+                  246,
+                  71,
+                  82,
+                  19,
+                  181,
+                  216,
+                  9,
+                  58,
+                  99,
+                  227,
+                  50,
+                  169,
+                  230,
+                  9,
+                  145,
+                  48,
+                  173,
+                  60
+                ]
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "offramp_program"
+            }
+          }
+        },
+        {
+          "name": "offramp_program",
+          "docs": [
+            "The offramp program account",
+            "Used for deriving PDA seeds"
+          ]
+        },
+        {
+          "name": "allowed_offramp",
+          "docs": [
+            "PDA from the router program that verifies this offramp is allowed",
+            "If this PDA doesn't exist, the router doesn't allow this offramp"
+          ]
+        },
+        {
+          "name": "state",
+          "docs": [
+            "Program state account for verification"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "messages_storage",
+          "docs": [
+            "Storage for received messages",
+            "Will be updated with the latest message"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  115,
+                  115,
+                  97,
+                  103,
+                  101,
+                  115,
+                  95,
+                  115,
+                  116,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "message",
+          "type": {
+            "defined": {
+              "name": "Any2SVMMessage"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "close_storage",
+      "docs": [
+        "Closes the messages storage account and returns lamports to the owner."
+      ],
+      "discriminator": [
+        91,
+        84,
+        24,
+        141,
+        188,
+        103,
+        167,
+        174
+      ],
+      "accounts": [
+        {
+          "name": "state",
+          "docs": [
+            "Program state account for owner verification and closing"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "messages_storage",
+          "docs": [
+            "The messages storage account to close"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  115,
+                  115,
+                  97,
+                  103,
+                  101,
+                  115,
+                  95,
+                  115,
+                  116,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "The owner who will receive the rent lamports from the closed account"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "System program needed for closing accounts"
+          ],
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "get_latest_message",
+      "docs": [
+        "Get the latest message received"
+      ],
+      "discriminator": [
+        141,
+        236,
+        5,
+        4,
+        42,
+        122,
+        2,
+        2
+      ],
+      "accounts": [
+        {
+          "name": "messages_storage",
+          "docs": [
+            "The messages storage account to read from"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  115,
+                  115,
+                  97,
+                  103,
+                  101,
+                  115,
+                  95,
+                  115,
+                  116,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "ReceivedMessage"
+        }
+      }
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Initialize the CCIP receiver program",
+        "@param router - The CCIP router program ID"
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "The payer of the transaction, will become the owner"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "state",
+          "docs": [
+            "The state account to be initialized"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "messages_storage",
+          "docs": [
+            "Messages storage account to be initialized"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  115,
+                  115,
+                  97,
+                  103,
+                  101,
+                  115,
+                  95,
+                  115,
+                  116,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_admin",
+          "docs": [
+            "Token admin PDA that will have authority over all token accounts"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  97,
+                  100,
+                  109,
+                  105,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "Program state account for verification"
+          ],
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "router",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "withdraw_tokens",
+      "docs": [
+        "Withdraw tokens from a program token account"
+      ],
+      "discriminator": [
+        2,
+        4,
+        225,
+        61,
+        19,
+        182,
+        106,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "state",
+          "docs": [
+            "Program state account for verification"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program_token_account",
+          "docs": [
+            "The token account owned by the program"
+          ],
+          "writable": true
+        },
+        {
+          "name": "to_token_account",
+          "docs": [
+            "The destination token account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "The token mint"
+          ]
+        },
+        {
+          "name": "token_program",
+          "docs": [
+            "The token program"
+          ]
+        },
+        {
+          "name": "token_admin",
+          "docs": [
+            "The token admin PDA that has authority over program token accounts"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  97,
+                  100,
+                  109,
+                  105,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "The authority (owner) of the program"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "decimals",
+          "type": "u8"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BaseState",
+      "discriminator": [
+        46,
+        139,
+        13,
+        192,
+        80,
+        181,
+        96,
+        46
+      ]
+    },
+    {
+      "name": "MessagesStorage",
+      "discriminator": [
+        77,
+        193,
+        189,
+        128,
+        132,
+        219,
+        78,
+        170
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "MessageReceived",
+      "discriminator": [
+        231,
+        68,
+        47,
+        77,
+        173,
+        241,
+        157,
+        166
+      ]
+    },
+    {
+      "name": "ReceiverInitialized",
+      "discriminator": [
+        237,
+        24,
+        23,
+        23,
+        78,
+        35,
+        102,
+        162
+      ]
+    },
+    {
+      "name": "TokenReceived",
+      "discriminator": [
+        251,
+        126,
+        204,
+        211,
+        2,
+        159,
+        194,
+        227
+      ]
+    },
+    {
+      "name": "TokensForwarded",
+      "discriminator": [
+        212,
+        65,
+        10,
+        42,
+        211,
+        229,
+        226,
+        204
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidCaller",
+      "msg": "Caller is not the configured CCIP router"
+    },
+    {
+      "code": 6001,
+      "name": "Unauthorized",
+      "msg": "Unauthorized: Signer is not the program owner"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidRemainingAccounts",
+      "msg": "Invalid remaining accounts structure for token transfer"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidTokenAccountOwner",
+      "msg": "Provided token account owner does not match token program"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidTokenAdmin",
+      "msg": "Provided token admin PDA is incorrect"
+    },
+    {
+      "code": 6005,
+      "name": "MessageDataTooLarge",
+      "msg": "Message data exceeds the maximum allowed size for this receiver"
+    },
+    {
+      "code": 6006,
+      "name": "TooManyTokens",
+      "msg": "Number of tokens exceeds the maximum allowed for this receiver"
+    },
+    {
+      "code": 6007,
+      "name": "SenderAddressTooLarge",
+      "msg": "Sender address exceeds the maximum allowed size for this receiver"
+    }
+  ],
+  "types": [
+    {
+      "name": "Any2SVMMessage",
+      "docs": [
+        "Struct representing a cross-chain message format from any chain to Solana VM"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "message_id",
+            "docs": [
+              "Unique identifier of the cross-chain message"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "source_chain_selector",
+            "docs": [
+              "Identifier of the source blockchain (chain selector)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "sender",
+            "docs": [
+              "Address of the sender on the source chain (in bytes)"
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "data",
+            "docs": [
+              "Arbitrary data payload in the message"
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "token_amounts",
+            "docs": [
+              "List of token transfers included in the message"
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "SVMTokenAmount"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BaseState",
+      "docs": [
+        "Core state account for the CCIP Receiver program",
+        "This account stores essential configuration like owner and router"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "docs": [
+              "The owner of this CCIP Receiver program"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "router",
+            "docs": [
+              "The CCIP Router program ID that this receiver works with"
+            ],
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MessageReceived",
+      "docs": [
+        "Event emitted when a cross-chain message is received"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "message_id",
+            "docs": [
+              "Unique identifier of the cross-chain message"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "source_chain_selector",
+            "docs": [
+              "Identifier of the source blockchain (chain selector)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "sender",
+            "docs": [
+              "Address of the sender on the source chain (in bytes)"
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "data_length",
+            "docs": [
+              "Length of the data payload in the message"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "token_count",
+            "docs": [
+              "Number of token transfers included in the message"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MessageType",
+      "docs": [
+        "Enum representing different types of cross-chain messages"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "TokenTransfer"
+          },
+          {
+            "name": "ArbitraryMessaging"
+          },
+          {
+            "name": "ProgrammaticTokenTransfer"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MessagesStorage",
+      "docs": [
+        "Account for storing received cross-chain messages",
+        "Keeps track of the latest message and some metadata"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "last_updated",
+            "docs": [
+              "Timestamp of when this storage was last updated"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "message_count",
+            "docs": [
+              "Total count of messages received since initialization"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "latest_message",
+            "docs": [
+              "The most recently received cross-chain message"
+            ],
+            "type": {
+              "defined": {
+                "name": "ReceivedMessage"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReceivedMessage",
+      "docs": [
+        "Struct representing a received cross-chain message"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "message_id",
+            "docs": [
+              "Unique identifier of the cross-chain message"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "message_type",
+            "docs": [
+              "Type of the message (token transfer, arbitrary message, or both)"
+            ],
+            "type": {
+              "defined": {
+                "name": "MessageType"
+              }
+            }
+          },
+          {
+            "name": "data",
+            "docs": [
+              "Arbitrary data payload in the message"
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "token_amounts",
+            "docs": [
+              "List of token transfers included in the message"
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "SVMTokenAmount"
+                }
+              }
+            }
+          },
+          {
+            "name": "received_timestamp",
+            "docs": [
+              "Timestamp when the message was received"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "source_chain_selector",
+            "docs": [
+              "Identifier of the source blockchain (chain selector)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "sender",
+            "docs": [
+              "Address of the sender on the source chain (in bytes)"
+            ],
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReceiverInitialized",
+      "docs": [
+        "Event emitted when the receiver program is initialized"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "docs": [
+              "The pubkey of the program owner"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "router",
+            "docs": [
+              "The pubkey of the router program"
+            ],
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SVMTokenAmount",
+      "docs": [
+        "Struct representing a token amount in a cross-chain transfer"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "token",
+            "docs": [
+              "The mint address of the token on Solana"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "The amount of tokens (denominated in Solana token amount)"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenReceived",
+      "docs": [
+        "Event emitted when tokens are received in a cross-chain transfer"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "token",
+            "docs": [
+              "The mint address of the received token"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "The amount of tokens received"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "docs": [
+              "Index of the token in the message's token list"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokensForwarded",
+      "docs": [
+        "Event emitted when tokens are forwarded to a recipient"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "token",
+            "docs": [
+              "The mint address of the forwarded token"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "The amount of tokens forwarded"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "recipient",
+            "docs": [
+              "The recipient's token account address"
+            ],
+            "type": "pubkey"
+          }
+        ]
+      }
+    }
+  ]
+}

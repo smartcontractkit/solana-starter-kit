@@ -28,6 +28,8 @@ The scripts are organized by virtual machine type and functionality:
 - `svm/` - Scripts for Solana Virtual Machine
   - `router/` - SVM Router operations (transfers, messaging)
   - `token/` - SVM token operations (delegation, wrapping)
+  - `pool/` - Token pool management (initialization, configuration)
+  - `admin/` - Token admin registry management
   - `utils/` - SVM utility functions
   - `receiver/` - Receivers for CCIP messages and token transfers
 
@@ -97,15 +99,28 @@ yarn svm:token:create
 # Mint tokens
 yarn svm:token:mint
 
-# Token pool management (2-step process)
-yarn svm:pool:init-global-config    # Step 1: Global config (once per deployment)
-yarn svm:pool:initialize            # Step 2: Token pool (once per token)
-yarn svm:pool:get-info              # Get detailed information about existing pools
-
 # Token preparation for CCIP
 yarn svm:token:wrap                 # Wrap SOL to wSOL
 yarn svm:token:delegate             # Delegate authority to CCIP
 yarn svm:token:check                # Verify delegations
+```
+
+#### Token Pool Management
+
+```bash
+# Token pool management (2-step process)
+yarn svm:pool:init-global-config    # Step 1: Global config (once per deployment)
+yarn svm:pool:initialize            # Step 2: Token pool (once per token)
+yarn svm:pool:get-info              # Get detailed information about existing pools
+yarn svm:pool:set-router            # Set configured CCIP router for pool (owner only)
+```
+
+#### Token Admin Registry Management
+
+```bash
+# Token admin registry operations (2-step process)
+yarn svm:admin:propose-administrator  # Step 1: Propose administrator (mint authority only)
+yarn svm:admin:accept-admin-role        # Step 2: Accept admin role (completes two-step process)
 ```
 
 > 📖 **For detailed usage, options, and troubleshooting**: See [SVM Scripts Documentation](./svm/README.md)
@@ -138,8 +153,9 @@ yarn evm:token:drip
 
 1. Set up your Solana wallet and fund with SOL
 2. Create tokens: `yarn svm:token:create`
-3. Set up token pools: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize`
-4. Prepare for CCIP: `yarn svm:token:wrap` → `yarn svm:token:delegate`
+3. Set up token administration: `yarn svm:admin:propose-administrator`
+4. Set up token pools: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize`
+5. Prepare for CCIP: `yarn svm:token:wrap` → `yarn svm:token:delegate`
 
 ### For Ethereum (EVM) Development
 

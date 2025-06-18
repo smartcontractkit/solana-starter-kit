@@ -121,6 +121,7 @@ yarn svm:pool:set-router            # Set configured CCIP router for pool (owner
 # Token admin registry operations (2-step process)
 yarn svm:admin:propose-administrator  # Step 1: Propose administrator (mint authority only)
 yarn svm:admin:accept-admin-role        # Step 2: Accept admin role (completes two-step process)
+yarn svm:admin:create-alt               # Create Address Lookup Table for token pool operations
 ```
 
 > 📖 **For detailed usage, options, and troubleshooting**: See [SVM Scripts Documentation](./svm/README.md)

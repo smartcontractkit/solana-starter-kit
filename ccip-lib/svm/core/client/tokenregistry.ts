@@ -1,4 +1,8 @@
-import { PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  AddressLookupTableProgram,
+} from "@solana/web3.js";
 import { CCIPContext } from "../models";
 import { createLogger, Logger, LogLevel } from "../../utils/logger";
 import { createErrorEnhancer } from "../../utils/errors";
@@ -7,6 +11,7 @@ import {
   extractTxOptions,
   TransactionExecutionOptions,
 } from "../../utils/transaction";
+import { detectTokenProgram } from "../../utils/token";
 import {
   findConfigPDA,
   findTokenAdminRegistryPDA,
@@ -14,6 +19,19 @@ import {
 } from "../../utils/pdas/router";
 import { TxOptions } from "../../tokenpools/abstract";
 import { TokenAdminRegistry } from "../../bindings/accounts/tokenAdminRegistry";
+import {
+  findBurnMintPoolConfigPDA,
+  findPoolSignerPDA,
+  TOKEN_POOL_STATE_SEED,
+  TOKEN_POOL_POOL_SIGNER_SEED,
+} from "../../utils/pdas/tokenpool";
+import { findFqBillingTokenConfigPDA } from "../../utils/pdas/feeQuoter";
+import { findExternalTokenPoolsSignerPDA } from "../../utils/pdas/router";
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+} from "@solana/spl-token";
 
 // Import from bindings for ccip-router
 import {
@@ -64,6 +82,26 @@ export interface SetPoolOptions extends TokenRegistryTxOptions {
   tokenMint: PublicKey;
   lookupTable: PublicKey;
   writableIndices: number[];
+}
+
+/**
+ * Options for creating a token pool lookup table
+ */
+export interface CreateTokenPoolLookupTableOptions
+  extends TokenRegistryTxOptions {
+  tokenMint: PublicKey;
+  poolProgramId: PublicKey;
+  feeQuoterProgramId: PublicKey;
+  // tokenProgramId is now auto-detected, removed from interface
+}
+
+/**
+ * Result of creating a token pool lookup table
+ */
+export interface CreateTokenPoolLookupTableResult {
+  signature: string;
+  lookupTableAddress: PublicKey;
+  addresses: PublicKey[];
 }
 
 /**
@@ -622,6 +660,239 @@ export class TokenRegistryClient {
 
       this.logger.info(`Pool set successfully. Tx signature: ${signature}`);
       return signature;
+    } catch (error) {
+      const enhanceError = createErrorEnhancer(this.logger);
+      throw enhanceError(error, errorContext);
+    }
+  }
+
+  /**
+   * Creates an Address Lookup Table (ALT) for a token pool with all necessary addresses.
+   *
+   * This method creates and extends an ALT with all the addresses required for CCIP token operations.
+   * The ALT is essential for efficient cross-chain transactions as it reduces transaction size
+   * by allowing address references instead of full public keys.
+   *
+   * The ALT includes:
+   * - The lookup table itself
+   * - Token admin registry PDA
+   * - Pool program ID
+   * - Pool configuration PDA
+   * - Pool token account (ATA)
+   * - Pool signer PDA
+   * - Token program ID
+   * - Token mint
+   * - Fee billing token config PDA
+   * - CCIP router pool signer PDA
+   *
+   * @param options Configuration options including token mint and program IDs
+   * @returns Promise resolving to the creation result with signature and ALT details
+   * @throws Error if the caller doesn't have sufficient SOL or if the transaction fails
+   */
+  async createTokenPoolLookupTable(
+    options: CreateTokenPoolLookupTableOptions
+  ): Promise<CreateTokenPoolLookupTableResult> {
+    const errorContext = {
+      operation: "createTokenPoolLookupTable",
+      mint: options.tokenMint.toString(),
+      poolProgram: options.poolProgramId.toString(),
+    };
+
+    try {
+      this.logger.info(
+        `Creating token pool lookup table for mint: ${options.tokenMint.toString()}`
+      );
+
+      // Get signer and auto-detect token program
+      const signerPublicKey = this.context.provider.getAddress();
+
+      this.logger.debug("Auto-detecting token program for mint...");
+      const tokenProgramId = await detectTokenProgram(
+        options.tokenMint,
+        this.context.provider.connection,
+        this.logger
+      );
+
+      this.logger.debug("Create ALT details:", {
+        mint: options.tokenMint.toString(),
+        poolProgram: options.poolProgramId.toString(),
+        tokenProgram: tokenProgramId.toString(),
+        feeQuoterProgram: options.feeQuoterProgramId.toString(),
+        signer: signerPublicKey.toString(),
+        routerProgram: this.routerProgramId.toString(),
+      });
+
+      // Get the current slot for ALT creation
+      const slot = await this.context.provider.connection.getSlot("finalized");
+      this.logger.debug(`Using finalized slot for ALT creation: ${slot}`);
+
+      // Step 1: Create the lookup table
+      this.logger.debug("Creating Address Lookup Table...");
+      const [createInstruction, lookupTableAddress] =
+        AddressLookupTableProgram.createLookupTable({
+          authority: signerPublicKey,
+          payer: signerPublicKey,
+          recentSlot: slot,
+        });
+
+      this.logger.debug(
+        `ALT will be created at address: ${lookupTableAddress.toString()}`
+      );
+      this.logger.trace("Create ALT instruction:", {
+        programId: createInstruction.programId.toString(),
+        dataLength: createInstruction.data.length,
+        keyCount: createInstruction.keys.length,
+      });
+
+      // Derive all necessary PDAs and addresses
+      this.logger.debug("Deriving PDAs and addresses for ALT...");
+
+      // Token Admin Registry PDA
+      const [tokenAdminRegistryPDA, tokenAdminRegistryBump] =
+        findTokenAdminRegistryPDA(options.tokenMint, this.routerProgramId);
+      this.logger.debug(
+        `Token Admin Registry PDA: ${tokenAdminRegistryPDA.toString()} (bump: ${tokenAdminRegistryBump})`
+      );
+      this.logger.trace(
+        `Token Admin Registry PDA derivation: seeds=["${
+          ROUTER_SEEDS.TOKEN_ADMIN_REGISTRY
+        }", ${options.tokenMint.toString()}], program=${this.routerProgramId.toString()}`
+      );
+
+      // Pool Configuration PDA (using burn-mint pool structure)
+      const [poolConfigPDA, poolConfigBump] = findBurnMintPoolConfigPDA(
+        options.tokenMint,
+        options.poolProgramId
+      );
+      this.logger.debug(
+        `Pool Config PDA: ${poolConfigPDA.toString()} (bump: ${poolConfigBump})`
+      );
+      this.logger.trace(
+        `Pool Config PDA derivation: seeds=["${TOKEN_POOL_STATE_SEED}", ${options.tokenMint.toString()}], program=${options.poolProgramId.toString()}`
+      );
+
+      // Pool Signer PDA
+      const [poolSignerPDA, poolSignerBump] = findPoolSignerPDA(
+        options.tokenMint,
+        options.poolProgramId
+      );
+      this.logger.debug(
+        `Pool Signer PDA: ${poolSignerPDA.toString()} (bump: ${poolSignerBump})`
+      );
+      this.logger.trace(
+        `Pool Signer PDA derivation: seeds=["${TOKEN_POOL_POOL_SIGNER_SEED}", ${options.tokenMint.toString()}], program=${options.poolProgramId.toString()}`
+      );
+
+      // Pool Token Account (ATA for pool signer)
+      const poolTokenAccount = getAssociatedTokenAddressSync(
+        options.tokenMint,
+        poolSignerPDA,
+        true, // allowOwnerOffCurve
+        tokenProgramId
+      );
+      this.logger.debug(
+        `Pool Token Account (ATA): ${poolTokenAccount.toString()}`
+      );
+      this.logger.trace(
+        `Pool Token Account derivation: mint=${options.tokenMint.toString()}, owner=${poolSignerPDA.toString()}, tokenProgram=${tokenProgramId.toString()}`
+      );
+
+      // Fee Billing Token Config PDA
+      const [feeTokenConfigPDA, feeTokenConfigBump] =
+        findFqBillingTokenConfigPDA(
+          options.tokenMint,
+          options.feeQuoterProgramId
+        );
+      this.logger.debug(
+        `Fee Token Config PDA: ${feeTokenConfigPDA.toString()} (bump: ${feeTokenConfigBump})`
+      );
+      this.logger.trace(
+        `Fee Token Config PDA derivation: mint=${options.tokenMint.toString()}, program=${options.feeQuoterProgramId.toString()}`
+      );
+
+      // CCIP Router Pool Signer PDA (follows dummy script pattern)
+      const [ccipRouterPoolSignerPDA, ccipRouterPoolSignerBump] =
+        PublicKey.findProgramAddressSync(
+          [
+            Buffer.from(ROUTER_SEEDS.EXTERNAL_TOKEN_POOLS_SIGNER),
+            options.poolProgramId.toBuffer(),
+          ],
+          this.routerProgramId
+        );
+      this.logger.debug(
+        `CCIP Router Pool Signer PDA: ${ccipRouterPoolSignerPDA.toString()} (bump: ${ccipRouterPoolSignerBump})`
+      );
+      this.logger.trace(
+        `CCIP Router Pool Signer PDA derivation: seeds=["${
+          ROUTER_SEEDS.EXTERNAL_TOKEN_POOLS_SIGNER
+        }", ${options.poolProgramId.toString()}], program=${this.routerProgramId.toString()}`
+      );
+
+      // Build the addresses array for the lookup table
+      const addresses = [
+        lookupTableAddress, // Index 0: The lookup table itself
+        tokenAdminRegistryPDA, // Index 1: Token admin registry
+        options.poolProgramId, // Index 2: Pool program
+        poolConfigPDA, // Index 3: Pool configuration
+        poolTokenAccount, // Index 4: Pool token account
+        poolSignerPDA, // Index 5: Pool signer
+        tokenProgramId, // Index 6: Token program
+        options.tokenMint, // Index 7: Token mint
+        feeTokenConfigPDA, // Index 8: Fee token config
+        ccipRouterPoolSignerPDA, // Index 9: CCIP router pool signer
+      ];
+
+      this.logger.debug(`ALT will contain ${addresses.length} addresses:`);
+      addresses.forEach((addr, index) => {
+        this.logger.trace(`  [${index}]: ${addr.toString()}`);
+      });
+
+      // Step 2: Extend the lookup table with addresses
+      this.logger.debug("Creating extend ALT instruction...");
+      const extendInstruction = AddressLookupTableProgram.extendLookupTable({
+        lookupTable: lookupTableAddress,
+        authority: signerPublicKey,
+        payer: signerPublicKey,
+        addresses: addresses,
+      });
+
+      this.logger.trace("Extend ALT instruction:", {
+        programId: extendInstruction.programId.toString(),
+        dataLength: extendInstruction.data.length,
+        keyCount: extendInstruction.keys.length,
+        addressCount: addresses.length,
+      });
+
+      // Execute both instructions in a single transaction
+      this.logger.debug("Executing ALT creation and extension transaction...");
+      const executionOptions: TransactionExecutionOptions = {
+        ...extractTxOptions(options),
+        errorContext,
+        operationName: "createTokenPoolLookupTable",
+      };
+
+      const signature = await executeTransaction(
+        this.context,
+        [createInstruction, extendInstruction],
+        executionOptions
+      );
+
+      const result: CreateTokenPoolLookupTableResult = {
+        signature,
+        lookupTableAddress,
+        addresses,
+      };
+
+      this.logger.info(
+        `Token pool lookup table created successfully. ALT address: ${lookupTableAddress.toString()}`
+      );
+      this.logger.info(`Transaction signature: ${signature}`);
+      this.logger.debug("ALT creation result:", {
+        lookupTableAddress: result.lookupTableAddress.toString(),
+        addressCount: result.addresses.length,
+      });
+
+      return result;
     } catch (error) {
       const enhanceError = createErrorEnhancer(this.logger);
       throw enhanceError(error, errorContext);

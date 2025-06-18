@@ -18,6 +18,7 @@ import {
 import { BN } from "@coral-xyz/anchor";
 import { Logger } from "../../utils/logger";
 import { createErrorEnhancer } from "../../utils/errors";
+import { detectTokenProgram } from "../../utils/token";
 import {
   CCIPContext,
   CCIPSendRequest,
@@ -89,16 +90,11 @@ export async function sendCCIPMessage(
   // Determine the correct fee token program ID
   let feeTokenProgramId = TOKEN_PROGRAM_ID;
   if (!isNativeSol) {
-    try {
-      const feeTokenMintInfo = await connection.getAccountInfo(feeTokenMint);
-      if (feeTokenMintInfo) {
-        feeTokenProgramId = feeTokenMintInfo.owner;
-      } else {
-        feeTokenProgramId = TOKEN_2022_PROGRAM_ID;
-      }
-    } catch (error) {
-      feeTokenProgramId = TOKEN_2022_PROGRAM_ID;
-    }
+    feeTokenProgramId = await detectTokenProgram(
+      feeTokenMint,
+      connection,
+      logger
+    );
   }
 
   const selectorBigInt = BigInt(request.destChainSelector.toString());
@@ -354,27 +350,11 @@ async function buildTokenAccountsForSend(
       );
 
       // Determine token program from token mint
-      let tokenProgram = PublicKey.default;
-      try {
-        const tokenMintInfo = await connection.getAccountInfo(tokenMint);
-        if (tokenMintInfo) {
-          tokenProgram = tokenMintInfo.owner;
-          logger.debug(
-            `Auto-detected token program: ${tokenProgram.toString()} for token: ${tokenMint.toString()}`
-          );
-        } else {
-          logger.warn(
-            `Token mint info not found for ${tokenMint.toString()}, using fallback token program ${TOKEN_2022_PROGRAM_ID}`
-          );
-          tokenProgram = TOKEN_2022_PROGRAM_ID;
-        }
-      } catch (error) {
-        logger.warn(
-          `Error determining token program, using fallback: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
+      const tokenProgram = await detectTokenProgram(
+        tokenMint,
+        connection,
+        logger
+      );
 
       // Get token admin registry for this token to access lookup table
       const tokenAdminRegistry = await accountReader.getTokenAdminRegistry(

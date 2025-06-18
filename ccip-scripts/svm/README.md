@@ -598,6 +598,134 @@ Pending administrator: 11111111111111111111111111111111 (should be default/clear
 - Configure cross-chain settings and rate limits
 - Register pools with the token admin registry using `setPool` operations
 
+#### 3.3. Create Address Lookup Table (ALT)
+
+The `create-alt.ts` script creates an Address Lookup Table for a token pool with all necessary addresses required for CCIP token operations. The ALT is essential for efficient cross-chain transactions as it reduces transaction size by allowing address references instead of full public keys.
+
+```bash
+# Create ALT for a token pool (most common case)
+yarn svm:admin:create-alt \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --pool-program BurnMintTokenPoolProgram111111111111111111
+
+# With debug logging for troubleshooting
+yarn svm:admin:create-alt \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --pool-program BurnMintTokenPoolProgram111111111111111111 \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address
+- `--pool-program <address>`: Pool program ID (e.g., burn-mint pool program)
+
+##### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip transaction preflight checks
+
+##### What This Script Does
+
+The script performs the following operations:
+
+1. **Validation**: Checks required arguments and wallet balance
+2. **Configuration Loading**: Loads fee quoter and router program IDs from configuration
+3. **Token Program Detection**: Automatically detects the token program from on-chain mint data
+4. **ALT Creation**: Creates and extends an Address Lookup Table with all required addresses
+5. **Address Population**: Includes all 10 addresses needed for token pool operations
+6. **Verification**: Logs all addresses with descriptions for verification
+7. **Next Steps**: Provides exact commands for registering the ALT with setPool
+
+##### ALT Address Contents
+
+The created ALT contains the following addresses in the exact order required by the CCIP router program:
+
+- **Index 0**: Lookup table itself
+- **Index 1**: Token admin registry PDA
+- **Index 2**: Pool program ID
+- **Index 3**: Pool configuration PDA
+- **Index 4**: Pool token account (ATA)
+- **Index 5**: Pool signer PDA
+- **Index 6**: Token program ID (auto-detected from on-chain data)
+- **Index 7**: Token mint
+- **Index 8**: Fee billing token config PDA
+- **Index 9**: CCIP router pool signer PDA
+
+##### Example Output
+
+```
+CCIP Token Pool Address Lookup Table Creation
+
+Loading keypair from /Users/user/.config/solana/id.json...
+Wallet public key: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+Wallet balance: 1.234 SOL
+Token Mint: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+Pool Program: BurnMintTokenPoolProgram111111111111111111
+Token Program: Auto-detected from on-chain mint data
+Fee Quoter Program: FeeQuoterProgram11111111111111111111111111
+Router Program: Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C
+
+Creating Address Lookup Table...
+Address Lookup Table created successfully!
+ALT Address: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T
+Transaction signature: 3pVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KRbu5F7173tediMcrLHUKmwu6Ust3NvnAujPTvkSk
+Solana Explorer: https://explorer.solana.com/tx/3pVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KRbu5F7173tediMcrLHUKmwu6Ust3NvnAujPTvkSk?cluster=devnet
+
+ALT contains 10 addresses:
+  [0]: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T (Lookup table itself)
+  [1]: BUGuuhPsHpk8YZrL2GctsCtXGneL1gmT5zYb7eMHZDWf (Token admin registry)
+  [2]: BurnMintTokenPoolProgram111111111111111111 (Pool program)
+  [3]: H4nMZjCXbLjkMdq3HbDCX7UVVJzFCM3qoGGHgJWJk5Q2 (Pool configuration)
+  [4]: 9dZ1KxqT5yvEp8k5F2G3HbDCX7UVVJzFCM3qoGGHgJWJ (Pool token account)
+  [5]: 7cA8gBHG5yvEp8k5F2G3HbDCX7UVVJzFCM3qoGGHgJWJ (Pool signer)
+  [6]: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb (Token program)
+  [7]: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU (Token mint)
+  [8]: FqConfigAddress1111111111111111111111111111 (Fee token config)
+  [9]: RouterPoolSignerAddress11111111111111111111 (CCIP router pool signer)
+
+🎉 ALT Creation Complete!
+   ✅ Address Lookup Table: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T
+   ✅ Contains all 10 required addresses for token pool operations
+   ✅ Ready to be registered with setPool
+
+📋 Next Steps:
+   1. Ensure you are the administrator for token 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+   2. Register this ALT with the token using setPool:
+      yarn svm:admin:set-pool \
+        --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+        --lookup-table 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T \
+        --writable-indices 3,4,5
+   3. The token will then be ready for CCIP cross-chain operations
+```
+
+**Prerequisites:**
+
+- Token mint must already exist (use `yarn svm:token:create` to create one)
+- Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
+- Pool program ID must be known (usually the burn-mint pool program)
+
+**Important Technical Notes:**
+
+- ⚠️ **Address Order**: ALT addresses are in the exact order required by the CCIP router program
+- ⚠️ **Configuration Driven**: Fee quoter and router program IDs are loaded from configuration
+- ⚠️ **Token Program**: Automatically detected from on-chain mint data (no manual specification needed)
+- ⚠️ **Writable Indices**: Typically [3, 4, 5] for pool_config, pool_token_account, pool_signer
+- ⚠️ **Address Count**: Always contains exactly 10 addresses as required by the protocol
+
+**Use Cases:**
+
+- Prepare for token pool registration after becoming administrator
+- Create infrastructure needed for CCIP cross-chain operations
+- Set up efficient transaction processing for token transfers
+
+**After Creating ALT:**
+
+- Use the provided setPool command to register the ALT with the token
+- The token will then be enabled for cross-chain operations
+- ALT will be used automatically by CCIP send transactions
+
 ### 4. Get CCIP Fee Estimations
 
 The `get-ccip-fee.ts` script provides fee estimations for cross-chain message delivery using CCIP.

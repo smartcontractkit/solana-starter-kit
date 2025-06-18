@@ -22,6 +22,7 @@
     "svm:pool:set-router": "ts-node ./ccip-scripts/svm/pool/set-router.ts",
     "svm:admin:propose-administrator": "ts-node ./ccip-scripts/svm/admin/propose-administrator.ts",
     "svm:admin:accept-admin-role": "ts-node ./ccip-scripts/svm/admin/accept-admin-role.ts",
+    "svm:admin:create-alt": "ts-node ./ccip-scripts/svm/admin/create-alt.ts",
     "evm:transfer": "ts-node ./ccip-scripts/evm/router/1_token-transfer.ts",
     "evm:arbitrary-messaging": "ts-node ./ccip-scripts/evm/router/2_arbitrary-messaging.ts",
     "evm:data-and-tokens": "ts-node ./ccip-scripts/evm/router/3_data-and-tokens.ts",

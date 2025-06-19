@@ -4,7 +4,11 @@
 resolution = true
 skip-lint = false
 
+[workspace]
+exclude = ["programs/chainlink_solana_demo"]
+
 [programs.devnet]
+ccip-basic-receiver = "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"
 chainlink-solana-demo = "Gwdjt5fAZfhUyxXSrCKE5uGiHnbfx5ZhueEbnZToMRNJ"
 
 [programs.localnet]
@@ -15,7 +19,7 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "devnet"
-wallet = "./id.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

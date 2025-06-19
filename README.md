@@ -16,12 +16,12 @@ The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/
 
 The following environment variables must be set before running the scripts:
 
-| Variable | Description | Required For |
-|----------|-------------|-------------|
-| `EVM_PRIVATE_KEY` | The private key for the EVM account | All EVM chain operations |
-| `EVM_RPC_URL` | RPC URL for Ethereum Sepolia | Operations on Ethereum Sepolia |
-| `AVAX_RPC_URL` | RPC URL for Avalanche Fuji | Operations on Avalanche Fuji |
-| `SOLANA_RPC_URL` | RPC URL for Solana Devnet (defaults to public endpoint if not set) | Operations on Solana Devnet |
+| Variable          | Description                                                        | Required For                   |
+| ----------------- | ------------------------------------------------------------------ | ------------------------------ |
+| `EVM_PRIVATE_KEY` | The private key for the EVM account                                | All EVM chain operations       |
+| `EVM_RPC_URL`     | RPC URL for Ethereum Sepolia                                       | Operations on Ethereum Sepolia |
+| `AVAX_RPC_URL`    | RPC URL for Avalanche Fuji                                         | Operations on Avalanche Fuji   |
+| `SOLANA_RPC_URL`  | RPC URL for Solana Devnet (defaults to public endpoint if not set) | Operations on Solana Devnet    |
 
 ### Setting up Environment Variables
 
@@ -63,7 +63,7 @@ npm install
 **Note for [Apple M1](https://en.wikipedia.org/wiki/Apple_M1) chipsets**: You will need to perform an extra step to get the Anchor framework installed manually from source, as the NPM package only support x86_64 chipsets currently, please run the following command to install it manually:
 
 ```
-cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.0 anchor-cli --locked
+cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.1 anchor-cli --locked
 ```
 
 Next, generate a new wallet:

@@ -60,8 +60,8 @@ The SDK follows a modular architecture with clear separation of concerns:
 ### Basic Usage
 
 ```typescript
-import { 
-  CCIPClient, 
+import {
+  CCIPClient,
   CCIPSendRequest,
   ExtraArgsOptions,
   CCIPContext,
@@ -177,9 +177,9 @@ console.log(`Sequence Number: ${result.sequenceNumber}`);
 You can easily integrate with Solana wallet adapters:
 
 ```typescript
-import { 
-  CCIPClient, 
-  CCIPContext, 
+import {
+  CCIPClient,
+  CCIPContext,
   CCIPProvider,
   CCIPCoreConfig,
 } from "../path/to/ccip-lib/svm";
@@ -221,7 +221,7 @@ function MyComponent() {
 
   // Create client
   const client = new CCIPClient(context);
-  
+
   // Use client...
 }
 ```
@@ -289,7 +289,7 @@ findExternalTokenPoolsSignerPDA(programId: PublicKey): [PublicKey, number]
 
 // Recommended - dynamically finds the correct token pool signer PDA
 findDynamicTokenPoolsSignerPDA(
-  mint: PublicKey, 
+  mint: PublicKey,
   routerProgramId: PublicKey,
   connection: Connection
 ): Promise<[PublicKey, number]>
@@ -336,7 +336,7 @@ findTokenPoolChainConfigPDA(
 When delegating token authority to the CCIP protocol, you should:
 
 1. Use `findFeeBillingSignerPDA` for fee token delegation (e.g., SOL)
-2. Use `findDynamicTokenPoolsSignerPDA` for token transfer delegation (e.g., BnM, LINK) 
+2. Use `findDynamicTokenPoolsSignerPDA` for token transfer delegation (e.g., BnM, LINK)
 
 ```typescript
 // For fee token delegation (e.g., SOL)
@@ -344,7 +344,7 @@ const [feeBillingSigner] = findFeeBillingSignerPDA(routerProgramId);
 
 // For token transfer delegation (e.g., BnM, LINK)
 const [tokenPoolsSigner] = await findDynamicTokenPoolsSignerPDA(
-  tokenMint, 
+  tokenMint,
   routerProgramId,
   connection
 );
@@ -378,7 +378,7 @@ const txSignature = await pool.createPool(tokenMint);
 const chainConfig = {
   enabled: true,
   maxTokensPerMessage: new BN(1000000000), // 1 token with 9 decimals
-  feeBps: 10 // 0.1% fee
+  feeBps: 10, // 0.1% fee
 };
 await pool.configureChain(tokenMint, destinationChainSelector, chainConfig);
 
@@ -386,7 +386,7 @@ await pool.configureChain(tokenMint, destinationChainSelector, chainConfig);
 await pool.setRateLimit(
   tokenMint,
   new BN(1000000000), // Capacity: 1 token with 9 decimals
-  new BN(100000000)   // Rate: 0.1 tokens per second
+  new BN(100000000) // Rate: 0.1 tokens per second
 );
 
 // Transfer admin role for a token pool
@@ -416,16 +416,19 @@ The SDK provides functions to derive all program-derived addresses used in token
 import {
   findBurnMintPoolConfigPDA,
   findBurnMintPoolChainConfigPDA,
-  findRateLimitPDA
+  findRateLimitPDA,
 } from "../path/to/ccip-lib/svm";
 
 // Get the pool config PDA
-const [poolConfigPDA] = findBurnMintPoolConfigPDA(tokenMint, burnMintPoolProgramId);
+const [poolConfigPDA] = findBurnMintPoolConfigPDA(
+  tokenMint,
+  burnMintPoolProgramId
+);
 
 // Get the chain config PDA
 const [chainConfigPDA] = findBurnMintPoolChainConfigPDA(
   chainSelector,
-  tokenMint, 
+  tokenMint,
   burnMintPoolProgramId
 );
 
@@ -467,7 +470,7 @@ The SDK supports structured logging with configurable log levels:
 import { createLogger, LogLevel } from "../path/to/ccip-lib/svm";
 
 // Create a logger with custom configuration
-const logger = createLogger("my-component", { 
+const logger = createLogger("my-component", {
   level: LogLevel.DEBUG,
   pretty: true, // For human-readable logs
   skipTimestamp: false, // Include timestamps
@@ -481,3 +484,77 @@ logger.error("Operation failed", { error });
 // Change log level at runtime
 logger.setLevel(LogLevel.WARN);
 ```
+
+## Token Administration
+
+The CCIP SDK works in conjunction with command-line scripts for complete token administration and registration for cross-chain transfers.
+
+### Overview
+
+To enable a token for CCIP cross-chain transfers, you need to follow a multi-step process:
+
+1. **Propose Administrator**: Set up admin permissions for a token
+2. **Accept Admin Role**: Complete the administrator transfer
+3. **Create ALT**: Create an Address Lookup Table with required accounts
+4. **Set Pool**: Register the ALT with the token to enable CCIP
+5. **Inspect Token**: Validate configuration against existing tokens
+
+### Command-Line Scripts
+
+For detailed instructions on each step, including all options, security considerations, and examples, see the comprehensive **[CCIP Scripts Documentation](../ccip-scripts/svm/README.md#3-token-admin-registry-management)**.
+
+#### Quick Reference
+
+```bash
+# Step 1: Propose administrator (as mint authority)
+yarn svm:admin:propose-administrator --token-mint <TOKEN_MINT>
+
+# Step 2: Accept admin role (as proposed administrator)
+yarn svm:admin:accept-admin-role --token-mint <TOKEN_MINT>
+
+# Step 3: Create ALT (anyone can pay for creation)
+yarn svm:admin:create-alt --token-mint <TOKEN_MINT> --pool-program <POOL_PROGRAM>
+
+# Step 4: Set pool (as administrator)
+yarn svm:admin:set-pool --token-mint <TOKEN_MINT> --lookup-table <ALT_ADDRESS> --writable-indices 3,4,7
+
+# Step 5: Verify configuration
+yarn svm:admin:inspect-token --token-mint <TOKEN_MINT>
+```
+
+### Writable Indices Pattern
+
+The writable indices vary based on the token pool type:
+
+#### **Burn-Mint Tokens (Most Common): [3, 4, 7]**
+
+- **Index 3**: Pool Configuration PDA (sequence numbers, rate limits)
+- **Index 4**: Pool Token Account (token balance changes)
+- **Index 7**: Token Mint (supply changes during burn/mint operations)
+
+#### **Lock-Release Tokens: [3, 4, 5]**
+
+- **Index 3**: Pool Configuration PDA (sequence numbers, rate limits)
+- **Index 4**: Pool Token Account (token balance changes)
+- **Index 5**: Pool Signer PDA (authorizes transfers, may pay fees)
+
+### Programmatic Usage
+
+For programmatic token administration using the SDK, you can work with the underlying components:
+
+```typescript
+// Access token admin registry
+const registry = await client
+  .getAccountReader()
+  .getTokenAdminRegistry(tokenMint);
+
+// Get token pool for a mint
+const pool = await client.getTokenPoolClientForMint(tokenMint);
+
+// Check if token is configured for CCIP
+const isConfigured = registry.lookupTable !== PublicKey.default;
+```
+
+### Integration with Scripts
+
+The SDK complements the command-line scripts by providing the underlying functionality. While scripts handle the setup and configuration, the SDK enables programmatic interaction with configured tokens for cross-chain operations.

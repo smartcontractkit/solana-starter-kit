@@ -16,7 +16,6 @@ export interface RegisterTokenOptions {
   tokenMint: PublicKey;
   lookupTable: PublicKey;
   writableIndices: number[];
-  destinationChain: number;
 }
 
 /**
@@ -129,11 +128,10 @@ export async function createTokenRegistryClient(
 
   return {
     setPool: async (options: RegisterTokenOptions) => {
-      const { tokenMint, lookupTable, writableIndices, destinationChain } =
-        options;
+      const { tokenMint, lookupTable, writableIndices } = options;
 
       logger.info(
-        `Registering token ${tokenMint.toString()} for destination chain ${destinationChain}`
+        `Registering token ${tokenMint.toString()} with lookup table ${lookupTable.toString()}`
       );
       logger.info(`Using lookup table: ${lookupTable.toString()}`);
       logger.info(`With writable indices: ${writableIndices.join(", ")}`);

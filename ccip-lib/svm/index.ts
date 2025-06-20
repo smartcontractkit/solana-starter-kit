@@ -32,7 +32,11 @@ export * from "./bindings/accounts";
 export * from "./tokenpools/abstract";
 export * from "./tokenpools/factory";
 export { BurnMintTokenPoolClient } from "./tokenpools/burnmint";
-export type { BurnMintChainConfigOptions } from "./tokenpools";
+export type {
+  InitChainRemoteConfigOptions,
+  EditChainRemoteConfigOptions,
+  ChainConfigResult,
+} from "./tokenpools";
 
 // Token Creation exports
 export * from "./utils/token-creation";

@@ -225,7 +225,7 @@ async function main() {
     logger.info(
       `        --lookup-table ${result.lookupTableAddress.toString()} \\`
     );
-    logger.info(`        --writable-indices 3,4,5`);
+            logger.info(`        --writable-indices 3,4,7`);
     logger.info(
       `   3. The token will then be ready for CCIP cross-chain operations`
     );
@@ -269,7 +269,7 @@ Notes:
   • Router program ID is automatically loaded from CCIP configuration
   • The created ALT contains all 10 addresses needed for token pool operations
   • After creation, use 'yarn svm:admin:set-pool' to register the ALT
-  • Writable indices are typically [3, 4, 5] for pool_config, pool_token_account, pool_signer
+  • Writable indices are typically [3, 4, 7] for burnmint pool_config, pool_token_account, pool_signer
   • ALT addresses are ordered exactly as required by the CCIP router program
   `);
 }

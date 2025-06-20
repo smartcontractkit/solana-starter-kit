@@ -113,15 +113,22 @@ yarn svm:pool:init-global-config    # Step 1: Global config (once per deployment
 yarn svm:pool:initialize            # Step 2: Token pool (once per token)
 yarn svm:pool:get-info              # Get detailed information about existing pools
 yarn svm:pool:set-router            # Set configured CCIP router for pool (owner only)
+
+# Chain remote configuration for cross-chain transfers
+yarn svm:pool:init-chain-remote-config   # Initialize chain config for remote chains
+yarn svm:pool:edit-chain-remote-config   # Edit existing chain config
+yarn svm:pool:get-chain-config           # Read chain config (read-only)
 ```
 
 #### Token Admin Registry Management
 
 ```bash
-# Token admin registry operations (2-step process)
+# Token admin registry operations (multi-step process)
 yarn svm:admin:propose-administrator  # Step 1: Propose administrator (mint authority only)
-yarn svm:admin:accept-admin-role        # Step 2: Accept admin role (completes two-step process)
-yarn svm:admin:create-alt               # Create Address Lookup Table for token pool operations
+yarn svm:admin:accept-admin-role      # Step 2: Accept admin role (completes two-step process)
+yarn svm:admin:create-alt             # Step 3: Create Address Lookup Table for token pool operations
+yarn svm:admin:set-pool               # Step 4: Register ALT with token (administrator only)
+yarn svm:admin:inspect-token          # Inspect existing token configuration (read-only)
 ```
 
 > 📖 **For detailed usage, options, and troubleshooting**: See [SVM Scripts Documentation](./svm/README.md)

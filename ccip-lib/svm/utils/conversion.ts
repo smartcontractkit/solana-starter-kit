@@ -18,7 +18,7 @@ export class AddressConversion {
    * @returns Hex string
    */
   static bytesToHexString(bytes: Uint8Array): string {
-    return '0x' + Buffer.from(bytes).toString('hex');
+    return "0x" + Buffer.from(bytes).toString("hex");
   }
 
   /**
@@ -27,8 +27,8 @@ export class AddressConversion {
    * @returns Byte array
    */
   private static hexToBytes(hex: string): Uint8Array {
-    if (hex.startsWith('0x')) hex = hex.slice(2);
-    if (hex.length !== 40) throw new Error('Invalid Ethereum address length');
+    if (hex.startsWith("0x")) hex = hex.slice(2);
+    if (hex.length !== 40) throw new Error("Invalid Ethereum address length");
     const bytes = new Uint8Array(20);
     for (let i = 0; i < 40; i += 2) {
       bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
@@ -43,7 +43,7 @@ export class AddressConversion {
    * @returns Padded byte array
    */
   private static leftPadBytes(data: Uint8Array, length: number): Uint8Array {
-    if (data.length > length) throw new Error('Data too long to pad');
+    if (data.length > length) throw new Error("Data too long to pad");
     const padded = new Uint8Array(length);
     padded.set(data, length - data.length);
     return padded;
@@ -59,4 +59,24 @@ export function createBufferFromBigInt(value: bigint): Buffer {
   const buffer = Buffer.alloc(8);
   buffer.writeBigUInt64LE(value);
   return buffer;
-} 
+}
+
+/**
+ * Pads a buffer to 32 bytes using right-alignment (Ethereum-style padding)
+ * @param buffer The buffer to pad
+ * @returns A 32-byte buffer with the original data right-aligned
+ */
+export function padTo32Bytes(buffer: Buffer): Buffer {
+  if (buffer.length >= 32) {
+    return buffer;
+  }
+
+  // Create a new buffer of 32 bytes
+  const paddedBuffer = Buffer.alloc(32, 0); // Initialize with zeros
+
+  // Copy the original buffer data to the end of the new buffer (right-aligned)
+  // This is the standard Ethereum-style padding
+  buffer.copy(paddedBuffer, 32 - buffer.length);
+
+  return paddedBuffer;
+}

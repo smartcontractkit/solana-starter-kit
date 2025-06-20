@@ -5,7 +5,6 @@ import {
 } from "@solana/web3.js";
 import { CCIPContext } from "../../core/models";
 import {
-  BurnMintChainConfigOptions,
   BurnMintPoolInitializeOptions,
   BurnMintSetRateLimitOptions,
   TokenPoolAccountReader,
@@ -18,9 +17,12 @@ import {
   ConfigureAllowlistOptions,
   RemoveFromAllowlistOptions,
   InitializeStateVersionOptions,
+  InitChainRemoteConfigOptions,
+  EditChainRemoteConfigOptions,
 } from "../abstract";
 import { createLogger, Logger, LogLevel } from "../../utils/logger";
 import { createErrorEnhancer } from "../../utils/errors";
+import { padTo32Bytes } from "../../utils/conversion";
 import {
   executeTransaction,
   extractTxOptions,
@@ -83,6 +85,21 @@ import {
   RateLimitConfig,
 } from "../../burnmint-pool-bindings/types";
 import { BN } from "@coral-xyz/anchor";
+import {
+  createBurnMintPoolEventParser,
+  RemoteChainConfiguredEvent,
+  BurnMintPoolEventParser,
+} from "./events";
+
+/**
+ * Result type for chain configuration operations that includes event data
+ */
+export interface ChainConfigResult {
+  /** Transaction signature */
+  signature: string;
+  /** Parsed RemoteChainConfigured event data (if parsing succeeds) */
+  event?: RemoteChainConfiguredEvent;
+}
 
 /**
  * Implementation of TokenPoolClient for burn-mint token pools
@@ -91,6 +108,7 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
   private readonly accountReader: BurnMintTokenPoolAccountReader;
   private readonly logger: Logger;
   private readonly programId: PublicKey;
+  private readonly eventParser: BurnMintPoolEventParser;
 
   /**
    * Creates a new BurnMintTokenPoolClient
@@ -106,6 +124,10 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
       context,
       this.programId
     );
+
+    // Create event parser (no IDL required for simplified parsing)
+    this.eventParser = createBurnMintPoolEventParser(programId, context);
+    this.logger.debug("Event parsing enabled using manual parsing");
 
     this.logger.debug(
       `BurnMintTokenPoolClient initialized: programId=${this.getProgramId().toString()}`
@@ -415,14 +437,13 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
   }
 
   /** @inheritDoc */
-  async configureChain(
+  async initChainRemoteConfig(
     mint: PublicKey,
     remoteChainSelector: bigint,
-    options: BurnMintChainConfigOptions
-  ): Promise<string> {
-    // Define context for error enhancement early
+    options: InitChainRemoteConfigOptions
+  ): Promise<ChainConfigResult> {
     const errorContext = {
-      operation: "configureChain",
+      operation: "initChainRemoteConfig",
       mint: mint.toString(),
       destChainSelector: remoteChainSelector.toString(),
     };
@@ -430,75 +451,105 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
 
     try {
       this.logger.info(
-        `Configuring chain ${remoteChainSelector.toString()} for mint: ${mint.toString()}`
+        `Initializing chain remote config for chain ${remoteChainSelector.toString()} on mint: ${mint.toString()}`
       );
 
       const signerPublicKey = this.context.provider.getAddress();
+      this.logger.debug(`Init chain remote config details:`, {
+        mint: mint.toString(),
+        remoteChainSelector: remoteChainSelector.toString(),
+        signer: signerPublicKey.toString(),
+        programId: this.getProgramId().toString(),
+      });
 
       // Verify pool exists (getPoolConfig will throw if not found)
       const poolConfig = await this.accountReader.getPoolConfig(mint);
+      this.logger.debug(`Current owner: ${poolConfig.config.owner.toString()}`);
 
       // Check if signer is owner
       if (!poolConfig.config.owner.equals(signerPublicKey)) {
-        // Throw a specific error, will be caught and enhanced below
         throw new Error(`Signer is not the owner of the pool`);
       }
 
+      // Verify chain config does NOT exist (this is an init operation)
+      try {
+        await this.accountReader.getChainConfig(mint, remoteChainSelector);
+        throw new Error(
+          `Chain config already exists for chain ${remoteChainSelector.toString()}. Use editChainRemoteConfig instead.`
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes("already exists")
+        ) {
+          throw error; // Re-throw our specific error
+        }
+        // Expected error - chain config doesn't exist, which is what we want
+        this.logger.debug(
+          `Chain config does not exist - proceeding with initialization`
+        );
+      }
+
       // Find the chain config PDA
-      const [chainConfigPDA] = findBurnMintPoolChainConfigPDA(
+      const [chainConfigPDA, chainConfigBump] = findBurnMintPoolChainConfigPDA(
         remoteChainSelector,
         mint,
         this.getProgramId()
       );
+      this.logger.debug(
+        `Chain config PDA: ${chainConfigPDA.toString()} (bump: ${chainConfigBump})`
+      );
+      this.logger.trace(
+        `Chain config PDA derivation: seeds=[${TOKEN_POOL_CHAIN_CONFIG_SEED}, ${remoteChainSelector.toString()}, ${mint.toString()}], program=${this.getProgramId().toString()}`
+      );
 
       // Find the state PDA
-      const [statePDA] = findBurnMintPoolConfigPDA(mint, this.getProgramId());
+      const [statePDA, stateBump] = findBurnMintPoolConfigPDA(
+        mint,
+        this.getProgramId()
+      );
+      this.logger.debug(
+        `State PDA: ${statePDA.toString()} (bump: ${stateBump})`
+      );
+      this.logger.trace(
+        `State PDA derivation: seeds=[${TOKEN_POOL_STATE_SEED}, ${mint.toString()}], program=${this.getProgramId().toString()}`
+      );
 
       // Validate and transform pool addresses from options
       if (!options.poolAddresses || options.poolAddresses.length === 0) {
-        // Throw specific error
         throw new Error("At least one pool address must be provided");
       }
 
       // Create RemoteAddresses from the provided addresses
+      // Pool addresses use raw bytes (typically 20 bytes for Ethereum addresses)
       const remotePoolAddresses = options.poolAddresses.map((addr) => {
-        // Convert hex string to Uint8Array
         const buffer = Buffer.from(addr, "hex");
-        // Ensure address is exactly 32 bytes
-        if (buffer.length !== 32) {
-          // Throw specific error
-          throw new Error(
-            `Pool address must be 32 bytes, got ${buffer.length} bytes for ${addr}`
-          );
-        }
+        // No padding required for pool addresses - use raw bytes
         return new RemoteAddress({ address: buffer });
       });
+      this.logger.debug(
+        `Converted ${remotePoolAddresses.length} pool addresses`
+      );
 
       // Validate and transform token address
       if (!options.tokenAddress) {
-        // Throw specific error
         throw new Error("Token address must be provided");
       }
-      const tokenAddressBuffer = Buffer.from(options.tokenAddress, "hex");
-      if (tokenAddressBuffer.length !== 32) {
-        // Throw specific error
-        throw new Error(
-          `Token address must be 32 bytes, got ${tokenAddressBuffer.length} bytes`
-        );
-      }
+      const rawTokenAddressBuffer = Buffer.from(options.tokenAddress, "hex");
+      // Token addresses need to be padded to 32 bytes (Ethereum-style)
+      const tokenAddressBuffer = padTo32Bytes(rawTokenAddressBuffer);
       const remoteTokenAddress = new RemoteAddress({
         address: tokenAddressBuffer,
       });
+      this.logger.debug(
+        `Token address: ${options.tokenAddress} (padded to 32 bytes)`
+      );
 
       // Validate decimals
-      if (
-        options.decimals === undefined ||
-        options.decimals < 0 ||
-        options.decimals > 18
-      ) {
-        // Throw specific error
+      if (options.decimals < 0 || options.decimals > 18) {
         throw new Error("Invalid decimals value. Must be between 0 and 18.");
       }
+      this.logger.debug(`Decimals: ${options.decimals}`);
 
       // Create RemoteConfig from options
       const remoteConfig: RemoteConfig = new RemoteConfig({
@@ -507,68 +558,69 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
         decimals: options.decimals,
       });
 
-      // Check if chain config already exists
-      let chainConfigExists = false;
-      try {
-        await this.accountReader.getChainConfig(mint, remoteChainSelector);
-        chainConfigExists = true;
-        this.logger.debug(`Chain config already exists, will update it`);
-      } catch (error) {
-        this.logger.debug(`Chain config does not exist, will initialize it`);
-      }
+      // Build the accounts for the init_chain_remote_config instruction
+      const accounts: Init_chain_remote_configAccounts = {
+        state: statePDA,
+        chain_config: chainConfigPDA,
+        authority: signerPublicKey,
+        system_program: SystemProgram.programId,
+      };
+
+      // Log all accounts being used for debugging
+      this.logger.debug("Init chain remote config accounts:", {
+        state: statePDA.toString(),
+        chain_config: chainConfigPDA.toString(),
+        authority: signerPublicKey.toString(),
+        system_program: SystemProgram.programId.toString(),
+      });
+
+      // Build the args
+      const args: Init_chain_remote_configArgs = {
+        remote_chain_selector: new BN(remoteChainSelector.toString()),
+        mint: mint,
+        cfg: remoteConfig.toEncodable(),
+      };
+
+      // Log all args being used for debugging
+      this.logger.debug("Init chain remote config args:", {
+        remote_chain_selector: remoteChainSelector.toString(),
+        mint: mint.toString(),
+        poolAddressCount: remotePoolAddresses.length,
+        tokenAddress: options.tokenAddress,
+        decimals: options.decimals,
+      });
 
       // Create the instruction
-      let instruction: TransactionInstruction;
+      this.logger.debug("Creating init_chain_remote_config instruction...");
+      const instruction = init_chain_remote_config(
+        args,
+        accounts,
+        this.getProgramId()
+      );
 
-      if (chainConfigExists) {
-        // Use edit_chain_remote_config since it already exists
-        const accounts: Edit_chain_remote_configAccounts = {
-          state: statePDA,
-          chain_config: chainConfigPDA,
-          authority: signerPublicKey,
-          system_program: SystemProgram.programId,
-        };
-
-        const args: Edit_chain_remote_configArgs = {
-          remote_chain_selector: new BN(remoteChainSelector.toString()),
-          mint: mint,
-          cfg: remoteConfig.toEncodable(),
-        };
-
-        instruction = edit_chain_remote_config(
-          args,
-          accounts,
-          this.getProgramId()
-        );
-        this.logger.debug(`Created edit chain remote config instruction`);
-      } else {
-        // Use init_chain_remote_config since it's new
-        const accounts: Init_chain_remote_configAccounts = {
-          state: statePDA,
-          chain_config: chainConfigPDA,
-          authority: signerPublicKey,
-          system_program: SystemProgram.programId,
-        };
-
-        const args: Init_chain_remote_configArgs = {
-          remote_chain_selector: new BN(remoteChainSelector.toString()),
-          mint: mint,
-          cfg: remoteConfig.toEncodable(),
-        };
-
-        instruction = init_chain_remote_config(
-          args,
-          accounts,
-          this.getProgramId()
-        );
-        this.logger.debug(`Created init chain remote config instruction`);
-      }
+      // Log instruction details
+      this.logger.debug("Init chain remote config instruction created:", {
+        programId: this.getProgramId().toString(),
+        dataLength: instruction.data.length,
+        keyCount: instruction.keys.length,
+      });
+      this.logger.trace("Instruction accounts:", {
+        keys: instruction.keys.map((key, index) => ({
+          index,
+          pubkey: key.pubkey.toString(),
+          isSigner: key.isSigner,
+          isWritable: key.isWritable,
+        })),
+      });
+      this.logger.trace(
+        `Instruction data (hex): ${instruction.data.toString("hex")}`
+      );
 
       // Execute the transaction using the shared utility
       const executionOptions: TransactionExecutionOptions = {
         ...extractTxOptions(options),
         errorContext,
-        operationName: "configureChain",
+        operationName: "initChainRemoteConfig",
       };
 
       const signature = await executeTransaction(
@@ -577,12 +629,251 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
         executionOptions
       );
 
-      this.logger.info(
-        `Chain ${chainConfigExists ? "updated" : "initialized"}: ${signature}`
-      );
-      return signature;
+      this.logger.info(`Chain remote config initialized: ${signature}`);
+
+      // Parse event data
+      let event: RemoteChainConfiguredEvent | undefined;
+      try {
+        event =
+          await this.eventParser.parseRemoteChainConfiguredFromTransaction(
+            this.context,
+            signature
+          );
+      } catch (error) {
+        this.logger.warn(`Failed to parse event from transaction: ${error}`);
+      }
+
+      return { signature, event };
     } catch (error) {
-      // Enhance *any* error caught (validation or async) with context
+      throw enhanceError(error, errorContext);
+    }
+  }
+
+  /** @inheritDoc */
+  async getChainConfig(
+    mint: PublicKey,
+    remoteChainSelector: bigint
+  ): Promise<any> {
+    const enhanceError = createErrorEnhancer(this.logger);
+
+    try {
+      this.logger.debug(
+        `Getting chain config for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
+      );
+
+      // Use the account reader to get the chain config
+      const chainConfig = await this.accountReader.getChainConfig(
+        mint,
+        remoteChainSelector
+      );
+
+      this.logger.debug(`Chain config retrieved successfully`);
+      return chainConfig;
+    } catch (error) {
+      throw enhanceError(error, {
+        operation: "getChainConfig",
+        mint: mint.toString(),
+        remoteChainSelector: remoteChainSelector.toString(),
+      });
+    }
+  }
+
+  /** @inheritDoc */
+  async editChainRemoteConfig(
+    mint: PublicKey,
+    remoteChainSelector: bigint,
+    options: EditChainRemoteConfigOptions
+  ): Promise<ChainConfigResult> {
+    const errorContext = {
+      operation: "editChainRemoteConfig",
+      mint: mint.toString(),
+      destChainSelector: remoteChainSelector.toString(),
+    };
+    const enhanceError = createErrorEnhancer(this.logger);
+
+    try {
+      this.logger.info(
+        `Editing chain remote config for chain ${remoteChainSelector.toString()} on mint: ${mint.toString()}`
+      );
+
+      const signerPublicKey = this.context.provider.getAddress();
+      this.logger.debug(`Edit chain remote config details:`, {
+        mint: mint.toString(),
+        remoteChainSelector: remoteChainSelector.toString(),
+        signer: signerPublicKey.toString(),
+        programId: this.getProgramId().toString(),
+      });
+
+      // Verify pool exists (getPoolConfig will throw if not found)
+      const poolConfig = await this.accountReader.getPoolConfig(mint);
+      this.logger.debug(`Current owner: ${poolConfig.config.owner.toString()}`);
+
+      // Check if signer is owner
+      if (!poolConfig.config.owner.equals(signerPublicKey)) {
+        throw new Error(`Signer is not the owner of the pool`);
+      }
+
+      // Verify chain config EXISTS (this is an edit operation)
+      await this.accountReader.getChainConfig(mint, remoteChainSelector);
+      this.logger.debug(
+        `Chain config exists for chain: ${remoteChainSelector.toString()}`
+      );
+
+      // Find the chain config PDA
+      const [chainConfigPDA, chainConfigBump] = findBurnMintPoolChainConfigPDA(
+        remoteChainSelector,
+        mint,
+        this.getProgramId()
+      );
+      this.logger.debug(
+        `Chain config PDA: ${chainConfigPDA.toString()} (bump: ${chainConfigBump})`
+      );
+      this.logger.trace(
+        `Chain config PDA derivation: seeds=[${TOKEN_POOL_CHAIN_CONFIG_SEED}, ${remoteChainSelector.toString()}, ${mint.toString()}], program=${this.getProgramId().toString()}`
+      );
+
+      // Find the state PDA
+      const [statePDA, stateBump] = findBurnMintPoolConfigPDA(
+        mint,
+        this.getProgramId()
+      );
+      this.logger.debug(
+        `State PDA: ${statePDA.toString()} (bump: ${stateBump})`
+      );
+      this.logger.trace(
+        `State PDA derivation: seeds=[${TOKEN_POOL_STATE_SEED}, ${mint.toString()}], program=${this.getProgramId().toString()}`
+      );
+
+      // Validate and transform pool addresses from options
+      if (!options.poolAddresses || options.poolAddresses.length === 0) {
+        throw new Error("At least one pool address must be provided");
+      }
+
+      // Create RemoteAddresses from the provided addresses
+      // Pool addresses use raw bytes (typically 20 bytes for Ethereum addresses)
+      const remotePoolAddresses = options.poolAddresses.map((addr) => {
+        const buffer = Buffer.from(addr, "hex");
+        // No padding required for pool addresses - use raw bytes
+        return new RemoteAddress({ address: buffer });
+      });
+      this.logger.debug(
+        `Converted ${remotePoolAddresses.length} pool addresses`
+      );
+
+      // Validate and transform token address
+      if (!options.tokenAddress) {
+        throw new Error("Token address must be provided");
+      }
+      const rawTokenAddressBuffer = Buffer.from(options.tokenAddress, "hex");
+      // Token addresses need to be padded to 32 bytes (Ethereum-style)
+      const tokenAddressBuffer = padTo32Bytes(rawTokenAddressBuffer);
+      const remoteTokenAddress = new RemoteAddress({
+        address: tokenAddressBuffer,
+      });
+      this.logger.debug(
+        `Token address: ${options.tokenAddress} (padded to 32 bytes)`
+      );
+
+      // Validate decimals
+      if (options.decimals < 0 || options.decimals > 18) {
+        throw new Error("Invalid decimals value. Must be between 0 and 18.");
+      }
+      this.logger.debug(`Decimals: ${options.decimals}`);
+
+      // Create RemoteConfig from options
+      const remoteConfig: RemoteConfig = new RemoteConfig({
+        pool_addresses: remotePoolAddresses,
+        token_address: remoteTokenAddress,
+        decimals: options.decimals,
+      });
+
+      // Build the accounts for the edit_chain_remote_config instruction
+      const accounts: Edit_chain_remote_configAccounts = {
+        state: statePDA,
+        chain_config: chainConfigPDA,
+        authority: signerPublicKey,
+        system_program: SystemProgram.programId,
+      };
+
+      // Log all accounts being used for debugging
+      this.logger.debug("Edit chain remote config accounts:", {
+        state: statePDA.toString(),
+        chain_config: chainConfigPDA.toString(),
+        authority: signerPublicKey.toString(),
+        system_program: SystemProgram.programId.toString(),
+      });
+
+      // Build the args
+      const args: Edit_chain_remote_configArgs = {
+        remote_chain_selector: new BN(remoteChainSelector.toString()),
+        mint: mint,
+        cfg: remoteConfig.toEncodable(),
+      };
+
+      // Log all args being used for debugging
+      this.logger.debug("Edit chain remote config args:", {
+        remote_chain_selector: remoteChainSelector.toString(),
+        mint: mint.toString(),
+        poolAddressCount: remotePoolAddresses.length,
+        tokenAddress: options.tokenAddress,
+        decimals: options.decimals,
+      });
+
+      // Create the instruction
+      this.logger.debug("Creating edit_chain_remote_config instruction...");
+      const instruction = edit_chain_remote_config(
+        args,
+        accounts,
+        this.getProgramId()
+      );
+
+      // Log instruction details
+      this.logger.debug("Edit chain remote config instruction created:", {
+        programId: this.getProgramId().toString(),
+        dataLength: instruction.data.length,
+        keyCount: instruction.keys.length,
+      });
+      this.logger.trace("Instruction accounts:", {
+        keys: instruction.keys.map((key, index) => ({
+          index,
+          pubkey: key.pubkey.toString(),
+          isSigner: key.isSigner,
+          isWritable: key.isWritable,
+        })),
+      });
+      this.logger.trace(
+        `Instruction data (hex): ${instruction.data.toString("hex")}`
+      );
+
+      // Execute the transaction using the shared utility
+      const executionOptions: TransactionExecutionOptions = {
+        ...extractTxOptions(options),
+        errorContext,
+        operationName: "editChainRemoteConfig",
+      };
+
+      const signature = await executeTransaction(
+        this.context,
+        [instruction],
+        executionOptions
+      );
+
+      this.logger.info(`Chain remote config edited: ${signature}`);
+
+      // Parse event data
+      let event: RemoteChainConfiguredEvent | undefined;
+      try {
+        event =
+          await this.eventParser.parseRemoteChainConfiguredFromTransaction(
+            this.context,
+            signature
+          );
+      } catch (error) {
+        this.logger.warn(`Failed to parse event from transaction: ${error}`);
+      }
+
+      return { signature, event };
+    } catch (error) {
       throw enhanceError(error, errorContext);
     }
   }

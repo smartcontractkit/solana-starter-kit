@@ -80,21 +80,39 @@ export interface TokenPoolUpdateOptions {
 }
 
 /**
- * Options for configuring a chain in a burn-mint token pool
+ * Result type for chain configuration operations that includes optional event data
  */
-export interface BurnMintChainConfigOptions {
-  /** Whether transfers to this chain are enabled */
-  enabled: boolean;
-  /** Max tokens per message */
-  maxTokensPerMessage: bigint;
-  /** Fee bps (basis points) */
-  feeBps: number;
-  /** Pool addresses */
+export interface ChainConfigResult {
+  /** Transaction signature */
+  signature: string;
+  /** Parsed event data (if available) */
+  event?: any;
+}
+
+/**
+ * Options for initializing a chain remote configuration
+ */
+export interface InitChainRemoteConfigOptions {
+  /** Pool addresses on the remote chain */
   poolAddresses: string[];
-  /** Token address */
+  /** Token address on the remote chain */
   tokenAddress: string;
-  /** Decimals */
-  decimals?: number;
+  /** Token decimals on the remote chain */
+  decimals: number;
+  /** Transaction options */
+  txOptions?: TxOptions;
+}
+
+/**
+ * Options for editing a chain remote configuration
+ */
+export interface EditChainRemoteConfigOptions {
+  /** Pool addresses on the remote chain */
+  poolAddresses: string[];
+  /** Token address on the remote chain */
+  tokenAddress: string;
+  /** Token decimals on the remote chain */
+  decimals: number;
   /** Transaction options */
   txOptions?: TxOptions;
 }
@@ -343,11 +361,10 @@ export interface TokenPoolClient {
   ): Promise<string>;
 
   /**
-   * Configure a chain for a token pool.
+   * Initialize a new chain remote configuration for a token pool.
    *
-   * This method handles both initializing new chain configurations and updating existing ones.
-   * If the chain configuration for the specified remoteChainSelector doesn't exist, it will
-   * create a new one. If it already exists, it will update the configuration.
+   * This method creates a new chain configuration for the specified remoteChainSelector.
+   * The chain configuration must not already exist for this operation to succeed.
    *
    * Only the current owner can call this method.
    *
@@ -355,13 +372,48 @@ export interface TokenPoolClient {
    * @param destChainSelector The unique identifier (bigint) of the remote blockchain network.
    * @param options Configuration options including remote token address, pool addresses, and decimals.
    * @returns A Promise resolving to the transaction signature string.
-   * @throws Error if the pool doesn't exist, if the caller lacks permissions, or if the transaction fails.
+   * @throws Error if the pool doesn't exist, if the chain config already exists, if the caller lacks permissions, or if the transaction fails.
    */
-  configureChain(
+  initChainRemoteConfig(
     mint: PublicKey,
     destChainSelector: bigint,
-    options: Record<string, any>
-  ): Promise<string>;
+    options: InitChainRemoteConfigOptions
+  ): Promise<ChainConfigResult>;
+
+  /**
+   * Edit an existing chain remote configuration for a token pool.
+   *
+   * This method updates an existing chain configuration for the specified remoteChainSelector.
+   * The chain configuration must already exist for this operation to succeed.
+   *
+   * Only the current owner can call this method.
+   *
+   * @param mint Token mint identifying the pool.
+   * @param destChainSelector The unique identifier (bigint) of the remote blockchain network.
+   * @param options Configuration options including remote token address, pool addresses, and decimals.
+   * @returns A Promise resolving to the transaction result with signature and optional event data.
+   * @throws Error if the pool doesn't exist, if the chain config doesn't exist, if the caller lacks permissions, or if the transaction fails.
+   */
+  editChainRemoteConfig(
+    mint: PublicKey,
+    destChainSelector: bigint,
+    options: EditChainRemoteConfigOptions
+  ): Promise<ChainConfigResult>;
+
+  /**
+   * Get an existing chain remote configuration for a token pool.
+   *
+   * This method retrieves the chain configuration for the specified remoteChainSelector.
+   * The chain configuration must exist for this operation to succeed.
+   *
+   * This is a read-only operation that can be called by anyone.
+   *
+   * @param mint Token mint identifying the pool.
+   * @param destChainSelector The unique identifier (bigint) of the remote blockchain network.
+   * @returns A Promise resolving to the chain configuration data.
+   * @throws Error if the pool doesn't exist or if the chain config doesn't exist.
+   */
+  getChainConfig(mint: PublicKey, destChainSelector: bigint): Promise<any>;
 
   /**
    * Sets the rate limits for a specific remote chain configuration within a token pool.

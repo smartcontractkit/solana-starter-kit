@@ -371,14 +371,115 @@ Updated router: Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C
 - Test cross-chain operations to ensure router works correctly
 - Router should now match the address used by other CCIP scripts
 
+#### 2.5. Initialize Chain Remote Configuration
+
+The `init-chain-remote-config.ts` script initializes a chain remote configuration for a burn-mint token pool, enabling cross-chain token transfers to a specific remote chain.
+
+```bash
+# Initialize chain remote configuration
+yarn svm:pool:init-chain-remote-config \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
+  --remote-chain ethereum-sepolia \
+  --pool-addresses "0x742d35Cc6634C0532925a3b8D5c42A2cDd1e4b6d" \
+  --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \
+  --decimals 6
+
+# With debug logging
+yarn svm:pool:init-chain-remote-config \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
+  --remote-chain ethereum-sepolia \
+  --pool-addresses "0x742d35Cc6634C0532925a3b8D5c42A2cDd1e4b6d" \
+  --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \
+  --decimals 6 \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address of existing pool
+- `--burn-mint-pool-program <id>`: Burn-mint token pool program ID
+- `--remote-chain <chain-id>`: Remote chain to configure (e.g., ethereum-sepolia, base-sepolia)
+- `--pool-addresses <addresses>`: Comma-separated pool addresses on remote chain (hex format)
+- `--token-address <address>`: Token address on remote chain (hex format)
+- `--decimals <number>`: Token decimals on remote chain
+
+##### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip transaction preflight checks
+
+This script creates a new chain configuration for the specified remote chain. The chain configuration must not already exist for this operation to succeed.
+
+**Prerequisites:**
+
+- Pool must be initialized (run `yarn svm:pool:initialize` first)
+- Wallet must be the pool administrator
+- Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
+
+#### 2.6. Edit Chain Remote Configuration
+
+The `edit-chain-remote-config.ts` script edits an existing chain remote configuration for a burn-mint token pool, updating the configuration for cross-chain token transfers to a specific remote chain.
+
+```bash
+# Edit existing chain remote configuration
+yarn svm:pool:edit-chain-remote-config \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
+  --remote-chain ethereum-sepolia \
+  --pool-addresses "0x742d35Cc6634C0532925a3b8D5c42A2cDd1e4b6d,0x123..." \
+  --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \
+  --decimals 6
+```
+
+Uses the same options as `init-chain-remote-config` but updates an existing configuration instead of creating a new one. The chain configuration must already exist for this operation to succeed.
+
+#### 2.7. Get Chain Configuration
+
+The `get-chain-config.ts` script retrieves and displays the chain remote configuration for a burn-mint token pool. This is a **read-only operation** that does not require a wallet or keypair.
+
+```bash
+# Get chain configuration (read-only)
+yarn svm:pool:get-chain-config \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
+  --remote-chain ethereum-sepolia
+
+# With debug logging
+yarn svm:pool:get-chain-config \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
+  --remote-chain ethereum-sepolia \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address of existing pool
+- `--burn-mint-pool-program <id>`: Burn-mint token pool program ID
+- `--remote-chain <chain-id>`: Remote chain to query
+
+##### What This Script Shows
+
+- Remote chain decimals and token address
+- Pool addresses on the remote chain
+- Inbound and outbound rate limit configurations
+- Current rate limit usage and timestamps
+
+**Note:** This is a read-only operation that doesn't require a wallet, keypair, or transaction fees.
+
 ### 3. Token Admin Registry Management
 
 The Token Admin Registry is a critical component of CCIP that manages administrative permissions for tokens. It allows tokens to register administrators who can control pool settings and cross-chain configurations.
 
-**⚠️ IMPORTANT:** Token admin registry operations follow a **two-step process**:
+**⚠️ IMPORTANT:** Token admin registry operations follow a **multi-step process**:
 
 1. **Propose Administrator** - Token mint authority proposes a new administrator
 2. **Accept Admin Role** - Proposed administrator accepts the role to complete the transfer
+3. **Create ALT** - Administrator creates Address Lookup Table with required addresses
+4. **Set Pool** - Administrator registers the ALT with the token to enable CCIP operations
 
 #### 3.1. Propose Administrator
 
@@ -711,7 +812,7 @@ ALT contains 10 addresses:
 - ⚠️ **Address Order**: ALT addresses are in the exact order required by the CCIP router program
 - ⚠️ **Configuration Driven**: Fee quoter and router program IDs are loaded from configuration
 - ⚠️ **Token Program**: Automatically detected from on-chain mint data (no manual specification needed)
-- ⚠️ **Writable Indices**: Typically [3, 4, 5] for pool_config, pool_token_account, pool_signer
+- ⚠️ **Writable Indices**: Typically [3, 4, 7] for burn-mint tokens (pool_config, pool_token_account, token_mint)
 - ⚠️ **Address Count**: Always contains exactly 10 addresses as required by the protocol
 
 **Use Cases:**
@@ -725,6 +826,181 @@ ALT contains 10 addresses:
 - Use the provided setPool command to register the ALT with the token
 - The token will then be enabled for cross-chain operations
 - ALT will be used automatically by CCIP send transactions
+
+#### 3.4. Set Pool (Register ALT)
+
+The `set-pool.ts` script registers an Address Lookup Table (ALT) with a token's admin registry, enabling the token for CCIP cross-chain operations. Only the token administrator can execute this operation.
+
+This is the final step in the token admin registry setup process. The ALT must be created first using the create-alt script.
+
+```bash
+# Register ALT with token (most common case)
+yarn svm:admin:set-pool \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --lookup-table 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T \
+  --writable-indices 3,4,7
+
+# With debug logging
+yarn svm:admin:set-pool \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --lookup-table 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T \
+  --writable-indices 3,4,7 \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address
+- `--lookup-table <address>`: Address Lookup Table address (from create-alt script)
+- `--writable-indices <indices>`: Comma-separated writable indices (e.g., "3,4,7" for burn-mint tokens)
+
+##### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip transaction preflight checks
+
+##### What This Script Does
+
+The script performs the following operations:
+
+1. **Validation**: Checks required arguments and wallet balance
+2. **Authority Verification**: Ensures signer is the token administrator
+3. **ALT Verification**: Confirms the lookup table exists and has sufficient addresses
+4. **Duplicate Prevention**: Skips operation if ALT is already registered with the token
+5. **Pool Registration**: Registers the ALT with the token admin registry
+6. **Verification**: Confirms the registration was completed successfully
+7. **Next Steps**: Provides guidance for using the token in CCIP operations
+
+##### Example Output
+
+```
+CCIP Token Admin Registry Set Pool
+
+Loading keypair from /Users/user/.config/solana/id.json...
+Wallet public key: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+Wallet balance: 1.234 SOL
+Token Mint: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+Lookup Table: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T
+Writable Indices: [3, 4, 7]
+
+Checking current token admin registry...
+Current administrator: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+Current pending administrator: 11111111111111111111111111111111
+Current lookup table: 11111111111111111111111111111111
+
+Verifying lookup table exists...
+Lookup table verified with 10 addresses
+
+Setting pool (registering ALT with token)...
+Pool set successfully!
+Transaction signature: 5xKpVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KRbu5F7173tediMcrLHUKmwu6Ust3NvnAujPTvkSk
+Solana Explorer: https://explorer.solana.com/tx/5xKpVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KRbu5F7173tediMcrLHUKmwu6Ust3NvnAujPTvkSk?cluster=devnet
+
+Verifying pool registration...
+✅ Pool registration verified successfully!
+Registered lookup table: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T
+Writable indices: [3, 4, 7]
+
+🎉 Pool Registration Complete!
+   ✅ Token: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+   ✅ ALT: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T
+   ✅ Ready for CCIP cross-chain operations
+
+📋 Next Steps:
+   • The token is now enabled for CCIP transfers
+   • Test cross-chain operations using the CCIP router scripts
+   • Use yarn ccip:send to send tokens cross-chain
+   • Monitor transactions on CCIP Explorer
+```
+
+**Prerequisites:**
+
+- Administrator role must be accepted first (run the propose/accept admin scripts)
+- ALT must be created first (run `yarn svm:admin:create-alt`)
+- Wallet must be the token administrator
+- Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
+
+**Important Security Notes:**
+
+- ⚠️ **Administrator Only**: Only the token administrator can register ALTs
+- ⚠️ **ALT Validation**: Script validates the ALT exists and has required addresses
+- ⚠️ **Configuration Driven**: Router address is loaded from the centralized configuration
+- ⚠️ **Verification**: Always verify the pool registration was completed successfully
+- ⚠️ **Final Step**: This completes the token admin registry setup process
+
+**Use Cases:**
+
+- Enable a token for CCIP cross-chain operations
+- Register ALT after administrator setup and ALT creation
+- Update or change the ALT associated with a token
+
+**Common Scenarios:**
+
+- `✅ Lookup table is already set to the specified address`: No change needed
+- `Signer is not the administrator of this token`: Only the administrator can set pools
+- `No token admin registry found`: Complete the administrator setup first
+- `Lookup table not found`: Create the ALT first using create-alt script
+
+**After Setting Pool:**
+
+- The token is now fully enabled for CCIP cross-chain operations
+- Test token transfers using `yarn ccip:send`
+- The ALT will be used automatically for efficient transaction processing
+- Monitor transaction status on CCIP Explorer
+
+**Complete Process Summary:**
+
+1. **Create Token**: `yarn svm:token:create`
+2. **Propose Admin**: `yarn svm:admin:propose-administrator`
+3. **Accept Admin**: `yarn svm:admin:accept-admin-role`
+4. **Create ALT**: `yarn svm:admin:create-alt`
+5. **Set Pool**: `yarn svm:admin:set-pool` ← You are here
+6. **Ready for CCIP**: Use `yarn ccip:send` for cross-chain operations
+
+#### 3.5. Inspect Token Configuration
+
+The `inspect-token.ts` script inspects existing CCIP-enabled tokens to analyze their configuration. This is a **read-only diagnostic tool** that helps validate and compare token configurations with existing tokens to ensure correct setup.
+
+```bash
+# Inspect a known CCIP-enabled token
+yarn svm:admin:inspect-token \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+
+# With debug logging for detailed analysis
+yarn svm:admin:inspect-token \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address to inspect
+
+##### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+
+##### What This Script Shows
+
+The script provides comprehensive analysis organized into sections:
+
+1. **Token Admin Registry**: Administrator, pending administrator, lookup table
+2. **ALT Configuration**: All 10 addresses with their purposes and write permissions
+3. **Writable Indices Analysis**: Compares current vs. expected configuration [3, 4, 7] for burn-mint tokens
+4. **Validation Checks**: Token mint matching, minimum address requirements
+5. **Configuration Summary**: Overall correctness assessment
+
+**Note:** This is a read-only operation that doesn't require wallet permissions or transaction fees.
+
+**Use Cases:**
+
+- Validate configuration of existing CCIP tokens
+- Compare writable indices with reference implementations
+- Debug token setup issues
+- Understand ALT structure for new token configurations
+- Verify token admin registry settings
 
 ### 4. Get CCIP Fee Estimations
 

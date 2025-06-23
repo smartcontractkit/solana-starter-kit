@@ -185,7 +185,105 @@ This script:
 3. Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
 4. Burn-mint pool program must be deployed and accessible
 
-#### 2.3. Get Pool Information
+#### 2.3. Create Pool Token Account
+
+The `create-pool-token-account.ts` script creates the Associated Token Account (ATA) for the pool signer PDA. This account is **required** for the pool to hold tokens during cross-chain operations and must be created after pool initialization.
+
+**⚠️ CRITICAL:** This script resolves the common "AccountNotInitialized" error that occurs during cross-chain token transfers. The pool token account must exist before attempting any CCIP transfers.
+
+```bash
+# Create pool token account (ATA)
+yarn svm:pool:create-token-account \
+  --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \
+  --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+
+# With debug logging
+yarn svm:pool:create-token-account \
+  --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \
+  --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address for the pool
+- `--burn-mint-pool-program <id>`: Burn-mint token pool program ID
+
+##### Optional Options
+
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip transaction preflight checks
+
+##### What This Script Does
+
+The script performs the following operations:
+
+1. **Pool Verification**: Confirms the token pool exists and retrieves configuration
+2. **PDA Calculation**: Uses library function `findPoolSignerPDA` to derive the pool signer address
+3. **ATA Derivation**: Calculates the Associated Token Account address for the pool signer
+4. **Existence Check**: Verifies if the ATA already exists to avoid duplicate creation
+5. **Account Creation**: Creates the ATA with correct ownership (pool signer PDA)
+6. **Verification**: Confirms the account was created successfully
+
+##### Example Output
+
+```
+CCIP Pool Token Account Creation
+
+Loading keypair from /Users/user/.config/solana/id.json...
+Wallet public key: EPUjBP3Xf76K1VKsDSc6GupBWE8uykNksCLJgXZn87CB
+Wallet balance: 11.372 SOL
+Token Mint: 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY
+Burn-Mint Pool Program: 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+
+Verifying pool exists...
+Getting pool information...
+Current pool token account: DC4nBwHb6z5gAFJmi4Hkhn1TqaVDmhunqktSro16dAod
+Pool signer PDA: 5aWw5TTbPDZvcwyy1fR6JLXS9RbG2hDPpzDtrbiEsaN8
+Expected pool token account (ATA): DC4nBwHb6z5gAFJmi4Hkhn1TqaVDmhunqktSro16dAod
+
+Creating pool token account (ATA)...
+✅ Pool token account created successfully!
+Transaction signature: iMHGzhF9JSnSdBK1mcurSUi1m38pyiitmGNMgzqfBMhPifgj4S72Tke8j3AsKWtVeNFariU1RpaM1NLo7JB8NUc
+Solana Explorer: https://explorer.solana.com/tx/iMHGzhF9...?cluster=devnet
+
+🎉 Pool Token Account Setup Complete!
+   ✅ ATA Address: DC4nBwHb6z5gAFJmi4Hkhn1TqaVDmhunqktSro16dAod
+   ✅ Owner: 5aWw5TTbPDZvcwyy1fR6JLXS9RbG2hDPpzDtrbiEsaN8 (Pool Signer PDA)
+   ✅ Ready for cross-chain token operations
+```
+
+**Prerequisites:**
+
+- Pool must be initialized first (run `yarn svm:pool:initialize`)
+- Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
+- Token mint must exist and be valid
+- Burn-mint pool program must be accessible
+
+**Technical Details:**
+
+- ✅ **Uses Library Functions**: Integrates with `findPoolSignerPDA` from ccip-lib for consistency
+- ✅ **Automatic Detection**: Auto-detects token program ID (Token Program vs Token-2022)
+- ✅ **Idempotent Operation**: Safely skips creation if account already exists
+- ✅ **Proper Ownership**: Creates ATA owned by the pool signer PDA
+- ✅ **Transaction Verification**: Confirms successful account creation
+
+**Common Error Resolution:**
+
+This script specifically resolves:
+
+- `AccountNotInitialized` errors during token transfers
+- `pool_token_account` related transaction failures
+- Missing ATA for pool signer PDA
+
+**After Running This Script:**
+
+- Cross-chain token transfers will work without "AccountNotInitialized" errors
+- The pool can hold tokens during CCIP operations
+- Ready to proceed with `yarn svm:token-transfer`
+
+#### 2.4. Get Pool Information
 
 The `get-pool-info.ts` script provides comprehensive information about an existing burn-mint token pool. This displays all configuration details, ownership information, and security settings.
 
@@ -268,7 +366,7 @@ Allowlist: ❌ Disabled
 - Get addresses for integration with other tools
 - Debug pool-related issues
 
-#### 2.4. Set Pool Router
+#### 2.5. Set Pool Router
 
 The `set-router.ts` script sets the configured CCIP router for an existing burn-mint token pool. This is an owner-only operation that ensures the pool uses the correct router for cross-chain operations.
 
@@ -371,7 +469,7 @@ Updated router: Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C
 - Test cross-chain operations to ensure router works correctly
 - Router should now match the address used by other CCIP scripts
 
-#### 2.5. Get Pool Signer Address
+#### 2.6. Get Pool Signer Address
 
 The `get-pool-signer.ts` script retrieves the Program Derived Address (PDA) for a token pool's signer account. This is a **read-only utility** that doesn't require transactions or fees.
 
@@ -414,7 +512,7 @@ The script calculates and displays the pool signer PDA address, which is used fo
 - Debug pool configuration issues
 - Calculate addresses for off-chain applications
 
-#### 2.6. Initialize Chain Remote Configuration
+#### 2.7. Initialize Chain Remote Configuration
 
 The `init-chain-remote-config.ts` script initializes a chain remote configuration for a burn-mint token pool, enabling cross-chain token transfers to a specific remote chain.
 
@@ -462,7 +560,7 @@ This script creates a new chain configuration for the specified remote chain. Th
 - Wallet must be the pool administrator
 - Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
 
-#### 2.7. Edit Chain Remote Configuration
+#### 2.8. Edit Chain Remote Configuration
 
 The `edit-chain-remote-config.ts` script edits an existing chain remote configuration for a burn-mint token pool, updating the configuration for cross-chain token transfers to a specific remote chain.
 
@@ -479,7 +577,7 @@ yarn svm:pool:edit-chain-remote-config \
 
 Uses the same options as `init-chain-remote-config` but updates an existing configuration instead of creating a new one. The chain configuration must already exist for this operation to succeed.
 
-#### 2.8. Get Chain Configuration
+#### 2.9. Get Chain Configuration
 
 The `get-chain-config.ts` script retrieves and displays the chain remote configuration for a burn-mint token pool. This is a **read-only operation** that does not require a wallet or keypair.
 

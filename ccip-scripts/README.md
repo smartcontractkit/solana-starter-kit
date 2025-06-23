@@ -75,7 +75,7 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 1. **Setup**: Install dependencies and fund wallet with SOL
 2. **Create Tokens**: `yarn svm:token:create`
 3. **Token Administration**: `yarn svm:admin:propose-administrator` → `yarn svm:admin:accept-admin-role`
-4. **Token Pools**: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize`
+4. **Token Pools**: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize` → `yarn svm:pool:create-token-account`
 5. **CCIP Preparation**: `yarn svm:token:wrap` → `yarn svm:token:delegate`
 
 ### For Ethereum (EVM) Development
@@ -113,6 +113,7 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 | ---------------------------------------- | ---------------------------------------------- |
 | `yarn svm:pool:init-global-config`       | Initialize global config (once per deployment) |
 | `yarn svm:pool:initialize`               | Initialize token pool (once per token)         |
+| `yarn svm:pool:create-token-account`     | Create pool token account (ATA) for transfers  |
 | `yarn svm:pool:get-info`                 | Get detailed pool configuration                |
 | `yarn svm:pool:set-router`               | Set CCIP router for pool                       |
 | `yarn svm:pool:get-pool-signer`          | Get pool signer PDA address                    |

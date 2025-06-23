@@ -18,6 +18,7 @@
     "svm:receiver:deploy": "ts-node ./ccip-scripts/svm/receiver/deploy.ts",
     "svm:pool:init-global-config": "ts-node ./ccip-scripts/svm/pool/initialize-global-config.ts",
     "svm:pool:initialize": "ts-node ./ccip-scripts/svm/pool/initialize-pool.ts",
+    "svm:pool:create-token-account": "ts-node ./ccip-scripts/svm/pool/create-pool-token-account.ts",
     "svm:pool:get-info": "ts-node ./ccip-scripts/svm/pool/get-pool-info.ts",
     "svm:pool:set-router": "ts-node ./ccip-scripts/svm/pool/set-router.ts",
     "svm:pool:init-chain-remote-config": "ts-node ./ccip-scripts/svm/pool/init-chain-remote-config.ts",

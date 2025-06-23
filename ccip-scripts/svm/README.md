@@ -400,6 +400,7 @@ yarn svm:pool:get-pool-signer \
 ##### What This Script Shows
 
 The script calculates and displays the pool signer PDA address, which is used for:
+
 - Token pool operations and authority
 - Cross-chain transfer authorization
 - Integration with other CCIP components
@@ -407,6 +408,7 @@ The script calculates and displays the pool signer PDA address, which is used fo
 **Note:** This is a read-only calculation that doesn't require a wallet, keypair, or network connection.
 
 **Use Cases:**
+
 - Get PDA addresses for integration with other tools
 - Verify pool signer addresses during development
 - Debug pool configuration issues

@@ -190,17 +190,40 @@ export async function sendCCIPMessage(
     maxRetries: 5, // Increased retries
   });
 
-  // Wait for transaction confirmation with improved options
-  await connection.confirmTransaction(
-    {
-      signature,
-      blockhash,
-      lastValidBlockHeight,
-    },
-    "finalized"
-  ); // Using finalized
-
-  logger.info(`CCIP message sent successfully: ${signature}`);
+  // Handle transaction confirmation differently based on skipPreflight setting
+  if (sendOptions?.skipPreflight) {
+    // When skipPreflight is enabled, we want to return the signature even if the transaction fails
+    logger.warn("⚠️  skipPreflight enabled - returning signature without waiting for confirmation");
+    logger.info(`Transaction submitted with signature: ${signature}`);
+    
+    try {
+      // Still try to confirm but don't fail if it errors
+      await connection.confirmTransaction(
+        {
+          signature,
+          blockhash,
+          lastValidBlockHeight,
+        },
+        "finalized"
+      );
+      logger.info(`CCIP message sent successfully: ${signature}`);
+    } catch (confirmError) {
+      logger.warn(`Transaction confirmation failed, but transaction was submitted: ${signature}`);
+      // Don't throw the error, just log it and return the signature
+      logger.debug(`Confirmation error: ${confirmError instanceof Error ? confirmError.message : String(confirmError)}`);
+    }
+  } else {
+    // Normal confirmation behavior when skipPreflight is false
+    await connection.confirmTransaction(
+      {
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      },
+      "finalized"
+    );
+    logger.info(`CCIP message sent successfully: ${signature}`);
+  }
 
   return signature;
 }

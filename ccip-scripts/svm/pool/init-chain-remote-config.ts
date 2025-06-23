@@ -14,7 +14,6 @@
  * --token-mint              : Token mint address of existing pool
  * --burn-mint-pool-program  : Burn-mint token pool program ID
  * --remote-chain            : Remote chain to configure (chain-id)
- * --pool-addresses          : Comma-separated pool addresses on remote chain (hex)
  * --token-address           : Token address on remote chain (hex)
  * --decimals                : Token decimals on remote chain
  *
@@ -28,7 +27,6 @@
  *   --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
  *   --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
  *   --remote-chain ethereum-sepolia \
- *   --pool-addresses "0x742d35Cc6634C0532925a3b8D5c42A2cDd1e4b6d" \
  *   --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \
  *   --decimals 6
  */
@@ -63,12 +61,6 @@ const SCRIPT_ARGS = [
     description: "Remote chain to configure (chain-id)",
     required: true,
     type: "remote-chain" as const,
-  },
-  {
-    name: "pool-addresses",
-    description: "Comma-separated pool addresses on remote chain (hex)",
-    required: true,
-    type: "string" as const,
   },
   {
     name: "token-address",
@@ -157,20 +149,12 @@ async function main() {
     );
     const remoteChainSelector = options["remote-chain"] as bigint;
 
-    // Parse pool addresses
-    const poolAddressesInput = options["pool-addresses"] as string;
-    const poolAddresses = poolAddressesInput
-      .split(",")
-      .map((addr) => addr.trim())
-      .filter((addr) => addr.length > 0);
-
     const tokenAddress = options["token-address"] as string;
     const decimals = options.decimals as number;
 
     logger.info(`Token Mint: ${tokenMint.toString()}`);
     logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
     logger.info(`Remote Chain Selector: ${remoteChainSelector.toString()}`);
-    logger.info(`Pool Addresses: ${poolAddresses.join(", ")}`);
     logger.info(`Token Address: ${tokenAddress}`);
     logger.info(`Decimals: ${decimals}`);
 
@@ -194,12 +178,11 @@ async function main() {
       clientOptions
     );
 
-    // Initialize the chain remote config
+    // Initialize the chain remote config (pool addresses must be empty for initialization)
     logger.info("Initializing chain remote configuration...");
     const signature = await tokenPoolClient.initChainRemoteConfig({
       mint: tokenMint,
       remoteChainSelector,
-      poolAddresses,
       tokenAddress,
       decimals,
     });
@@ -209,6 +192,9 @@ async function main() {
     logger.info(`Solana Explorer: ${getExplorerUrl(config.id, signature)}`);
     logger.info(
       `💡 View details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
+    );
+    logger.info(
+      `🔗 Next step: Add pool addresses with 'yarn svm:pool:edit-chain-remote-config' to enable cross-chain transfers`
     );
   } catch (error) {
     logger.error("Chain remote configuration initialization failed:", error);
@@ -226,7 +212,6 @@ Required Options:
   --token-mint <address>           Token mint address of existing pool
   --burn-mint-pool-program <id>    Burn-mint token pool program ID
   --remote-chain <chain-id>        Remote chain (chain-id)
-  --pool-addresses <addresses>     Comma-separated pool addresses (hex)
   --token-address <address>        Token address on remote chain (hex)
   --decimals <number>              Token decimals on remote chain
 
@@ -241,15 +226,13 @@ Examples:
     --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
     --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
     --remote-chain ethereum-sepolia \\
-    --pool-addresses "0x742d35Cc6634C0532925a3b8D5c42A2cDd1e4b6d" \\
     --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \\
     --decimals 6
 
   yarn svm:pool:init-chain-remote-config \\
     --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
     --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --remote-chain ethereum-sepolia \\
-    --pool-addresses "0x742d35Cc6634C0532925a3b8D5c42A2cDd1e4b6d,0x123..." \\
+    --remote-chain base-sepolia \\
     --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \\
     --decimals 6
 
@@ -263,7 +246,8 @@ Notes:
   • The token pool must already exist before configuring chains
   • Wallet must be the pool administrator
   • Addresses should be provided as hex strings with '0x' prefix
-  • Multiple pool addresses can be separated by commas
+  • Pool addresses are NOT provided during initialization (required by Rust program)
+  • Use 'yarn svm:pool:edit-chain-remote-config' to add pool addresses after initialization
   • Chain configuration initialization requires SOL for transaction fees
   `);
 }

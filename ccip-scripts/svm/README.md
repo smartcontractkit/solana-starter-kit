@@ -1,8 +1,8 @@
-# CCIP Scripts for Solana
+# Solana CCIP Scripts - Technical Documentation
 
-This directory contains scripts for interacting with the Cross-Chain Interoperability Protocol (CCIP) on Solana. These tools help you estimate fees and send cross-chain messages using Chainlink's CCIP infrastructure.
+This is the comprehensive technical guide for all Solana Virtual Machine (SVM) CCIP scripts. Each script includes detailed usage instructions, options, examples, and troubleshooting guidance.
 
-> 📖 **This is the comprehensive technical guide for Solana/SVM operations**  
+> 📖 **This is the detailed technical reference for SVM operations**  
 > For overview and quick start: [Main README](../README.md)
 
 ## Prerequisites
@@ -34,13 +34,13 @@ The `wrap-sol.ts` script allows you to wrap native SOL into wrapped SOL (wSOL) t
 
 ```bash
 # Use default keypair
-yarn token:wrap
+yarn svm:token:wrap
 
 # Specify amount of SOL to wrap
-yarn token:wrap -- --amount 2
+yarn svm:token:wrap -- --amount 2
 
-# Use test keypair
-yarn token:wrap:test
+# Use test keypair (if configured)
+yarn svm:token:wrap -- --use-test-keypair
 ```
 
 The script:
@@ -55,10 +55,10 @@ The `delegate-token-authority.ts` script delegates token spending authority to t
 
 ```bash
 # Use default keypair
-yarn token:delegate
+yarn svm:token:delegate
 
-# Use test keypair
-yarn token:delegate:test
+# Use test keypair (if configured)
+yarn svm:token:delegate -- --use-test-keypair
 ```
 
 This script:
@@ -80,10 +80,10 @@ The `check-token-approvals.ts` script checks the current delegation status of yo
 
 ```bash
 # Use default keypair
-yarn token:check
+yarn svm:token:check
 
-# Use test keypair
-yarn token:check:test
+# Use test keypair (if configured)
+yarn svm:token:check -- --use-test-keypair
 ```
 
 This script:
@@ -371,7 +371,48 @@ Updated router: Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C
 - Test cross-chain operations to ensure router works correctly
 - Router should now match the address used by other CCIP scripts
 
-#### 2.5. Initialize Chain Remote Configuration
+#### 2.5. Get Pool Signer Address
+
+The `get-pool-signer.ts` script retrieves the Program Derived Address (PDA) for a token pool's signer account. This is a **read-only utility** that doesn't require transactions or fees.
+
+```bash
+# Get pool signer PDA for a token
+yarn svm:pool:get-pool-signer \
+  --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \
+  --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
+
+# With debug logging
+yarn svm:pool:get-pool-signer \
+  --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \
+  --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz \
+  --log-level DEBUG
+```
+
+##### Required Options
+
+- `--token-mint <address>`: Token mint address
+- `--burn-mint-pool-program <id>`: Burn-mint token pool program ID
+
+##### Optional Options
+
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+
+##### What This Script Shows
+
+The script calculates and displays the pool signer PDA address, which is used for:
+- Token pool operations and authority
+- Cross-chain transfer authorization
+- Integration with other CCIP components
+
+**Note:** This is a read-only calculation that doesn't require a wallet, keypair, or network connection.
+
+**Use Cases:**
+- Get PDA addresses for integration with other tools
+- Verify pool signer addresses during development
+- Debug pool configuration issues
+- Calculate addresses for off-chain applications
+
+#### 2.6. Initialize Chain Remote Configuration
 
 The `init-chain-remote-config.ts` script initializes a chain remote configuration for a burn-mint token pool, enabling cross-chain token transfers to a specific remote chain.
 
@@ -419,7 +460,7 @@ This script creates a new chain configuration for the specified remote chain. Th
 - Wallet must be the pool administrator
 - Wallet must have sufficient SOL balance for transaction fees (minimum 0.01 SOL)
 
-#### 2.6. Edit Chain Remote Configuration
+#### 2.7. Edit Chain Remote Configuration
 
 The `edit-chain-remote-config.ts` script edits an existing chain remote configuration for a burn-mint token pool, updating the configuration for cross-chain token transfers to a specific remote chain.
 
@@ -436,7 +477,7 @@ yarn svm:pool:edit-chain-remote-config \
 
 Uses the same options as `init-chain-remote-config` but updates an existing configuration instead of creating a new one. The chain configuration must already exist for this operation to succeed.
 
-#### 2.7. Get Chain Configuration
+#### 2.8. Get Chain Configuration
 
 The `get-chain-config.ts` script retrieves and displays the chain remote configuration for a burn-mint token pool. This is a **read-only operation** that does not require a wallet or keypair.
 
@@ -910,7 +951,7 @@ Writable indices: [3, 4, 7]
 📋 Next Steps:
    • The token is now enabled for CCIP transfers
    • Test cross-chain operations using the CCIP router scripts
-   • Use yarn ccip:send to send tokens cross-chain
+   • Use yarn svm:token-transfer to send tokens cross-chain
    • Monitor transactions on CCIP Explorer
 ```
 
@@ -945,7 +986,7 @@ Writable indices: [3, 4, 7]
 **After Setting Pool:**
 
 - The token is now fully enabled for CCIP cross-chain operations
-- Test token transfers using `yarn ccip:send`
+- Test token transfers using `yarn svm:token-transfer`
 - The ALT will be used automatically for efficient transaction processing
 - Monitor transaction status on CCIP Explorer
 
@@ -956,7 +997,7 @@ Writable indices: [3, 4, 7]
 3. **Accept Admin**: `yarn svm:admin:accept-admin-role`
 4. **Create ALT**: `yarn svm:admin:create-alt`
 5. **Set Pool**: `yarn svm:admin:set-pool` ← You are here
-6. **Ready for CCIP**: Use `yarn ccip:send` for cross-chain operations
+6. **Ready for CCIP**: Use `yarn svm:token-transfer` for cross-chain operations
 
 #### 3.5. Inspect Token Configuration
 
@@ -1002,7 +1043,89 @@ The script provides comprehensive analysis organized into sections:
 - Understand ALT structure for new token configurations
 - Verify token admin registry settings
 
-### 4. Get CCIP Fee Estimations
+### 4. CCIP Receiver Management
+
+The receiver scripts allow you to deploy and manage CCIP receiver programs that can process incoming cross-chain messages. These are essential for building applications that receive data or tokens from other chains.
+
+#### 4.1. Deploy Receiver Program
+
+The `deploy.ts` script deploys a new CCIP receiver program to handle incoming cross-chain messages.
+
+```bash
+# Deploy a new CCIP receiver program
+yarn svm:receiver:deploy
+
+# With debug logging
+yarn svm:receiver:deploy -- --log-level DEBUG
+```
+
+This script:
+
+- Deploys a new receiver program instance
+- Sets up the program for incoming CCIP messages
+- Returns the program ID for use in initialization
+
+#### 4.2. Initialize Receiver
+
+The `initialize.ts` script initializes a receiver program to start accepting incoming CCIP messages.
+
+```bash
+# Initialize receiver for incoming messages
+yarn svm:receiver:initialize
+
+# With debug logging
+yarn svm:receiver:initialize -- --log-level DEBUG
+```
+
+This script:
+
+- Sets up the receiver state account
+- Configures the receiver for CCIP message processing
+- Prepares storage for incoming message data
+
+#### 4.3. Get Latest Message
+
+The `get-latest-message.ts` script retrieves the latest received cross-chain message from the receiver.
+
+```bash
+# Get the latest received message
+yarn svm:receiver:get-message
+
+# With debug logging
+yarn svm:receiver:get-message -- --log-level DEBUG
+```
+
+This script:
+
+- Fetches the most recent incoming message
+- Displays message content and metadata
+- Shows sender information and chain details
+
+#### 4.4. Close Receiver Storage
+
+The `close-storage.ts` script closes receiver storage accounts to reclaim rent fees.
+
+```bash
+# Close receiver storage accounts
+yarn svm:receiver:close
+
+# With debug logging
+yarn svm:receiver:close -- --log-level DEBUG
+```
+
+This script:
+
+- Closes storage accounts when no longer needed
+- Reclaims rent fees to the wallet
+- Properly cleans up receiver state
+
+**Prerequisites for Receiver Operations:**
+
+- Wallet must have sufficient SOL balance for account creation and rent
+- Receiver program must be deployed before initialization
+- Initialization must complete before processing messages
+
+### 5. Get CCIP Fee Estimations
 
 The `get-ccip-fee.ts` script provides fee estimations for cross-chain message delivery using CCIP.
 
@@ -1011,13 +1134,13 @@ The `get-ccip-fee.ts` script provides fee estimations for cross-chain message de
 You can run the script with Yarn:
 
 ```bash
-yarn ccip:fee [options]
+yarn svm:fee [options]
 ```
 
 Or using ts-node directly:
 
 ```bash
-yarn ts-node ccip-scripts/router/get-ccip-fee.ts [options]
+yarn ts-node ccip-scripts/svm/router/get-ccip-fee.ts [options]
 ```
 
 #### Options
@@ -1034,79 +1157,78 @@ yarn ts-node ccip-scripts/router/get-ccip-fee.ts [options]
 Basic usage with default settings:
 
 ```bash
-yarn ccip:fee
+yarn svm:fee
 ```
 
 With increased log level for debugging:
 
 ```bash
-yarn ccip:fee:debug
+yarn svm:fee -- --log-level DEBUG
 ```
 
 Maximum logging for troubleshooting:
 
 ```bash
-yarn ccip:fee:trace
+yarn svm:fee -- --log-level TRACE
 ```
 
 Using test keypair:
 
 ```bash
-yarn ccip:fee:test
+yarn svm:fee -- --use-test-keypair
 ```
 
 Skip preflight checks:
 
 ```bash
-yarn ccip:fee:skip
+yarn svm:fee -- --skip-preflight
 ```
 
 #### Fee Token Options
 
 The script uses Wrapped SOL (wSOL) for fee estimations. This is configured in the script to ensure consistent fee calculation with the Solana CCIP implementation.
 
-### 5. Send CCIP Cross-Chain Messages
+### 6. Send CCIP Cross-Chain Messages
 
 The `ccip-send.ts` script sends tokens from Solana to Ethereum using Chainlink's CCIP router.
 
 **⚠️ PREREQUISITES:**
 
-1. For non-native fee tokens (LINK, wSOL): Run `yarn token:delegate` first
-2. For token transfers: Run `yarn token:delegate` first
+1. For non-native fee tokens (LINK, wSOL): Run `yarn svm:token:delegate` first
+2. For token transfers: Run `yarn svm:token:delegate` first
 3. Ensure you have sufficient SOL for transaction fees
 4. Ensure you have sufficient tokens to transfer
 
 #### Usage
 
-We provide several preconfigured commands for different fee token options:
+Router scripts for different cross-chain operations:
 
 ```bash
-# Using native SOL as fee token (default)
-yarn ccip:send
+# Token transfers between chains
+yarn svm:token-transfer
 
-# Using wrapped SOL as fee token
-yarn ccip:send:wrapped
+# Send arbitrary messages
+yarn svm:arbitrary-messaging
 
-# Using LINK token as fee token
-yarn ccip:send:link
+# Send both data and tokens
+yarn svm:data-and-tokens
 
-# With debug logging
-yarn ccip:send:debug
+# With debug logging (add to any script)
+yarn svm:token-transfer -- --log-level DEBUG
 
-# Using test keypair
-yarn ccip:send:test
+# Using test keypair (add to any script)
+yarn svm:token-transfer -- --use-test-keypair
 
-# Using wrapped SOL and test keypair
-yarn ccip:send:wrapped:test
-
-# Skip preflight checks (for complex transactions)
-yarn ccip:send:skip
+# Skip preflight checks (add to any script)
+yarn svm:token-transfer -- --skip-preflight
 ```
 
-Or you can use with custom options:
+Or you can use ts-node directly:
 
 ```bash
-yarn ts-node ccip-scripts/router/ccip-send.ts [options]
+yarn ts-node ccip-scripts/svm/router/1_token-transfer.ts [options]
+yarn ts-node ccip-scripts/svm/router/2_arbitrary-messaging.ts [options]
+yarn ts-node ccip-scripts/svm/router/3_data-and-tokens.ts [options]
 ```
 
 #### Options
@@ -1125,40 +1247,40 @@ yarn ts-node ccip-scripts/router/ccip-send.ts [options]
 
 #### Examples
 
-Send with native SOL as the fee token (default):
+Send tokens between chains:
 
 ```bash
-yarn ccip:send
+yarn svm:token-transfer
 ```
 
-Send using LINK as the fee token:
+Send arbitrary messages:
 
 ```bash
-yarn ccip:send:link
+yarn svm:arbitrary-messaging
 ```
 
-Send using wrapped SOL as the fee token:
+Send both data and tokens:
 
 ```bash
-yarn ccip:send:wrapped
+yarn svm:data-and-tokens
 ```
 
 Send with detailed logging:
 
 ```bash
-yarn ccip:send:debug
+yarn svm:token-transfer -- --log-level DEBUG
 ```
 
 Send with test keypair:
 
 ```bash
-yarn ccip:send:test
+yarn svm:token-transfer -- --use-test-keypair
 ```
 
 Send with custom keypair:
 
 ```bash
-yarn ccip:send -- --keypair /path/to/keypair.json
+yarn svm:token-transfer -- --keypair /path/to/keypair.json
 ```
 
 #### Process Overview
@@ -1205,7 +1327,7 @@ If you encounter errors:
 3. Verify your keypair is correctly loaded
 4. Increase the log level to DEBUG or TRACE for more information
    ```bash
-   yarn ccip:fee:trace
+   yarn svm:fee -- --log-level TRACE
    ```
 
 #### Skip Preflight Option
@@ -1213,9 +1335,9 @@ If you encounter errors:
 If you encounter issues with transaction simulation failing, you can use the `--skip-preflight` option:
 
 ```bash
-yarn ccip:send:skip
+yarn svm:token-transfer -- --skip-preflight
 # or
-yarn ccip:fee:skip
+yarn svm:fee -- --skip-preflight
 ```
 
 This bypasses the client-side simulation that happens before sending the transaction, which can be useful for complex transactions that might exceed compute limits during simulation but would work when executed on-chain.
@@ -1232,8 +1354,8 @@ Based on our testing:
 
 If you see errors like "owner does not match" or permission-related errors:
 
-1. **Make sure** you've run `yarn token:delegate` to grant the necessary permissions
-2. Run `yarn token:check` to verify delegations are correctly set
+1. **Make sure** you've run `yarn svm:token:delegate` to grant the necessary permissions
+2. Run `yarn svm:token:check` to verify delegations are correctly set
 3. If using a non-native fee token, verify it has been delegated to the Fee Billing Signer
 
 #### Common Fee Token Issues

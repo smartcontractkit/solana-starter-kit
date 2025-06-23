@@ -11,6 +11,9 @@ import {
   findBurnMintPoolConfigPDA,
   findBurnMintPoolChainConfigPDA,
   findGlobalConfigPDA,
+  TOKEN_POOL_GLOBAL_CONFIG_SEED,
+  TOKEN_POOL_STATE_SEED,
+  TOKEN_POOL_CHAIN_CONFIG_SEED,
 } from "../../utils/pdas/tokenpool";
 import {
   RemoteAddress,
@@ -85,7 +88,7 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       const [pda, bump] = findGlobalConfigPDA(this.programId);
       this.logger.debug(`Global config PDA: ${pda.toString()} (bump: ${bump})`);
       this.logger.trace(
-        `PDA derivation: seeds=[config], program=${this.programId.toString()}`
+        `PDA derivation: seeds=[${TOKEN_POOL_GLOBAL_CONFIG_SEED}], program=${this.programId.toString()}`
       );
 
       // Get account info to first check if it exists and is owned by our program
@@ -173,7 +176,7 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       const [pda, bump] = findBurnMintPoolConfigPDA(mint, this.programId);
       this.logger.debug(`Pool config PDA: ${pda.toString()} (bump: ${bump})`);
       this.logger.trace(
-        `PDA derivation: seeds=[ccip_tokenpool_config, ${mint.toString()}], program=${this.programId.toString()}`
+        `PDA derivation: seeds=[${TOKEN_POOL_STATE_SEED}, ${mint.toString()}], program=${this.programId.toString()}`
       );
 
       // Get account info to first check if it exists and is owned by our program
@@ -287,7 +290,7 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       );
       this.logger.debug(`Chain config PDA: ${pda.toString()} (bump: ${bump})`);
       this.logger.trace(
-        `PDA derivation: seeds=[ccip_tokenpool_chainconfig, ${remoteChainSelector.toString()}, ${mint.toString()}], program=${this.programId.toString()}`
+        `PDA derivation: seeds=[${TOKEN_POOL_CHAIN_CONFIG_SEED}, ${remoteChainSelector.toString()}, ${mint.toString()}], program=${this.programId.toString()}`
       );
 
       // Get account info to first check if it exists and is owned by our program

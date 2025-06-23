@@ -515,18 +515,16 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
         `State PDA derivation: seeds=[${TOKEN_POOL_STATE_SEED}, ${mint.toString()}], program=${this.getProgramId().toString()}`
       );
 
-      // Validate and transform pool addresses from options
-      if (!options.poolAddresses || options.poolAddresses.length === 0) {
-        throw new Error("At least one pool address must be provided");
-      }
-
-      // Create RemoteAddresses from the provided addresses
+      // For initialization, pool addresses MUST be empty (Rust program requirement)
+      // Create RemoteAddresses from the provided addresses (if any)
       // Pool addresses use raw bytes (typically 20 bytes for Ethereum addresses)
-      const remotePoolAddresses = options.poolAddresses.map((addr) => {
-        const buffer = Buffer.from(addr, "hex");
-        // No padding required for pool addresses - use raw bytes
-        return new RemoteAddress({ address: buffer });
-      });
+      const remotePoolAddresses = (options.poolAddresses || [])
+        .filter((addr) => addr && addr.trim() !== "") // Filter out empty strings
+        .map((addr) => {
+          const buffer = Buffer.from(addr, "hex");
+          // No padding required for pool addresses - use raw bytes
+          return new RemoteAddress({ address: buffer });
+        });
       this.logger.debug(
         `Converted ${remotePoolAddresses.length} pool addresses`
       );
@@ -535,14 +533,18 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
       if (!options.tokenAddress) {
         throw new Error("Token address must be provided");
       }
-      const rawTokenAddressBuffer = Buffer.from(options.tokenAddress, "hex");
+      // Strip 0x prefix if present
+      const cleanTokenAddress = options.tokenAddress.startsWith("0x")
+        ? options.tokenAddress.slice(2)
+        : options.tokenAddress;
+      const rawTokenAddressBuffer = Buffer.from(cleanTokenAddress, "hex");
       // Token addresses need to be padded to 32 bytes (Ethereum-style)
       const tokenAddressBuffer = padTo32Bytes(rawTokenAddressBuffer);
       const remoteTokenAddress = new RemoteAddress({
         address: tokenAddressBuffer,
       });
       this.logger.debug(
-        `Token address: ${options.tokenAddress} (padded to 32 bytes)`
+        `Token address: ${options.tokenAddress} (cleaned: ${cleanTokenAddress}, padded to 32 bytes)`
       );
 
       // Validate decimals
@@ -752,7 +754,9 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
       // Create RemoteAddresses from the provided addresses
       // Pool addresses use raw bytes (typically 20 bytes for Ethereum addresses)
       const remotePoolAddresses = options.poolAddresses.map((addr) => {
-        const buffer = Buffer.from(addr, "hex");
+        // Strip 0x prefix if present for pool addresses
+        const cleanPoolAddr = addr.startsWith("0x") ? addr.slice(2) : addr;
+        const buffer = Buffer.from(cleanPoolAddr, "hex");
         // No padding required for pool addresses - use raw bytes
         return new RemoteAddress({ address: buffer });
       });
@@ -764,7 +768,11 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
       if (!options.tokenAddress) {
         throw new Error("Token address must be provided");
       }
-      const rawTokenAddressBuffer = Buffer.from(options.tokenAddress, "hex");
+      // Strip 0x prefix if present
+      const cleanTokenAddress = options.tokenAddress.startsWith("0x")
+        ? options.tokenAddress.slice(2)
+        : options.tokenAddress;
+      const rawTokenAddressBuffer = Buffer.from(cleanTokenAddress, "hex");
       // Token addresses need to be padded to 32 bytes (Ethereum-style)
       const tokenAddressBuffer = padTo32Bytes(rawTokenAddressBuffer);
       const remoteTokenAddress = new RemoteAddress({

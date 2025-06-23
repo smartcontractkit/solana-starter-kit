@@ -28,7 +28,8 @@ export interface InitializePoolOptions {
 export interface InitChainRemoteConfigOptions {
   mint: PublicKey;
   remoteChainSelector: bigint;
-  poolAddresses: string[];
+  /** Pool addresses on the remote chain (must be empty for initialization, as required by Rust program) */
+  poolAddresses?: string[];
   tokenAddress: string;
   decimals: number;
 }

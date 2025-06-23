@@ -23,6 +23,7 @@
     "svm:pool:init-chain-remote-config": "ts-node ./ccip-scripts/svm/pool/init-chain-remote-config.ts",
     "svm:pool:edit-chain-remote-config": "ts-node ./ccip-scripts/svm/pool/edit-chain-remote-config.ts",
     "svm:pool:get-chain-config": "ts-node ./ccip-scripts/svm/pool/get-chain-config.ts",
+    "svm:pool:get-pool-signer": "ts-node ./ccip-scripts/svm/pool/get-pool-signer.ts",
     "svm:admin:propose-administrator": "ts-node ./ccip-scripts/svm/admin/propose-administrator.ts",
     "svm:admin:accept-admin-role": "ts-node ./ccip-scripts/svm/admin/accept-admin-role.ts",
     "svm:admin:create-alt": "ts-node ./ccip-scripts/svm/admin/create-alt.ts",

@@ -93,8 +93,8 @@ export interface ChainConfigResult {
  * Options for initializing a chain remote configuration
  */
 export interface InitChainRemoteConfigOptions {
-  /** Pool addresses on the remote chain */
-  poolAddresses: string[];
+  /** Pool addresses on the remote chain (must be empty for initialization, as required by Rust program) */
+  poolAddresses?: string[];
   /** Token address on the remote chain */
   tokenAddress: string;
   /** Token decimals on the remote chain */

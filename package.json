@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@chainlink/solana-sdk": "^0.2.2",
-    "@coral-xyz/anchor": "^0.31.0",
+    "@coral-xyz/anchor": "^0.31.1",
     "@solana/spl-token": "^0.3.11",
     "bn.js": "^5.2.0",
     "borsh": "^0.7.0",

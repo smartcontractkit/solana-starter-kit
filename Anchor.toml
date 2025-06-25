@@ -5,7 +5,6 @@ resolution = true
 skip-lint = false
 
 [workspace]
-exclude = ["programs/chainlink_solana_demo"]
 
 [programs.devnet]
 ccip-basic-receiver = "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"

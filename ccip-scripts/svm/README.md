@@ -28,7 +28,87 @@ yarn install
 
 **⚠️ IMPORTANT:** Running the token delegation script is a prerequisite for CCIP cross-chain transfers. You must delegate authority to the CCIP router before you can send tokens or pay fees with tokens other than native SOL.
 
-#### 1.1. Wrap SOL to wSOL
+#### 1.1. Create SPL Token (Legacy)
+
+The `create-token-metaplex.ts` script creates a new SPL Token (legacy token program) with Metaplex metadata support. This creates tokens using the original token program for compatibility with older applications.
+
+```bash
+# Create SPL Token with default settings
+yarn svm:token:create
+
+# Create SPL Token with custom name and symbol
+yarn svm:token:create -- --name "My Token" --symbol "MTK"
+
+# Create SPL Token with custom metadata and supply
+yarn svm:token:create -- --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --decimals 6 --initial-supply 5000000
+
+# With debug logging
+yarn svm:token:create -- --log-level DEBUG
+```
+
+**Key Features:**
+
+- Uses the legacy SPL Token Program (`TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+- Compatible with all existing SPL token infrastructure
+- Metaplex metadata support for rich token information
+- Configurable decimals, supply, and metadata URI
+- CLI argument parsing with sensible defaults
+
+#### 1.2. Create Token-2022
+
+The `create-token-2022.ts` script creates a new Token-2022 token with Metaplex metadata support. Token-2022 is the newer token standard that provides enhanced functionality including native metadata support.
+
+```bash
+# Create Token-2022 with default settings
+yarn svm:token:create-2022
+
+# Create Token-2022 with custom name and symbol
+yarn svm:token:create-2022 -- --name "My Token" --symbol "MTK"
+
+# Create Token-2022 with custom metadata and supply
+yarn svm:token:create-2022 -- --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --decimals 6 --initial-supply 5000000
+
+# With debug logging
+yarn svm:token:create-2022 -- --log-level DEBUG
+```
+
+**Key Features:**
+
+- Uses the Token-2022 Program (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`)
+- Enhanced functionality with extensions support
+- Native metadata support through Token Extensions
+- Advanced features like transfer fees, interest-bearing tokens, etc.
+- Forward-compatible with future token standard improvements
+
+**Common Options for Both Scripts:**
+
+- `--name <string>`: Token name (max 32 characters, default: "AEM")
+- `--symbol <string>`: Token symbol (max 10 characters, default: "CCIP-AEM")
+- `--uri <string>`: Metadata URI (default: sample URI - override recommended)
+- `--decimals <number>`: Number of decimal places (0-9, default: 9)
+- `--initial-supply <number>`: Initial token supply to mint (default: 1,000,000,000,000)
+- `--fee-basis-points <number>`: Seller fee basis points (0-10000, default: 0)
+- `--keypair <path>`: Path to wallet keypair file
+- `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
+- `--skip-preflight`: Skip transaction preflight checks
+- `--help, -h`: Show usage information
+
+**Which Token Standard Should You Choose?**
+
+- **SPL Token (Legacy)** (`yarn svm:token:create`):
+
+  - ✅ Maximum compatibility with existing applications
+  - ✅ Smaller transaction sizes
+  - ✅ Lower computational requirements
+  - ❌ Limited extension capabilities
+
+- **Token-2022** (`yarn svm:token:create-2022`):
+  - ✅ Advanced features and extensions
+  - ✅ Native metadata support
+  - ✅ Future-proof for new functionality
+  - ❌ Requires Token-2022 program support in applications
+
+#### 1.3. Wrap SOL to wSOL
 
 The `wrap-sol.ts` script allows you to wrap native SOL into wrapped SOL (wSOL) tokens.
 
@@ -49,7 +129,7 @@ The script:
 - Wraps the specified amount (1 SOL by default) into wSOL
 - Displays before and after balances
 
-#### 1.2. Delegate Token Authority
+#### 1.4. Delegate Token Authority
 
 The `delegate-token-authority.ts` script delegates token spending authority to the CCIP router's Program Derived Addresses (PDAs).
 
@@ -74,7 +154,7 @@ This script:
 
 If you skip this step, your transfers will fail with permission errors.
 
-#### 1.3. Check Token Approvals
+#### 1.5. Check Token Approvals
 
 The `check-token-approvals.ts` script checks the current delegation status of your token accounts.
 

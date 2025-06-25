@@ -1,12 +1,12 @@
 /**
- * Token Creation Utilities for SPL Token-2022 with Metadata
+ * Token Creation Utilities for SPL Token and Token-2022 with Metadata
  *
- * This module provides utilities for creating and managing SPL Token-2022 tokens
+ * This module provides utilities for creating and managing SPL Token and Token-2022 tokens
  * with Metaplex metadata support, following the established patterns of the CCIP library.
  */
 
 import { PublicKey, Connection, Keypair } from "@solana/web3.js";
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import {
   Umi,
   generateSigner,
@@ -32,6 +32,16 @@ import {
 import { createLogger, LogLevel } from "./logger";
 
 /**
+ * Supported token programs
+ */
+export enum TokenProgram {
+  /** Legacy SPL Token Program */
+  SPL_TOKEN = "spl-token",
+  /** Token-2022 Program with Extensions */
+  TOKEN_2022 = "token-2022",
+}
+
+/**
  * Token metadata structure following Metaplex standards
  */
 export interface TokenMetadata {
@@ -47,9 +57,9 @@ export interface TokenMetadata {
 }
 
 /**
- * Configuration for creating a Token-2022 token
+ * Base configuration for token creation
  */
-export interface Token2022Config {
+export interface BaseTokenConfig {
   /** Token name (max 32 chars) */
   name: string;
   /** Token symbol (max 10 chars) */
@@ -62,7 +72,28 @@ export interface Token2022Config {
   initialSupply?: bigint;
   /** Seller fee basis points (0-10000, optional, defaults to 0) */
   sellerFeeBasisPoints?: number;
+  /** Token program to use */
+  tokenProgram: TokenProgram;
 }
+
+/**
+ * Configuration for creating an SPL token
+ */
+export interface SplTokenConfig extends Omit<BaseTokenConfig, "tokenProgram"> {
+  tokenProgram: TokenProgram.SPL_TOKEN;
+}
+
+/**
+ * Configuration for creating a Token-2022 token
+ */
+export interface Token2022Config extends Omit<BaseTokenConfig, "tokenProgram"> {
+  tokenProgram: TokenProgram.TOKEN_2022;
+}
+
+/**
+ * Union type for all token configurations
+ */
+export type TokenConfig = SplTokenConfig | Token2022Config;
 
 /**
  * Result of token creation operation
@@ -142,19 +173,20 @@ export class TokenCreationUtils {
   }
 
   /**
-   * Create a new Token-2022 token with metadata
+   * Create a new token with metadata (supports both SPL Token and Token-2022)
    */
-  async createToken2022WithMetadata(
-    config: Token2022Config,
+  async createTokenWithMetadata(
+    config: TokenConfig,
     options: TokenOperationOptions = {}
   ): Promise<TokenCreationResult> {
-    this.logger.info("Starting Token-2022 creation with metadata", {
+    this.logger.info(`Starting ${config.tokenProgram} creation with metadata`, {
       name: config.name,
       symbol: config.symbol,
       decimals: config.decimals,
       uri: config.uri,
       initialSupply: config.initialSupply?.toString(),
       sellerFeeBasisPoints: config.sellerFeeBasisPoints,
+      tokenProgram: config.tokenProgram,
     });
 
     // Validate configuration
@@ -163,7 +195,13 @@ export class TokenCreationUtils {
 
     // Generate mint signer
     const mint = generateSigner(this.umi);
-    const tokenProgram = umiPublicKey(TOKEN_2022_PROGRAM_ID.toString());
+
+    // Get the appropriate token program ID
+    const tokenProgramId =
+      config.tokenProgram === TokenProgram.TOKEN_2022
+        ? TOKEN_2022_PROGRAM_ID
+        : TOKEN_PROGRAM_ID;
+    const tokenProgram = umiPublicKey(tokenProgramId.toString());
 
     this.logger.debug("Generated mint keypair", {
       mint: mint.publicKey,
@@ -199,7 +237,7 @@ export class TokenCreationUtils {
         send: { skipPreflight: options.skipPreflight || false },
       });
 
-      this.logger.info("Token-2022 created successfully", {
+      this.logger.info(`${config.tokenProgram} token created successfully`, {
         mint: mint.publicKey,
         signature: base58.deserialize(signature.signature)[0],
       });
@@ -221,6 +259,7 @@ export class TokenCreationUtils {
           new PublicKey(mint.publicKey),
           config.initialSupply,
           this.umi.identity.publicKey,
+          tokenProgramId,
           options
         );
         result.tokenAccount = mintResult.tokenAccount;
@@ -239,7 +278,7 @@ export class TokenCreationUtils {
         mint: mint.publicKey,
       });
       throw new Error(
-        `Failed to create Token-2022: ${
+        `Failed to create ${config.tokenProgram} token: ${
           error instanceof Error ? error.message : String(error)
         }`
       );
@@ -253,9 +292,10 @@ export class TokenCreationUtils {
     mint: PublicKey,
     amount: bigint,
     recipient?: PublicKey | UmiPublicKey,
+    tokenProgramId: PublicKey = TOKEN_2022_PROGRAM_ID,
     options: TokenOperationOptions = {}
   ): Promise<MintResult> {
-    const tokenProgram = umiPublicKey(TOKEN_2022_PROGRAM_ID.toString());
+    const tokenProgram = umiPublicKey(tokenProgramId.toString());
     const mintPubkey = umiPublicKey(mint.toString());
     const recipientKey = recipient
       ? typeof recipient === "string" || "toBase58" in recipient
@@ -279,6 +319,7 @@ export class TokenCreationUtils {
       const tokenAccount = await this.findOrCreateATA(
         mint,
         recipientKey,
+        tokenProgramId,
         options
       );
 
@@ -357,9 +398,10 @@ export class TokenCreationUtils {
   async findOrCreateATA(
     mint: PublicKey,
     owner: PublicKey | UmiPublicKey,
+    tokenProgramId: PublicKey = TOKEN_2022_PROGRAM_ID,
     options: TokenOperationOptions = {}
   ): Promise<PublicKey> {
-    const tokenProgram = umiPublicKey(TOKEN_2022_PROGRAM_ID.toString());
+    const tokenProgram = umiPublicKey(tokenProgramId.toString());
     const mintPubkey = umiPublicKey(mint.toString());
     const ownerKey =
       typeof owner === "string" || "toBase58" in owner
@@ -474,7 +516,7 @@ export class TokenCreationUtils {
   /**
    * Validate token configuration
    */
-  private validateTokenConfig(config: Token2022Config): void {
+  private validateTokenConfig(config: TokenConfig): void {
     this.logger.trace("Validating token configuration", { config });
 
     if (!config.name || config.name.length > 32) {

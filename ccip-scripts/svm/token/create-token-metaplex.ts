@@ -1,14 +1,13 @@
 /**
- * SPL Token-2022 Creation Script with Metaplex Metadata
+ * SPL Token Creation Script with Metaplex Metadata
  *
- * This script creates a new SPL Token-2022 token with Metaplex metadata support.
- * Token-2022 is the newer token standard that provides enhanced functionality
- * including native metadata support.
+ * This script creates a new SPL Token (legacy token program) with Metaplex metadata support.
+ * It leverages the TokenManager library for a consistent and robust token creation experience.
  *
  * INSTRUCTIONS:
  * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
  * 2. Provide at minimum a token name and symbol
- * 3. Run the script with: yarn svm:token:create
+ * 3. Run the script with: yarn svm:token:create-spl
  *
  * ALL arguments are optional with defaults:
  * --name            : Token name (max 32 characters, default: "AEM")
@@ -23,34 +22,19 @@
  *
  * Example usage:
  * # Minimal (uses all defaults)
- * yarn svm:token:create
+ * yarn svm:token:create-spl
  *
  * # With custom name and symbol
- * yarn svm:token:create --name "My Token" --symbol "MTK"
+ * yarn svm:token:create-spl --name "My Token" --symbol "MTK"
  *
  * # With all custom settings
- * yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --decimals 6 --initial-supply 5000000
- *
- * Example metadata JSON structure (should be hosted at your URI):
- * {
- *   "name": "My Token",
- *   "symbol": "MTK",
- *   "description": "A sample SPL Token-2022",
- *   "image": "https://example.com/image.png",
- *   "external_url": "https://example.com",
- *   "attributes": [
- *     {
- *       "trait_type": "Type",
- *       "value": "Utility"
- *     }
- *   ]
- * }
+ * yarn svm:token:create-spl --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --decimals 6 --initial-supply 5000000
  */
 
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   TokenCreationUtils,
-  Token2022Config,
+  SplTokenConfig,
   TokenProgram,
   LogLevel,
   createLogger,
@@ -73,7 +57,7 @@ const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
 
 // =================================================================
 // TOKEN CREATION CONFIGURATION
-// Default parameters for token creation
+// Default parameters for SPL token creation
 // =================================================================
 const TOKEN_CREATION_CONFIG = {
   // Default values
@@ -88,7 +72,6 @@ const TOKEN_CREATION_CONFIG = {
   minSolRequired: 0.01, // Minimum SOL needed for transaction fees
 
   // Default metadata URI (users should override this)
-  // This serves as a placeholder that forces users to be intentional about their metadata
   defaultMetadataUri:
     "https://cyan-pleasant-anteater-613.mypinata.cloud/ipfs/bafkreieirlwjqbtzniqsgcjebzexlcspcmvd4woh3ajvf2p4fuivkenw6i",
 };
@@ -103,7 +86,6 @@ interface CreateTokenOptions extends ReturnType<typeof parseTokenArgs> {
   decimals?: number;
   initialSupply?: string;
   feeBasisPoints?: number;
-
   logLevel?: LogLevel;
 }
 
@@ -161,7 +143,6 @@ function parseCreateTokenArgs(): CreateTokenOptions {
           i++;
         }
         break;
-
       case "--log-level":
         if (i + 1 < args.length) {
           const level = args[i + 1].toUpperCase();
@@ -203,21 +184,14 @@ function parseCreateTokenArgs(): CreateTokenOptions {
 function validateCreateTokenConfig(options: CreateTokenOptions): void {
   const errors: string[] = [];
 
-  // Validate name if provided (will use default if not provided)
   if (options.name && options.name.length > 32) {
     errors.push("Token name must be 32 characters or less");
   }
 
-  // Validate symbol if provided (will use default if not provided)
   if (options.symbol && options.symbol.length > 10) {
     errors.push("Token symbol must be 10 characters or less");
   }
 
-  // Note: URI validation is now handled in createTokenConfigFromOptions
-  // where we apply the default if not provided
-  // Note: Name and symbol are now optional as we have defaults
-
-  // Validate optional fields
   if (
     options.decimals !== undefined &&
     (options.decimals < 0 || options.decimals > 9)
@@ -246,7 +220,7 @@ function validateCreateTokenConfig(options: CreateTokenOptions): void {
  */
 function createTokenConfigFromOptions(
   options: CreateTokenOptions
-): Token2022Config {
+): SplTokenConfig {
   // Use provided values or fall back to defaults
   const name = options.name || TOKEN_CREATION_CONFIG.defaultName;
   const symbol = options.symbol || TOKEN_CREATION_CONFIG.defaultSymbol;
@@ -266,20 +240,20 @@ function createTokenConfigFromOptions(
     sellerFeeBasisPoints:
       options.feeBasisPoints ??
       TOKEN_CREATION_CONFIG.defaultSellerFeeBasisPoints,
-    tokenProgram: TokenProgram.TOKEN_2022,
+    tokenProgram: TokenProgram.SPL_TOKEN,
   };
 }
 
 /**
- * Main token creation function
+ * Main SPL token creation function
  */
-async function createTokenEntrypoint(): Promise<void> {
+async function createSplTokenEntrypoint(): Promise<void> {
   try {
     // Parse command line arguments
     const cmdOptions = parseCreateTokenArgs();
 
     // Create logger with appropriate level
-    const logger = createLogger("create-token-2022", {
+    const logger = createLogger("create-spl-token", {
       level: cmdOptions.logLevel ?? TOKEN_CREATION_CONFIG.defaultLogLevel,
     });
 
@@ -316,7 +290,7 @@ async function createTokenEntrypoint(): Promise<void> {
     // Create token configuration
     const tokenConfig = createTokenConfigFromOptions(cmdOptions);
 
-    logger.info("\n==== Token Configuration ====");
+    logger.info("\n==== SPL Token Configuration ====");
     logger.info(
       `Name: ${tokenConfig.name}${!cmdOptions.name ? " (default)" : ""}`
     );
@@ -361,15 +335,15 @@ async function createTokenEntrypoint(): Promise<void> {
       cmdOptions.logLevel ?? TOKEN_CREATION_CONFIG.defaultLogLevel
     );
 
-    // Create the token
-    logger.info("\n==== Creating Token ====");
+    // Create the SPL token
+    logger.info("\n==== Creating SPL Token ====");
     const result = await tokenUtils.createTokenWithMetadata(tokenConfig, {
       skipPreflight: cmdOptions.skipPreflight,
       commitment: "finalized",
     });
 
     // Display results
-    logger.info("\n==== Token Created Successfully ====");
+    logger.info("\n==== SPL Token Created Successfully ====");
     logger.info(`Mint Address: ${result.mint.toString()}`);
     logger.info(`Transaction Signature: ${result.signature}`);
     if (result.tokenAccount) {
@@ -391,12 +365,12 @@ async function createTokenEntrypoint(): Promise<void> {
       );
     }
 
-    logger.info("\n🎉 Token creation completed successfully!");
+    logger.info("\n🎉 SPL Token creation completed successfully!");
     logger.info("\n💡 You can now use this mint address for token operations:");
     logger.info(`   Mint Address: ${result.mint.toString()}`);
   } catch (error) {
     console.error(
-      `❌ Failed to create token:`,
+      `❌ Failed to create SPL token:`,
       error instanceof Error ? error.message : String(error)
     );
 
@@ -405,7 +379,7 @@ async function createTokenEntrypoint(): Promise<void> {
       console.debug(error.stack);
     }
 
-    printUsage("svm:token:create");
+    printUsage("svm:token:create-spl");
     process.exit(1);
   }
 }
@@ -413,11 +387,11 @@ async function createTokenEntrypoint(): Promise<void> {
 /**
  * Print usage information
  */
-function printCreateTokenUsage(): void {
+function printCreateSplTokenUsage(): void {
   console.log(`
-🪙 SPL Token-2022 Creator with Metadata
+🪙 SPL Token Creator with Metadata
 
-Usage: yarn svm:token:create [options]
+Usage: yarn svm:token:create-spl [options]
 
 Options:
   --name <string>              Token name (max 32 characters, default: "${TOKEN_CREATION_CONFIG.defaultName}")
@@ -433,41 +407,28 @@ Options:
   --help, -h                   Show this help message
 
 Examples:
-  # Minimal token creation (uses all defaults)
-  yarn svm:token:create
+  # Minimal SPL token creation (uses all defaults)
+  yarn svm:token:create-spl
 
-  # Token with custom name and symbol
-  yarn svm:token:create --name "My Token" --symbol "MTK"
+  # SPL token with custom name and symbol
+  yarn svm:token:create-spl --name "My Token" --symbol "MTK"
 
-  # Token with custom metadata and supply
-  yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --initial-supply 5000000
+  # SPL token with custom metadata and supply
+  yarn svm:token:create-spl --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --initial-supply 5000000
 
-Metadata JSON Example:
-{
-  "name": "My Token",
-  "symbol": "MTK",
-  "description": "A sample SPL Token-2022",
-  "image": "https://example.com/image.png",
-  "external_url": "https://example.com",
-  "attributes": [
-    {
-      "trait_type": "Type",
-      "value": "Utility"
-    }
-  ]
-}
+Note: This creates a legacy SPL Token (not Token-2022). Use create-token-2022.ts for Token-2022 tokens.
   `);
 }
 
 // Check if help is requested
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
-  printCreateTokenUsage();
+  printCreateSplTokenUsage();
   process.exit(0);
 }
 
 // Run the script if it's executed directly
 if (require.main === module) {
-  createTokenEntrypoint().catch((error) => {
+  createSplTokenEntrypoint().catch((error) => {
     console.error("Unhandled error:", error);
     process.exit(1);
   });

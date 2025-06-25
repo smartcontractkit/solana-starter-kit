@@ -1,14 +1,17 @@
 /**
- * Token Manager Client for SPL Token-2022 Operations
+ * Token Manager Client for SPL Token and Token-2022 Operations
  *
- * This module provides a high-level client for managing SPL Token-2022 tokens
+ * This module provides a high-level client for managing both SPL Token and Token-2022 tokens
  * with Metaplex metadata, following the established patterns of the CCIP library.
  */
 
 import { PublicKey, Connection, Keypair } from "@solana/web3.js";
 import {
   TokenCreationUtils,
+  TokenConfig,
   Token2022Config,
+  SplTokenConfig,
+  TokenProgram,
   TokenCreationResult,
   MintResult,
   TokenOperationOptions,
@@ -37,9 +40,10 @@ export interface TokenManagerOptions {
 }
 
 /**
- * Extended token configuration with optional overrides
+ * Extended token configuration with optional overrides for Token-2022
  */
-export interface ExtendedToken2022Config extends Omit<Token2022Config, "uri"> {
+export interface ExtendedToken2022Config
+  extends Omit<Token2022Config, "uri" | "tokenProgram"> {
   /** Metadata URI (optional if using inline metadata) */
   uri?: string;
   /** Inline metadata object (alternative to URI) */
@@ -56,7 +60,27 @@ export interface ExtendedToken2022Config extends Omit<Token2022Config, "uri"> {
 }
 
 /**
- * High-level client for Token-2022 operations
+ * Extended token configuration with optional overrides for SPL Token
+ */
+export interface ExtendedSplTokenConfig
+  extends Omit<SplTokenConfig, "uri" | "tokenProgram"> {
+  /** Metadata URI (optional if using inline metadata) */
+  uri?: string;
+  /** Inline metadata object (alternative to URI) */
+  metadata?: {
+    name: string;
+    description: string;
+    image?: string;
+    external_url?: string;
+    attributes?: Array<{
+      trait_type: string;
+      value: string | number;
+    }>;
+  };
+}
+
+/**
+ * High-level client for SPL Token and Token-2022 operations
  */
 export class TokenManager {
   private utils: TokenCreationUtils;
@@ -116,7 +140,7 @@ export class TokenManager {
     try {
       // Validate and prepare configuration
       this.logger.debug("Preparing token configuration");
-      const tokenConfig = await this.prepareTokenConfig(config);
+      const tokenConfig = await this.prepareToken2022Config(config);
 
       this.logger.debug(
         "Configuration prepared, delegating to TokenCreationUtils",
@@ -126,7 +150,60 @@ export class TokenManager {
       );
 
       // Create the token
-      const result = await this.utils.createToken2022WithMetadata(
+      const result = await this.utils.createTokenWithMetadata(
+        tokenConfig,
+        this.getOperationOptions()
+      );
+
+      this.logger.info("Token creation completed successfully", {
+        mint: result.mint.toString(),
+        signature: result.signature,
+        tokenAccount: result.tokenAccount?.toString(),
+        hasTokenAccount: !!result.tokenAccount,
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error("Failed to create token", {
+        error: error instanceof Error ? error.message : String(error),
+        name: config.name,
+        symbol: config.symbol,
+        decimals: config.decimals,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new SPL Token with metadata
+   */
+  async createSplToken(
+    config: ExtendedSplTokenConfig
+  ): Promise<TokenCreationResult> {
+    this.logger.info("Starting SPL Token creation with metadata", {
+      name: config.name,
+      symbol: config.symbol,
+      decimals: config.decimals,
+      initialSupply: config.initialSupply?.toString(),
+      sellerFeeBasisPoints: config.sellerFeeBasisPoints,
+      hasUri: !!config.uri,
+      hasInlineMetadata: !!config.metadata,
+    });
+
+    try {
+      // Validate and prepare configuration
+      this.logger.debug("Preparing token configuration");
+      const tokenConfig = await this.prepareSplTokenConfig(config);
+
+      this.logger.debug(
+        "Configuration prepared, delegating to TokenCreationUtils",
+        {
+          uri: tokenConfig.uri,
+        }
+      );
+
+      // Create the token
+      const result = await this.utils.createTokenWithMetadata(
         tokenConfig,
         this.getOperationOptions()
       );
@@ -174,6 +251,7 @@ export class TokenManager {
         mint,
         amount,
         recipientKey,
+        undefined, // Use default token program (TOKEN_2022)
         this.getOperationOptions()
       );
 
@@ -214,6 +292,7 @@ export class TokenManager {
       const tokenAccount = await this.utils.findOrCreateATA(
         mint,
         ownerKey,
+        undefined, // Use default token program (TOKEN_2022)
         this.getOperationOptions()
       );
 
@@ -263,12 +342,12 @@ export class TokenManager {
   }
 
   /**
-   * Prepare token configuration, handling metadata URI generation if needed
+   * Prepare Token-2022 configuration, handling metadata URI generation if needed
    */
-  private async prepareTokenConfig(
+  private async prepareToken2022Config(
     config: ExtendedToken2022Config
   ): Promise<Token2022Config> {
-    this.logger.trace("Preparing token configuration", {
+    this.logger.trace("Preparing Token-2022 configuration", {
       hasUri: !!config.uri,
       hasInlineMetadata: !!config.metadata,
     });
@@ -286,6 +365,53 @@ export class TokenManager {
         decimals: config.decimals,
         initialSupply: config.initialSupply,
         sellerFeeBasisPoints: config.sellerFeeBasisPoints,
+        tokenProgram: TokenProgram.TOKEN_2022,
+      };
+    }
+
+    if (config.metadata) {
+      this.logger.error(
+        "Inline metadata upload attempted but not implemented",
+        {
+          metadata: config.metadata,
+        }
+      );
+      // Inline metadata provided, we would need to upload to IPFS/Arweave
+      // For now, we'll require a URI to be provided
+      throw new Error(
+        "Inline metadata upload not implemented. Please provide a metadata URI."
+      );
+    }
+
+    this.logger.error("No metadata URI or inline metadata provided");
+    throw new Error("Either 'uri' or 'metadata' must be provided");
+  }
+
+  /**
+   * Prepare SPL Token configuration, handling metadata URI generation if needed
+   */
+  private async prepareSplTokenConfig(
+    config: ExtendedSplTokenConfig
+  ): Promise<SplTokenConfig> {
+    this.logger.trace("Preparing SPL Token configuration", {
+      hasUri: !!config.uri,
+      hasInlineMetadata: !!config.metadata,
+    });
+
+    if (config.uri) {
+      this.logger.debug("Using provided metadata URI", {
+        uri: config.uri,
+      });
+
+      // URI provided, use as-is
+      return {
+        name: config.name,
+        symbol: config.symbol,
+        uri: config.uri,
+        decimals: config.decimals,
+        initialSupply: config.initialSupply,
+        sellerFeeBasisPoints: config.sellerFeeBasisPoints,
+        tokenProgram: TokenProgram.SPL_TOKEN,
       };
     }
 

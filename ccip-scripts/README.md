@@ -73,7 +73,9 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 ### For Solana (SVM) Development
 
 1. **Setup**: Install dependencies and fund wallet with SOL
-2. **Create Tokens**: `yarn svm:token:create`
+2. **Create Tokens**:
+   - **SPL Token (Legacy)**: `yarn svm:token:create` - Maximum compatibility
+   - **Token-2022**: `yarn svm:token:create-2022` - Advanced features & future-proof
 3. **Token Administration**: `yarn svm:admin:propose-administrator` → `yarn svm:admin:accept-admin-role`
 4. **Token Pools**: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize` → `yarn svm:pool:create-token-account`
 5. **CCIP Preparation**: `yarn svm:token:wrap` → `yarn svm:token:delegate`
@@ -99,13 +101,14 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 
 #### Token Operations
 
-| Script                    | Purpose                                 |
-| ------------------------- | --------------------------------------- |
-| `yarn svm:token:create`   | Create SPL Token-2022 with metadata     |
-| `yarn svm:token:mint`     | Mint tokens to specified accounts       |
-| `yarn svm:token:wrap`     | Wrap SOL to wSOL for CCIP fees          |
-| `yarn svm:token:delegate` | Delegate token authority to CCIP router |
-| `yarn svm:token:check`    | Verify token delegations and balances   |
+| Script                       | Purpose                                 |
+| ---------------------------- | --------------------------------------- |
+| `yarn svm:token:create`      | Create SPL Token (legacy) with metadata |
+| `yarn svm:token:create-2022` | Create Token-2022 with metadata         |
+| `yarn svm:token:mint`        | Mint tokens to specified accounts       |
+| `yarn svm:token:wrap`        | Wrap SOL to wSOL for CCIP fees          |
+| `yarn svm:token:delegate`    | Delegate token authority to CCIP router |
+| `yarn svm:token:check`       | Verify token delegations and balances   |
 
 #### Token Pool Management
 

@@ -2,6 +2,7 @@
   "scripts": {
     "generate-types": "typechain --target ethers-v6 --out-dir ccip-evm-sdk/types/contracts ccip-evm-sdk/abi/*.json",
     "read-data": "ts-node ./read-data.ts",
+    "client": "node client.js",
     "type-check": "tsc --noEmit",
     "svm:fee": "ts-node ./ccip-scripts/svm/router/get-ccip-fee.ts",
     "svm:token-transfer": "ts-node ./ccip-scripts/svm/router/1_token-transfer.ts",
@@ -29,6 +30,7 @@
     "dotenv": "^16.4.5",
     "ethers": "^6.10.0",
     "loglevel": "^1.9.2",
+    "minimist": "^1.2.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   },

@@ -297,25 +297,25 @@ Before sending tokens through CCIP from Solana, you must perform these steps:
 
 ## Advanced Configuration
 
-### Token Management
+#### Token Management
 
 Before performing CCIP operations, you may need to delegate token authority:
 
 ```bash
-npm run svm:token:delegate
-npm run svm:token:check
-npm run svm:token:wrap  # For wrapping SOL to wSOL
+yarn svm:token:delegate
+yarn svm:token:check
+yarn svm:token:wrap  # For wrapping SOL to wSOL
 ```
 
-### EVM Operations
+#### EVM Operations
 
 The starter kit also includes examples for initiating CCIP operations from EVM chains:
 
 ```bash
-npm run evm:transfer
-npm run evm:arbitrary-messaging
-npm run evm:data-and-tokens
-npm run evm:token:drip
+yarn evm:transfer
+yarn evm:arbitrary-messaging
+yarn evm:data-and-tokens
+yarn evm:token:drip
 ```
 
 ## Testing

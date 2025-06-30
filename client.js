@@ -1,5 +1,9 @@
 // Initialize Anchor and provider
 const anchor = require("@coral-xyz/anchor")
+
+const dotenv = require('dotenv');
+dotenv.config(); // Load .env file
+
 anchor.setProvider(anchor.AnchorProvider.env());
 
 const CHAINLINK_PROGRAM_ID = "HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny";

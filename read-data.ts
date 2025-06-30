@@ -1,6 +1,9 @@
 import * as anchor from "@coral-xyz/anchor";
 import { OCR2Feed } from "@chainlink/solana-sdk";
 
+import * as dotenv from 'dotenv';
+dotenv.config(); // Load .env file
+
 async function main() {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);

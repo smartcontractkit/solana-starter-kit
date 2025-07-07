@@ -4,94 +4,94 @@ import * as types from "../types" // eslint-disable-line @typescript-eslint/no-u
 import * as borsh from "@coral-xyz/borsh"
 
 export interface BaseConfigFields {
-  token_program: PublicKey
+  tokenProgram: PublicKey
   mint: PublicKey
   decimals: number
-  pool_signer: PublicKey
-  pool_token_account: PublicKey
+  poolSigner: PublicKey
+  poolTokenAccount: PublicKey
   owner: PublicKey
-  proposed_owner: PublicKey
-  rate_limit_admin: PublicKey
-  router_onramp_authority: PublicKey
+  proposedOwner: PublicKey
+  rateLimitAdmin: PublicKey
+  routerOnrampAuthority: PublicKey
   router: PublicKey
   rebalancer: PublicKey
-  can_accept_liquidity: boolean
-  list_enabled: boolean
-  allow_list: Array<PublicKey>
-  rmn_remote: PublicKey
+  canAcceptLiquidity: boolean
+  listEnabled: boolean
+  allowList: Array<PublicKey>
+  rmnRemote: PublicKey
 }
 
 export interface BaseConfigJSON {
-  token_program: string
+  tokenProgram: string
   mint: string
   decimals: number
-  pool_signer: string
-  pool_token_account: string
+  poolSigner: string
+  poolTokenAccount: string
   owner: string
-  proposed_owner: string
-  rate_limit_admin: string
-  router_onramp_authority: string
+  proposedOwner: string
+  rateLimitAdmin: string
+  routerOnrampAuthority: string
   router: string
   rebalancer: string
-  can_accept_liquidity: boolean
-  list_enabled: boolean
-  allow_list: Array<string>
-  rmn_remote: string
+  canAcceptLiquidity: boolean
+  listEnabled: boolean
+  allowList: Array<string>
+  rmnRemote: string
 }
 
 export class BaseConfig {
-  readonly token_program: PublicKey
+  readonly tokenProgram: PublicKey
   readonly mint: PublicKey
   readonly decimals: number
-  readonly pool_signer: PublicKey
-  readonly pool_token_account: PublicKey
+  readonly poolSigner: PublicKey
+  readonly poolTokenAccount: PublicKey
   readonly owner: PublicKey
-  readonly proposed_owner: PublicKey
-  readonly rate_limit_admin: PublicKey
-  readonly router_onramp_authority: PublicKey
+  readonly proposedOwner: PublicKey
+  readonly rateLimitAdmin: PublicKey
+  readonly routerOnrampAuthority: PublicKey
   readonly router: PublicKey
   readonly rebalancer: PublicKey
-  readonly can_accept_liquidity: boolean
-  readonly list_enabled: boolean
-  readonly allow_list: Array<PublicKey>
-  readonly rmn_remote: PublicKey
+  readonly canAcceptLiquidity: boolean
+  readonly listEnabled: boolean
+  readonly allowList: Array<PublicKey>
+  readonly rmnRemote: PublicKey
 
   constructor(fields: BaseConfigFields) {
-    this.token_program = fields.token_program
+    this.tokenProgram = fields.tokenProgram
     this.mint = fields.mint
     this.decimals = fields.decimals
-    this.pool_signer = fields.pool_signer
-    this.pool_token_account = fields.pool_token_account
+    this.poolSigner = fields.poolSigner
+    this.poolTokenAccount = fields.poolTokenAccount
     this.owner = fields.owner
-    this.proposed_owner = fields.proposed_owner
-    this.rate_limit_admin = fields.rate_limit_admin
-    this.router_onramp_authority = fields.router_onramp_authority
+    this.proposedOwner = fields.proposedOwner
+    this.rateLimitAdmin = fields.rateLimitAdmin
+    this.routerOnrampAuthority = fields.routerOnrampAuthority
     this.router = fields.router
     this.rebalancer = fields.rebalancer
-    this.can_accept_liquidity = fields.can_accept_liquidity
-    this.list_enabled = fields.list_enabled
-    this.allow_list = fields.allow_list
-    this.rmn_remote = fields.rmn_remote
+    this.canAcceptLiquidity = fields.canAcceptLiquidity
+    this.listEnabled = fields.listEnabled
+    this.allowList = fields.allowList
+    this.rmnRemote = fields.rmnRemote
   }
 
   static layout(property?: string) {
     return borsh.struct(
       [
-        borsh.publicKey("token_program"),
+        borsh.publicKey("tokenProgram"),
         borsh.publicKey("mint"),
         borsh.u8("decimals"),
-        borsh.publicKey("pool_signer"),
-        borsh.publicKey("pool_token_account"),
+        borsh.publicKey("poolSigner"),
+        borsh.publicKey("poolTokenAccount"),
         borsh.publicKey("owner"),
-        borsh.publicKey("proposed_owner"),
-        borsh.publicKey("rate_limit_admin"),
-        borsh.publicKey("router_onramp_authority"),
+        borsh.publicKey("proposedOwner"),
+        borsh.publicKey("rateLimitAdmin"),
+        borsh.publicKey("routerOnrampAuthority"),
         borsh.publicKey("router"),
         borsh.publicKey("rebalancer"),
-        borsh.bool("can_accept_liquidity"),
-        borsh.bool("list_enabled"),
-        borsh.vec(borsh.publicKey(), "allow_list"),
-        borsh.publicKey("rmn_remote"),
+        borsh.bool("canAcceptLiquidity"),
+        borsh.bool("listEnabled"),
+        borsh.vec(borsh.publicKey(), "allowList"),
+        borsh.publicKey("rmnRemote"),
       ],
       property
     )
@@ -100,85 +100,81 @@ export class BaseConfig {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static fromDecoded(obj: any) {
     return new BaseConfig({
-      token_program: new PublicKey(obj.token_program),
-      mint: new PublicKey(obj.mint),
+      tokenProgram: obj.tokenProgram,
+      mint: obj.mint,
       decimals: obj.decimals,
-      pool_signer: new PublicKey(obj.pool_signer),
-      pool_token_account: new PublicKey(obj.pool_token_account),
-      owner: new PublicKey(obj.owner),
-      proposed_owner: new PublicKey(obj.proposed_owner),
-      rate_limit_admin: new PublicKey(obj.rate_limit_admin),
-      router_onramp_authority: new PublicKey(obj.router_onramp_authority),
-      router: new PublicKey(obj.router),
-      rebalancer: new PublicKey(obj.rebalancer),
-      can_accept_liquidity: obj.can_accept_liquidity,
-      list_enabled: obj.list_enabled,
-      allow_list: obj.allow_list.map(
-        (
-          item: any /* eslint-disable-line @typescript-eslint/no-explicit-any */
-        ) => new PublicKey(item)
-      ),
-      rmn_remote: new PublicKey(obj.rmn_remote),
+      poolSigner: obj.poolSigner,
+      poolTokenAccount: obj.poolTokenAccount,
+      owner: obj.owner,
+      proposedOwner: obj.proposedOwner,
+      rateLimitAdmin: obj.rateLimitAdmin,
+      routerOnrampAuthority: obj.routerOnrampAuthority,
+      router: obj.router,
+      rebalancer: obj.rebalancer,
+      canAcceptLiquidity: obj.canAcceptLiquidity,
+      listEnabled: obj.listEnabled,
+      allowList: obj.allowList,
+      rmnRemote: obj.rmnRemote,
     })
   }
 
   static toEncodable(fields: BaseConfigFields) {
     return {
-      token_program: fields.token_program,
+      tokenProgram: fields.tokenProgram,
       mint: fields.mint,
       decimals: fields.decimals,
-      pool_signer: fields.pool_signer,
-      pool_token_account: fields.pool_token_account,
+      poolSigner: fields.poolSigner,
+      poolTokenAccount: fields.poolTokenAccount,
       owner: fields.owner,
-      proposed_owner: fields.proposed_owner,
-      rate_limit_admin: fields.rate_limit_admin,
-      router_onramp_authority: fields.router_onramp_authority,
+      proposedOwner: fields.proposedOwner,
+      rateLimitAdmin: fields.rateLimitAdmin,
+      routerOnrampAuthority: fields.routerOnrampAuthority,
       router: fields.router,
       rebalancer: fields.rebalancer,
-      can_accept_liquidity: fields.can_accept_liquidity,
-      list_enabled: fields.list_enabled,
-      allow_list: fields.allow_list,
-      rmn_remote: fields.rmn_remote,
+      canAcceptLiquidity: fields.canAcceptLiquidity,
+      listEnabled: fields.listEnabled,
+      allowList: fields.allowList,
+      rmnRemote: fields.rmnRemote,
     }
   }
 
   toJSON(): BaseConfigJSON {
     return {
-      token_program: this.token_program.toString(),
+      tokenProgram: this.tokenProgram.toString(),
       mint: this.mint.toString(),
       decimals: this.decimals,
-      pool_signer: this.pool_signer.toString(),
-      pool_token_account: this.pool_token_account.toString(),
+      poolSigner: this.poolSigner.toString(),
+      poolTokenAccount: this.poolTokenAccount.toString(),
       owner: this.owner.toString(),
-      proposed_owner: this.proposed_owner.toString(),
-      rate_limit_admin: this.rate_limit_admin.toString(),
-      router_onramp_authority: this.router_onramp_authority.toString(),
+      proposedOwner: this.proposedOwner.toString(),
+      rateLimitAdmin: this.rateLimitAdmin.toString(),
+      routerOnrampAuthority: this.routerOnrampAuthority.toString(),
       router: this.router.toString(),
       rebalancer: this.rebalancer.toString(),
-      can_accept_liquidity: this.can_accept_liquidity,
-      list_enabled: this.list_enabled,
-      allow_list: this.allow_list.map((item) => item.toString()),
-      rmn_remote: this.rmn_remote.toString(),
+      canAcceptLiquidity: this.canAcceptLiquidity,
+      listEnabled: this.listEnabled,
+      allowList: this.allowList.map((item) => item.toString()),
+      rmnRemote: this.rmnRemote.toString(),
     }
   }
 
   static fromJSON(obj: BaseConfigJSON): BaseConfig {
     return new BaseConfig({
-      token_program: new PublicKey(obj.token_program),
+      tokenProgram: new PublicKey(obj.tokenProgram),
       mint: new PublicKey(obj.mint),
       decimals: obj.decimals,
-      pool_signer: new PublicKey(obj.pool_signer),
-      pool_token_account: new PublicKey(obj.pool_token_account),
+      poolSigner: new PublicKey(obj.poolSigner),
+      poolTokenAccount: new PublicKey(obj.poolTokenAccount),
       owner: new PublicKey(obj.owner),
-      proposed_owner: new PublicKey(obj.proposed_owner),
-      rate_limit_admin: new PublicKey(obj.rate_limit_admin),
-      router_onramp_authority: new PublicKey(obj.router_onramp_authority),
+      proposedOwner: new PublicKey(obj.proposedOwner),
+      rateLimitAdmin: new PublicKey(obj.rateLimitAdmin),
+      routerOnrampAuthority: new PublicKey(obj.routerOnrampAuthority),
       router: new PublicKey(obj.router),
       rebalancer: new PublicKey(obj.rebalancer),
-      can_accept_liquidity: obj.can_accept_liquidity,
-      list_enabled: obj.list_enabled,
-      allow_list: obj.allow_list.map((item) => new PublicKey(item)),
-      rmn_remote: new PublicKey(obj.rmn_remote),
+      canAcceptLiquidity: obj.canAcceptLiquidity,
+      listEnabled: obj.listEnabled,
+      allowList: obj.allowList.map((item) => new PublicKey(item)),
+      rmnRemote: new PublicKey(obj.rmnRemote),
     })
   }
 

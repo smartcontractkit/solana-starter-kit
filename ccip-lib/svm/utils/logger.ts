@@ -96,44 +96,41 @@ function createLogMethod(
   return function (...args: any[]) {
     // Skip logging if the current level is higher than this method's level
     const methodLevel = getMethodLogLevel(method);
-    if (methodLevel < (logger.getLevel() as unknown as LogLevel)) {
+    const currentLevel = logger.getLevel() as unknown as LogLevel;
+    if (methodLevel < currentLevel) {
       return;
     }
 
+    // Use consistent console output for all levels to avoid loglevel conflicts
     if (options.timestamps) {
       const timestamp = new Date().toISOString();
 
-      // For trace level, customize the output to avoid showing stack traces
+      // Format objects for better readability for trace level
       if (method === "trace") {
-        // Format objects for better readability
         const formattedArgs = args.map((arg) => {
           if (typeof arg === "object" && arg !== null) {
             return JSON.stringify(arg, null, 2);
           }
           return arg;
         });
-
-        // Use console.log directly with a prefix for trace level
         console.log(`TRACE: [${timestamp}]`, ...formattedArgs);
       } else {
-        // Use loglevel for other log levels
-        logger[method](`[${timestamp}]`, ...args);
+        // Use regular console for other levels to maintain formatting
+        console.log(`[${timestamp}]`, ...args);
       }
     } else {
+      // Format objects for better readability for trace level
       if (method === "trace") {
-        // Format objects for better readability
         const formattedArgs = args.map((arg) => {
           if (typeof arg === "object" && arg !== null) {
             return JSON.stringify(arg, null, 2);
           }
           return arg;
         });
-
-        // Use console.log directly without timestamps
         console.log(`TRACE:`, ...formattedArgs);
       } else {
-        // Use loglevel for other log levels
-        logger[method](...args);
+        // Use regular console for other levels
+        console.log(...args);
       }
     }
   };

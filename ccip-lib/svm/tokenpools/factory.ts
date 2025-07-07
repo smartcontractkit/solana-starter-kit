@@ -51,7 +51,7 @@ export class TokenPoolFactory {
   /**
    * Detect the token pool type for a specific mint
    * This method examines on-chain accounts to determine the pool type
-   * 
+   *
    * @param mint Token mint to check
    * @param context CCIP context
    * @param programIds Map of program IDs for different token pool types
@@ -65,24 +65,31 @@ export class TokenPoolFactory {
   ): Promise<TokenPoolType> {
     const connection = context.provider.connection;
     // Create a default logger if one isn't provided in the context
-    const logger = context.logger || createLogger("token-pool-factory", { level: LogLevel.INFO });
+    const logger =
+      context.logger ??
+      createLogger("token-pool-factory", { level: LogLevel.INFO });
     const enhanceError = createErrorEnhancer(logger);
 
     // Check if burn-mint pool exists for this mint
     try {
       // Try to create a burn-mint client and check if pool exists
-      const burnMintClient = new BurnMintTokenPoolClient(context, programIds.burnMint);
-      
+      const burnMintClient = new BurnMintTokenPoolClient(
+        context,
+        programIds.burnMint
+      );
+
       logger?.debug(`Checking for burn-mint pool for mint: ${mint.toString()}`);
       const hasBurnMintPool = await burnMintClient.hasPool(mint);
-      
+
       if (hasBurnMintPool) {
         logger?.debug(`Detected burn-mint pool for mint: ${mint.toString()}`);
         return TokenPoolType.BURN_MINT;
       }
     } catch (error) {
       logger?.debug(
-        `Error while checking burn-mint pool: ${error instanceof Error ? error.message : String(error)}`,
+        `Error while checking burn-mint pool: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
         { error, mint: mint.toString() }
       );
     }
@@ -91,9 +98,9 @@ export class TokenPoolFactory {
     // This is where additional pool types would be detected in order of priority
     // Each type should be wrapped in its own try-catch block so a failure in one
     // doesn't prevent checking other types
-    
+
     logger.debug("No burn-mint pool found, checking for other pool types...");
-    
+
     // Example of how to add support for a new pool type:
     /*
     try {
@@ -112,20 +119,22 @@ export class TokenPoolFactory {
       );
     }
     */
-    
+
     // For future development, consider implementing a registry of pool type
     // detectors that can be iterated through, rather than hardcoding each check
-    
-    logger.info(`No supported token pool type found for mint: ${mint.toString()}`);
-    
+
+    logger.info(
+      `No supported token pool type found for mint: ${mint.toString()}`
+    );
+
     // If we get here, no pool type was detected
     throw enhanceError(
       new CCIPError("No token pool found", { mint: mint.toString() }),
       {
         operation: "detectPoolType",
         mint: mint.toString(),
-        checked: [TokenPoolType.BURN_MINT]
+        checked: [TokenPoolType.BURN_MINT],
       }
     );
   }
-} 
+}

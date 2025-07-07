@@ -15,32 +15,31 @@ import {
   TOKEN_POOL_STATE_SEED,
   TOKEN_POOL_CHAIN_CONFIG_SEED,
 } from "../../utils/pdas/tokenpool";
+import { RemoteAddress } from "../../burnmint-pool-bindings/types";
+import { StateFields, State } from "../../burnmint-pool-bindings/types/State";
 import {
-  RemoteAddress,
-  StateFields as StateTypeFields,
-  ChainConfigFields as ChainConfigTypeFields,
-  BaseConfigFields,
-  BaseChainFields,
-  State as StateType,
-  ChainConfig as ChainConfigType,
-  PoolConfigFields as PoolConfigTypeFields,
-  PoolConfig as PoolConfigType,
-} from "../../burnmint-pool-bindings/types";
+  ChainConfigFields,
+  ChainConfig,
+} from "../../burnmint-pool-bindings/types/ChainConfig";
+import {
+  PoolConfigFields,
+  PoolConfig,
+} from "../../burnmint-pool-bindings/types/PoolConfig";
 
 /**
  * Global configuration for burn-mint pools
  */
-export type BurnMintGlobalConfig = PoolConfigTypeFields;
+export type BurnMintGlobalConfig = PoolConfig;
 
 /**
  * Burn-mint pool configuration
  */
-export type BurnMintPoolConfig = StateTypeFields;
+export type BurnMintPoolConfig = StateFields;
 
 /**
  * Chain configuration for burn-mint pools
  */
-export type BurnMintChainConfig = ChainConfigTypeFields;
+export type BurnMintChainConfig = ChainConfig;
 
 /**
  * Complete information for a burn-mint token pool
@@ -86,7 +85,8 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
         `Fetching global config for program: ${this.programId.toString()}`
       );
       const [pda, bump] = findGlobalConfigPDA(this.programId);
-      this.logger.debug(`Global config PDA: ${pda.toString()} (bump: ${bump})`);
+      this.logger.info(`📍 Global Config PDA: ${pda.toString()}`);
+      this.logger.debug(`  PDA bump: ${bump}`);
       this.logger.trace(
         `PDA derivation: seeds=[${TOKEN_POOL_GLOBAL_CONFIG_SEED}], program=${this.programId.toString()}`
       );
@@ -114,8 +114,8 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
         }, lamports=${accountInfo.lamports}`
       );
       this.logger.trace(
-        `Account data (first 32 bytes): ${accountInfo.data
-          .slice(0, 32)
+        `Account data (first 32 bytes): ${Buffer.from(accountInfo.data)
+          .subarray(0, 32)
           .toString("hex")}`
       );
 
@@ -131,15 +131,19 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
 
       // Decode the account data using borsh and the PoolConfig layout
       this.logger.trace(
-        `Decoding global config data: discriminator=${accountInfo.data
-          .slice(0, 8)
+        `Decoding global config data: discriminator=${Buffer.from(
+          accountInfo.data
+        )
+          .subarray(0, 8)
           .toString("hex")}`
       );
-      const decoded = PoolConfigType.layout().decode(accountInfo.data.slice(8)); // Skip 8-byte discriminator
+      const decoded = PoolConfig.layout().decode(
+        Buffer.from(accountInfo.data).subarray(8)
+      ); // Skip 8-byte discriminator
       this.logger.trace(
         `Raw decoded global config data: version=${decoded.version}`
       );
-      const globalConfig = PoolConfigType.fromDecoded(decoded);
+      const globalConfig = PoolConfig.fromDecoded(decoded);
 
       if (!globalConfig) {
         throw new Error(
@@ -174,7 +178,8 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
         `Fetching burn-mint pool config for mint: ${mint.toString()}`
       );
       const [pda, bump] = findBurnMintPoolConfigPDA(mint, this.programId);
-      this.logger.debug(`Pool config PDA: ${pda.toString()} (bump: ${bump})`);
+      this.logger.info(`📍 Pool Config PDA: ${pda.toString()}`);
+      this.logger.debug(`  PDA bump: ${bump}`);
       this.logger.trace(
         `PDA derivation: seeds=[${TOKEN_POOL_STATE_SEED}, ${mint.toString()}], program=${this.programId.toString()}`
       );
@@ -198,8 +203,8 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
         }, lamports=${accountInfo.lamports}`
       );
       this.logger.trace(
-        `Account data (first 32 bytes): ${accountInfo.data
-          .slice(0, 32)
+        `Account data (first 32 bytes): ${Buffer.from(accountInfo.data)
+          .subarray(0, 32)
           .toString("hex")}`
       );
 
@@ -215,13 +220,15 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
 
       // Decode the account data using borsh and the State layout
       this.logger.trace(
-        `Decoding account data: discriminator=${accountInfo.data
-          .slice(0, 8)
+        `Decoding account data: discriminator=${Buffer.from(accountInfo.data)
+          .subarray(0, 8)
           .toString("hex")}`
       );
-      const decoded = StateType.layout().decode(accountInfo.data.slice(8)); // Skip 8-byte discriminator
+      const decoded = State.layout().decode(
+        Buffer.from(accountInfo.data).subarray(8)
+      ); // Skip 8-byte discriminator
       this.logger.trace(`Raw decoded data: version=${decoded.version}`);
-      const poolConfig = StateType.fromDecoded(decoded);
+      const poolConfig = State.fromDecoded(decoded);
 
       if (!poolConfig) {
         throw new Error(
@@ -238,22 +245,22 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       });
       this.logger.trace("Complete pool config details:", {
         version: poolConfig.version,
-        tokenProgram: poolConfig.config.token_program.toString(),
+        tokenProgram: poolConfig.config.tokenProgram.toString(),
         mint: poolConfig.config.mint.toString(),
         decimals: poolConfig.config.decimals,
-        poolSigner: poolConfig.config.pool_signer.toString(),
-        poolTokenAccount: poolConfig.config.pool_token_account.toString(),
+        poolSigner: poolConfig.config.poolSigner.toString(),
+        poolTokenAccount: poolConfig.config.poolTokenAccount.toString(),
         owner: poolConfig.config.owner.toString(),
-        proposedOwner: poolConfig.config.proposed_owner.toString(),
-        rateLimitAdmin: poolConfig.config.rate_limit_admin.toString(),
+        proposedOwner: poolConfig.config.proposedOwner.toString(),
+        rateLimitAdmin: poolConfig.config.rateLimitAdmin.toString(),
         routerOnrampAuthority:
-          poolConfig.config.router_onramp_authority.toString(),
+          poolConfig.config.routerOnrampAuthority.toString(),
         router: poolConfig.config.router.toString(),
         rebalancer: poolConfig.config.rebalancer.toString(),
-        canAcceptLiquidity: poolConfig.config.can_accept_liquidity,
-        listEnabled: poolConfig.config.list_enabled,
-        allowListLength: poolConfig.config.allow_list.length,
-        rmnRemote: poolConfig.config.rmn_remote.toString(),
+        canAcceptLiquidity: poolConfig.config.canAcceptLiquidity,
+        listEnabled: poolConfig.config.listEnabled,
+        allowListLength: poolConfig.config.allowList.length,
+        rmnRemote: poolConfig.config.rmnRemote.toString(),
       });
 
       return poolConfig;
@@ -288,7 +295,8 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
         mint,
         this.programId
       );
-      this.logger.debug(`Chain config PDA: ${pda.toString()} (bump: ${bump})`);
+      this.logger.info(`📍 Chain Config PDA: ${pda.toString()}`);
+      this.logger.debug(`  PDA bump: ${bump}`);
       this.logger.trace(
         `PDA derivation: seeds=[${TOKEN_POOL_CHAIN_CONFIG_SEED}, ${remoteChainSelector.toString()}, ${mint.toString()}], program=${this.programId.toString()}`
       );
@@ -312,10 +320,10 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       }
 
       // Decode the account data using borsh and the ChainConfig layout
-      const decoded = ChainConfigType.layout().decode(
-        accountInfo.data.slice(8)
+      const decoded = ChainConfig.layout().decode(
+        Buffer.from(accountInfo.data).subarray(8)
       ); // Skip 8-byte discriminator
-      const chainConfigAccount = ChainConfigType.fromDecoded(decoded);
+      const chainConfigAccount = ChainConfig.fromDecoded(decoded);
 
       if (!chainConfigAccount) {
         throw new Error(
@@ -326,19 +334,18 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       this.logger.trace("Retrieved raw chain config:", {
         decimals: chainConfigAccount.base.remote.decimals,
         tokenAddress:
-          chainConfigAccount.base.remote.token_address.address.toString(),
-        poolAddressesCount:
-          chainConfigAccount.base.remote.pool_addresses.length,
+          chainConfigAccount.base.remote.tokenAddress.address.toString(),
+        poolAddressesCount: chainConfigAccount.base.remote.poolAddresses.length,
         // Rate limit info
         inboundRateLimit: {
-          enabled: chainConfigAccount.base.inbound_rate_limit.cfg.enabled,
+          enabled: chainConfigAccount.base.inboundRateLimit.cfg.enabled,
           capacity:
-            chainConfigAccount.base.inbound_rate_limit.cfg.capacity.toString(),
+            chainConfigAccount.base.inboundRateLimit.cfg.capacity.toString(),
         },
         outboundRateLimit: {
-          enabled: chainConfigAccount.base.outbound_rate_limit.cfg.enabled,
+          enabled: chainConfigAccount.base.outboundRateLimit.cfg.enabled,
           capacity:
-            chainConfigAccount.base.outbound_rate_limit.cfg.capacity.toString(),
+            chainConfigAccount.base.outboundRateLimit.cfg.capacity.toString(),
         },
       });
 
@@ -388,51 +395,51 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
    * @private Internal helper method
    */
   private formatChainConfig(
-    chainConfigAccount: ChainConfigTypeFields,
+    chainConfigAccount: ChainConfigFields,
     accountAddress: PublicKey
   ): TokenPoolChainConfigResponse {
     return {
       address: accountAddress.toString(),
       base: {
         decimals: chainConfigAccount.base.remote.decimals,
-        poolAddresses: chainConfigAccount.base.remote.pool_addresses.map(
+        poolAddresses: chainConfigAccount.base.remote.poolAddresses.map(
           (addr: RemoteAddress) => ({
             address: Buffer.from(addr.address).toString("hex"),
           })
         ),
         tokenAddress: {
           address: Buffer.from(
-            chainConfigAccount.base.remote.token_address.address
+            chainConfigAccount.base.remote.tokenAddress.address
           ).toString("hex"),
         },
         inboundRateLimit: {
-          isEnabled: chainConfigAccount.base.inbound_rate_limit.cfg.enabled,
+          isEnabled: chainConfigAccount.base.inboundRateLimit.cfg.enabled,
           capacity: BigInt(
-            chainConfigAccount.base.inbound_rate_limit.cfg.capacity.toString()
+            chainConfigAccount.base.inboundRateLimit.cfg.capacity.toString()
           ),
           rate: BigInt(
-            chainConfigAccount.base.inbound_rate_limit.cfg.rate.toString()
+            chainConfigAccount.base.inboundRateLimit.cfg.rate.toString()
           ),
           lastTxTimestamp: BigInt(
-            chainConfigAccount.base.inbound_rate_limit.last_updated.toString()
+            chainConfigAccount.base.inboundRateLimit.lastUpdated.toString()
           ),
           currentBucketValue: BigInt(
-            chainConfigAccount.base.inbound_rate_limit.tokens.toString()
+            chainConfigAccount.base.inboundRateLimit.tokens.toString()
           ),
         },
         outboundRateLimit: {
-          isEnabled: chainConfigAccount.base.outbound_rate_limit.cfg.enabled,
+          isEnabled: chainConfigAccount.base.outboundRateLimit.cfg.enabled,
           capacity: BigInt(
-            chainConfigAccount.base.outbound_rate_limit.cfg.capacity.toString()
+            chainConfigAccount.base.outboundRateLimit.cfg.capacity.toString()
           ),
           rate: BigInt(
-            chainConfigAccount.base.outbound_rate_limit.cfg.rate.toString()
+            chainConfigAccount.base.outboundRateLimit.cfg.rate.toString()
           ),
           lastTxTimestamp: BigInt(
-            chainConfigAccount.base.outbound_rate_limit.last_updated.toString()
+            chainConfigAccount.base.outboundRateLimit.lastUpdated.toString()
           ),
           currentBucketValue: BigInt(
-            chainConfigAccount.base.outbound_rate_limit.tokens.toString()
+            chainConfigAccount.base.outboundRateLimit.tokens.toString()
           ),
         },
       },

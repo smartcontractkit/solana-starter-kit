@@ -63,7 +63,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("get-pool-signer", {
-    level: (options["log-level"] as LogLevel) || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Pool Signer PDA Reader (Read-Only)");

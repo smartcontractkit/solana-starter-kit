@@ -5,24 +5,24 @@ import * as borsh from "@coral-xyz/borsh"
 
 export interface RateLimitTokenBucketFields {
   tokens: BN
-  last_updated: BN
+  lastUpdated: BN
   cfg: types.RateLimitConfigFields
 }
 
 export interface RateLimitTokenBucketJSON {
   tokens: string
-  last_updated: string
+  lastUpdated: string
   cfg: types.RateLimitConfigJSON
 }
 
 export class RateLimitTokenBucket {
   readonly tokens: BN
-  readonly last_updated: BN
+  readonly lastUpdated: BN
   readonly cfg: types.RateLimitConfig
 
   constructor(fields: RateLimitTokenBucketFields) {
     this.tokens = fields.tokens
-    this.last_updated = fields.last_updated
+    this.lastUpdated = fields.lastUpdated
     this.cfg = new types.RateLimitConfig({ ...fields.cfg })
   }
 
@@ -30,7 +30,7 @@ export class RateLimitTokenBucket {
     return borsh.struct(
       [
         borsh.u64("tokens"),
-        borsh.u64("last_updated"),
+        borsh.u64("lastUpdated"),
         types.RateLimitConfig.layout("cfg"),
       ],
       property
@@ -41,7 +41,7 @@ export class RateLimitTokenBucket {
   static fromDecoded(obj: any) {
     return new RateLimitTokenBucket({
       tokens: obj.tokens,
-      last_updated: obj.last_updated,
+      lastUpdated: obj.lastUpdated,
       cfg: types.RateLimitConfig.fromDecoded(obj.cfg),
     })
   }
@@ -49,7 +49,7 @@ export class RateLimitTokenBucket {
   static toEncodable(fields: RateLimitTokenBucketFields) {
     return {
       tokens: fields.tokens,
-      last_updated: fields.last_updated,
+      lastUpdated: fields.lastUpdated,
       cfg: types.RateLimitConfig.toEncodable(fields.cfg),
     }
   }
@@ -57,7 +57,7 @@ export class RateLimitTokenBucket {
   toJSON(): RateLimitTokenBucketJSON {
     return {
       tokens: this.tokens.toString(),
-      last_updated: this.last_updated.toString(),
+      lastUpdated: this.lastUpdated.toString(),
       cfg: this.cfg.toJSON(),
     }
   }
@@ -65,7 +65,7 @@ export class RateLimitTokenBucket {
   static fromJSON(obj: RateLimitTokenBucketJSON): RateLimitTokenBucket {
     return new RateLimitTokenBucket({
       tokens: new BN(obj.tokens),
-      last_updated: new BN(obj.last_updated),
+      lastUpdated: new BN(obj.lastUpdated),
       cfg: types.RateLimitConfig.fromJSON(obj.cfg),
     })
   }

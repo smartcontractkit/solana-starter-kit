@@ -103,7 +103,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("pool-token-account", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Pool Token Account Creation");
@@ -173,7 +173,7 @@ async function main() {
     // Get pool info to verify current state
     logger.info("Getting pool information...");
     const poolInfo = await tokenPoolClient.getPoolInfo();
-    const currentPoolTokenAccount = poolInfo.config.config.pool_token_account;
+    const currentPoolTokenAccount = poolInfo.config.config.poolTokenAccount;
 
     logger.info(
       `Current pool token account: ${currentPoolTokenAccount.toString()}`
@@ -195,7 +195,7 @@ async function main() {
     logger.debug(`Pool signer bump: ${poolSignerBump}`);
 
     // Check if pool signer matches what's in the pool config
-    const configPoolSigner = poolInfo.config.config.pool_signer;
+    const configPoolSigner = poolInfo.config.config.poolSigner;
     if (!poolSigner.equals(configPoolSigner)) {
       logger.warn(`Pool signer mismatch!`);
       logger.warn(`  Calculated: ${poolSigner.toString()}`);

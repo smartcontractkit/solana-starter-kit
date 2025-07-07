@@ -96,7 +96,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("pool-set-router", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Pool Set Router");

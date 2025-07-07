@@ -2,6 +2,7 @@
  * Token Pool Initialization Script
  *
  * This script initializes a burn-mint token pool for CCIP cross-chain token transfers.
+ * It creates a State PDA (Program Derived Address) that stores the pool configuration.
  *
  * INSTRUCTIONS:
  * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
@@ -26,6 +27,7 @@ import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
+import { findBurnMintPoolConfigPDA } from "../../../ccip-lib/svm/utils/pdas/tokenpool";
 
 // ========== CONFIGURATION ==========
 // Customize these values if needed for your specific use case
@@ -91,7 +93,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("pool-initialize", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Pool Initialization");
@@ -133,7 +135,7 @@ async function main() {
     logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
     logger.info(`Router Program: ${config.routerProgramId.toString()}`);
     logger.info(`RMN Remote Program: ${config.rmnRemoteProgramId.toString()}`);
-    
+
     logger.debug(`Configuration details:`);
     logger.debug(`  Network: ${config.id}`);
     logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
@@ -144,7 +146,8 @@ async function main() {
     // Create token pool client
     const clientOptions: TokenPoolClientOptions = {
       connection: config.connection,
-      logLevel: options.logLevel || LogLevel.INFO, // Use INFO as default
+      logLevel:
+        options.logLevel !== undefined ? options.logLevel : LogLevel.INFO, // Use INFO as default
       skipPreflight: options.skipPreflight,
     };
 
@@ -154,21 +157,32 @@ async function main() {
       clientOptions
     );
 
-    // Check if pool already exists
+    // Check if pool already exists by checking the State PDA directly
+    // This avoids SDK error logging when the account doesn't exist yet
     logger.info("Checking if pool already exists...");
-    logger.debug(`Checking pool existence for mint: ${tokenMint.toString()}`);
-    const poolExists = await tokenPoolClient.hasPool({ mint: tokenMint });
+    const [statePDA, stateBump] = findBurnMintPoolConfigPDA(
+      tokenMint,
+      burnMintPoolProgramId
+    );
+    logger.debug(`State PDA: ${statePDA.toString()} (bump: ${stateBump})`);
+
+    const stateAccountInfo = await config.connection.getAccountInfo(statePDA);
+    const poolExists = stateAccountInfo !== null;
     logger.debug(`Pool exists: ${poolExists}`);
 
     if (poolExists) {
       logger.warn("Pool already exists for this token mint");
+      logger.info(`Existing pool State PDA: ${statePDA.toString()}`);
       logger.info("Use 'yarn svm:pool:get-info' to view pool details");
-      logger.debug(`To view details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`);
+      logger.debug(
+        `To view details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
+      );
       return;
     }
 
     // Initialize the pool
     logger.info("Initializing token pool...");
+    logger.debug(`Creating State PDA at: ${statePDA.toString()}`);
     const signature = await tokenPoolClient.initializePool({
       mint: tokenMint,
       txOptions: {
@@ -176,9 +190,11 @@ async function main() {
       },
     });
 
-    logger.info(`Pool initialized successfully!`);
+    logger.info(`Pool initialized successfully! 🎉`);
     logger.info(`Transaction signature: ${signature}`);
     logger.info(`Solana Explorer: ${getExplorerUrl(config.id, signature)}`);
+    logger.info(`📍 Pool State PDA: ${statePDA.toString()}`);
+    logger.debug(`State PDA bump: ${stateBump}`);
 
     // Verify initialization
     logger.info("Verifying pool initialization...");
@@ -186,7 +202,10 @@ async function main() {
     try {
       const poolInfo = await tokenPoolClient.getPoolInfo();
       logger.info("✅ Pool initialization verified successfully!");
+      logger.info(`✅ State PDA confirmed active: ${statePDA.toString()}`);
       logger.debug("Pool verification details:", {
+        statePDA: statePDA.toString(),
+        stateBump: stateBump,
         poolType: poolInfo.poolType,
         owner: poolInfo.config.config.owner.toString(),
         version: poolInfo.config.version,
@@ -194,6 +213,14 @@ async function main() {
         router: poolInfo.config.config.router.toString(),
       });
       logger.trace("Complete verification info:", poolInfo);
+
+      logger.info("");
+      logger.info("🎯 Pool Creation Summary:");
+      logger.info(`   Token Mint: ${tokenMint.toString()}`);
+      logger.info(`   State PDA: ${statePDA.toString()}`);
+      logger.info(`   Owner: ${poolInfo.config.config.owner.toString()}`);
+      logger.info(`   Program: ${burnMintPoolProgramId.toString()}`);
+      logger.info("");
       logger.info(
         `💡 View details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
       );
@@ -202,6 +229,12 @@ async function main() {
         `Pool transaction succeeded but verification failed: ${error}`
       );
       logger.debug("Verification error details:", error);
+      logger.info("");
+      logger.info("🎯 Pool Creation Summary (Unverified):");
+      logger.info(`   Token Mint: ${tokenMint.toString()}`);
+      logger.info(`   State PDA: ${statePDA.toString()}`);
+      logger.info(`   Program: ${burnMintPoolProgramId.toString()}`);
+      logger.info("");
       logger.info(
         "This may be due to network delays - the pool should exist shortly"
       );
@@ -242,6 +275,7 @@ Notes:
   • The wallet will become the pool administrator
   • Router and RMN Remote program IDs are retrieved from configuration
   • Pool initialization requires SOL for transaction fees
+  • Creates a State PDA account that represents the pool configuration
   `);
 }
 

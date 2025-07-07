@@ -84,7 +84,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("admin-accept-admin-role", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Admin Registry Accept Admin Role");

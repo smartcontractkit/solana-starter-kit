@@ -35,7 +35,7 @@ export { BurnMintTokenPoolClient } from "./tokenpools/burnmint";
 export type {
   InitChainRemoteConfigOptions,
   EditChainRemoteConfigOptions,
-  ChainConfigResult,
+  RemoteChainConfigResult,
 } from "./tokenpools";
 
 // Token Creation exports

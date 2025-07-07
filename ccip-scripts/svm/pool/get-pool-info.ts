@@ -25,6 +25,10 @@ import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
+import {
+  findBurnMintPoolConfigPDA,
+  findGlobalConfigPDA,
+} from "../../../ccip-lib/svm/utils/pdas/tokenpool";
 
 /**
  * Parse command line arguments specific to pool info
@@ -102,7 +106,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("pool-info", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("🏊 CCIP Token Pool Information");
@@ -134,7 +138,8 @@ async function main() {
     // Create token pool client
     const clientOptions: TokenPoolClientOptions = {
       connection: config.connection,
-      logLevel: options.logLevel || LogLevel.INFO, // Use INFO as default
+      logLevel:
+        options.logLevel !== undefined ? options.logLevel : LogLevel.INFO, // Use INFO as default
       skipPreflight: options.skipPreflight,
     };
 
@@ -151,9 +156,9 @@ async function main() {
     logger.debug(`Pool exists: ${poolExists}`);
 
     if (!poolExists) {
-      console.log("\n❌ Pool does not exist for this token mint");
-      console.log("\n💡 Run the initialization script first:");
-      console.log(
+      logger.info("\n❌ Pool does not exist for this token mint");
+      logger.info("\n💡 Run the initialization script first:");
+      logger.info(
         `yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
       );
       logger.debug("Pool not found - terminating script");
@@ -192,145 +197,156 @@ async function main() {
     }
 
     // Display comprehensive pool information
-    console.log("\n" + "=".repeat(80));
-    console.log("🏊 BURN-MINT TOKEN POOL INFORMATION");
-    console.log("=".repeat(80));
+    logger.info("\n" + "=".repeat(80));
+    logger.info("🏊 BURN-MINT TOKEN POOL INFORMATION");
+    logger.info("=".repeat(80));
 
     // Global Configuration
-    console.log("\n🌍 GLOBAL CONFIGURATION");
-    console.log("-".repeat(40));
+    logger.info("\n🌍 GLOBAL CONFIGURATION");
+    logger.info("-".repeat(40));
     if (globalConfigInfo && globalConfigInfo.config) {
-      console.log(`Program Version: ${globalConfigInfo.config.version}`);
-      console.log(
+      logger.info(`Program Version: ${globalConfigInfo.config.version}`);
+      logger.info(
         `Self-Served Pools: ${formatBoolean(
           globalConfigInfo.config.self_served_allowed
         )}`
       );
     } else {
-      console.log("❌ Global config not found or not initialized");
-      console.log("💡 Run: yarn svm:pool:init-global-config first");
+      logger.info("❌ Global config not found or not initialized");
+      logger.info("💡 Run: yarn svm:pool:init-global-config first");
     }
 
     // Basic Pool Info
-    console.log("\n📋 BASIC INFORMATION");
-    console.log("-".repeat(40));
-    console.log(`Pool Type: ${poolInfo.poolType}`);
-    console.log(`Version: ${poolInfo.config.version}`);
-    console.log(formatPublicKey(poolInfo.config.config.mint, "Token Mint"));
-    console.log(`Decimals: ${poolInfo.config.config.decimals}`);
+    logger.info("\n📋 BASIC INFORMATION");
+    logger.info("-".repeat(40));
+    logger.info(`Pool Type: ${poolInfo.poolType}`);
+    logger.info(`Version: ${poolInfo.config.version}`);
+    logger.info(formatPublicKey(poolInfo.config.config.mint, "Token Mint"));
+    logger.info(`Decimals: ${poolInfo.config.config.decimals}`);
 
     // Ownership & Permissions
-    console.log("\n👥 OWNERSHIP & PERMISSIONS");
-    console.log("-".repeat(40));
-    console.log(formatPublicKey(poolInfo.config.config.owner, "Current Owner"));
-    console.log(
-      formatPublicKey(poolInfo.config.config.proposed_owner, "Proposed Owner")
+    logger.info("\n👥 OWNERSHIP & PERMISSIONS");
+    logger.info("-".repeat(40));
+    logger.info(formatPublicKey(poolInfo.config.config.owner, "Current Owner"));
+    logger.info(
+      formatPublicKey(poolInfo.config.config.proposedOwner, "Proposed Owner")
     );
-    console.log(
-      formatPublicKey(
-        poolInfo.config.config.rate_limit_admin,
-        "Rate Limit Admin"
-      )
+    logger.info(
+      formatPublicKey(poolInfo.config.config.rateLimitAdmin, "Rate Limit Admin")
     );
 
     // Token Configuration
-    console.log("\n🪙 TOKEN CONFIGURATION");
-    console.log("-".repeat(40));
-    console.log(
-      formatPublicKey(poolInfo.config.config.token_program, "Token Program")
+    logger.info("\n🪙 TOKEN CONFIGURATION");
+    logger.info("-".repeat(40));
+    logger.info(
+      formatPublicKey(poolInfo.config.config.tokenProgram, "Token Program")
     );
-    console.log(
-      formatPublicKey(poolInfo.config.config.pool_signer, "Pool Signer PDA")
+    logger.info(
+      formatPublicKey(poolInfo.config.config.poolSigner, "Pool Signer PDA")
     );
-    console.log(
+    logger.info(
       formatPublicKey(
-        poolInfo.config.config.pool_token_account,
+        poolInfo.config.config.poolTokenAccount,
         "Pool Token Account"
       )
     );
 
     // CCIP Integration
-    console.log("\n🌉 CCIP INTEGRATION");
-    console.log("-".repeat(40));
-    console.log(formatPublicKey(poolInfo.config.config.router, "CCIP Router"));
-    console.log(
+    logger.info("\n🌉 CCIP INTEGRATION");
+    logger.info("-".repeat(40));
+    logger.info(formatPublicKey(poolInfo.config.config.router, "CCIP Router"));
+    logger.info(
       formatPublicKey(
-        poolInfo.config.config.router_onramp_authority,
+        poolInfo.config.config.routerOnrampAuthority,
         "Router Onramp Authority"
       )
     );
-    console.log(
-      formatPublicKey(poolInfo.config.config.rmn_remote, "RMN Remote")
+    logger.info(
+      formatPublicKey(poolInfo.config.config.rmnRemote, "RMN Remote")
     );
 
     // Security & Controls
-    console.log("\n🔒 SECURITY & CONTROLS");
-    console.log("-".repeat(40));
-    console.log(
-      `Allowlist: ${formatBoolean(poolInfo.config.config.list_enabled)}`
+    logger.info("\n🔒 SECURITY & CONTROLS");
+    logger.info("-".repeat(40));
+    logger.info(
+      `Allowlist: ${formatBoolean(poolInfo.config.config.listEnabled)}`
     );
     if (
-      poolInfo.config.config.list_enabled &&
-      poolInfo.config.config.allow_list.length > 0
+      poolInfo.config.config.listEnabled &&
+      poolInfo.config.config.allowList.length > 0
     ) {
-      console.log(
-        `Allowlist Entries (${poolInfo.config.config.allow_list.length}):`
+      logger.info(
+        `Allowlist Entries (${poolInfo.config.config.allowList.length}):`
       );
-      poolInfo.config.config.allow_list.forEach((addr, index) => {
-        console.log(`  ${index + 1}. ${addr.toString()}`);
+      poolInfo.config.config.allowList.forEach((addr, index) => {
+        logger.info(`  ${index + 1}. ${addr.toString()}`);
       });
-    } else if (poolInfo.config.config.list_enabled) {
-      console.log(
+    } else if (poolInfo.config.config.listEnabled) {
+      logger.info(
         "  ⚠️  Allowlist is enabled but empty - no addresses can transfer"
       );
     }
 
     // Rebalancing (for reference, not used in burn-mint pools)
-    console.log("\n⚖️ REBALANCING (Lock/Release Only)");
-    console.log("-".repeat(40));
-    console.log(
+    logger.info("\n⚖️ REBALANCING (Lock/Release Only)");
+    logger.info("-".repeat(40));
+    logger.info(
       formatPublicKey(poolInfo.config.config.rebalancer, "Rebalancer")
     );
-    console.log(
+    logger.info(
       `Can Accept Liquidity: ${formatBoolean(
-        poolInfo.config.config.can_accept_liquidity
+        poolInfo.config.config.canAcceptLiquidity
       )}`
     );
 
     // Address Summary
-    console.log("\n📍 ADDRESS SUMMARY");
-    console.log("-".repeat(40));
-    console.log(`Token Mint:           ${tokenMint.toString()}`);
-    console.log(`Pool Program:         ${burnMintPoolProgramId.toString()}`);
-    console.log(
+    logger.info("\n📍 ADDRESS SUMMARY");
+    logger.info("-".repeat(40));
+
+    // Derive important PDAs for the summary
+    const [poolConfigPDA] = findBurnMintPoolConfigPDA(
+      tokenMint,
+      burnMintPoolProgramId
+    );
+    const [globalConfigPDA] = findGlobalConfigPDA(burnMintPoolProgramId);
+
+    logger.info(`Token Mint:           ${tokenMint.toString()}`);
+    logger.info(`Pool Program:         ${burnMintPoolProgramId.toString()}`);
+    logger.info(
+      `Pool Config PDA:      ${poolConfigPDA.toString()}  (Pool state account)`
+    );
+    logger.info(
+      `Global Config PDA:    ${globalConfigPDA.toString()}  (Program global config)`
+    );
+    logger.info(
       `Pool Owner:           ${poolInfo.config.config.owner.toString()}`
     );
-    console.log(
-      `Pool Signer PDA:      ${poolInfo.config.config.pool_signer.toString()}`
+    logger.info(
+      `Pool Signer PDA:      ${poolInfo.config.config.poolSigner.toString()}  (Token authority)`
     );
 
-    console.log("\n" + "=".repeat(80));
-    console.log("✅ Pool information retrieved successfully!");
+    logger.info("\n" + "=".repeat(80));
+    logger.info("✅ Pool information retrieved successfully!");
 
     // Next steps suggestions
-    console.log("\n💡 NEXT STEPS");
-    console.log("-".repeat(40));
-    console.log("• Configure remote chains for cross-chain transfers");
-    console.log("• Set up rate limits for security");
-    console.log("• Configure allowlists if needed");
-    console.log("• Transfer ownership if this is a temporary deployer");
+    logger.info("\n💡 NEXT STEPS");
+    logger.info("-".repeat(40));
+    logger.info("• Configure remote chains for cross-chain transfers");
+    logger.info("• Set up rate limits for security");
+    logger.info("• Configure allowlists if needed");
+    logger.info("• Transfer ownership if this is a temporary deployer");
   } catch (error) {
     logger.error("Failed to get pool info:", error);
 
     if (error instanceof Error) {
       if (error.message.includes("not found")) {
-        console.log("\n❌ Pool not found");
-        console.log(
+        logger.info("\n❌ Pool not found");
+        logger.info(
           "The pool may not be initialized yet or the addresses may be incorrect."
         );
       } else if (error.message.includes("Account is not owned")) {
-        console.log("\n❌ Invalid program ID");
-        console.log(
+        logger.info("\n❌ Invalid program ID");
+        logger.info(
           "The account exists but is not owned by the specified program."
         );
       }

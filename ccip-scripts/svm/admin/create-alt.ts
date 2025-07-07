@@ -109,7 +109,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("admin-create-alt", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Pool Address Lookup Table Creation");
@@ -225,7 +225,7 @@ async function main() {
     logger.info(
       `        --lookup-table ${result.lookupTableAddress.toString()} \\`
     );
-            logger.info(`        --writable-indices 3,4,7`);
+    logger.info(`        --writable-indices 3,4,7`);
     logger.info(
       `   3. The token will then be ready for CCIP cross-chain operations`
     );

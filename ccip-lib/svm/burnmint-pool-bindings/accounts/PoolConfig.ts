@@ -4,18 +4,43 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface PoolConfigFields {}
+export interface PoolConfigFields {
+  version: number
+  selfServedAllowed: boolean
+  router: PublicKey
+  rmnRemote: PublicKey
+}
 
-export interface PoolConfigJSON {}
+export interface PoolConfigJSON {
+  version: number
+  selfServedAllowed: boolean
+  router: string
+  rmnRemote: string
+}
 
 export class PoolConfig {
+  readonly version: number
+  readonly selfServedAllowed: boolean
+  readonly router: PublicKey
+  readonly rmnRemote: PublicKey
+
   static readonly discriminator = Buffer.from([
     26, 108, 14, 123, 116, 230, 129, 43,
   ])
 
-  static readonly layout = borsh.struct([])
+  static readonly layout = borsh.struct([
+    borsh.u8("version"),
+    borsh.bool("selfServedAllowed"),
+    borsh.publicKey("router"),
+    borsh.publicKey("rmnRemote"),
+  ])
 
-  constructor(fields: PoolConfigFields) {}
+  constructor(fields: PoolConfigFields) {
+    this.version = fields.version
+    this.selfServedAllowed = fields.selfServedAllowed
+    this.router = fields.router
+    this.rmnRemote = fields.rmnRemote
+  }
 
   static async fetch(
     c: Connection,
@@ -60,14 +85,29 @@ export class PoolConfig {
 
     const dec = PoolConfig.layout.decode(data.slice(8))
 
-    return new PoolConfig({})
+    return new PoolConfig({
+      version: dec.version,
+      selfServedAllowed: dec.selfServedAllowed,
+      router: dec.router,
+      rmnRemote: dec.rmnRemote,
+    })
   }
 
   toJSON(): PoolConfigJSON {
-    return {}
+    return {
+      version: this.version,
+      selfServedAllowed: this.selfServedAllowed,
+      router: this.router.toString(),
+      rmnRemote: this.rmnRemote.toString(),
+    }
   }
 
   static fromJSON(obj: PoolConfigJSON): PoolConfig {
-    return new PoolConfig({})
+    return new PoolConfig({
+      version: obj.version,
+      selfServedAllowed: obj.selfServedAllowed,
+      router: new PublicKey(obj.router),
+      rmnRemote: new PublicKey(obj.rmnRemote),
+    })
   }
 }

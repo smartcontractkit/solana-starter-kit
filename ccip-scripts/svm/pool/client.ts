@@ -1,12 +1,18 @@
 import { PublicKey, Connection } from "@solana/web3.js";
-import { TokenPoolType, createLogger } from "../../../ccip-lib/svm";
+import {
+  TokenPoolType,
+  createLogger,
+  LogLevel,
+  setGlobalLogLevel,
+} from "../../../ccip-lib/svm";
 import { createTokenPoolManager } from "../utils/client-factory";
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { loadKeypair } from "../utils/provider";
 import { CommonOptions, getKeypairPath } from "../utils/config-parser";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 
-const logger = createLogger("TokenPoolClient");
+// Module-level logger - will be updated with proper level in createTokenPoolClient
+let logger = createLogger("TokenPoolClient");
 
 export interface TokenPoolInfo {
   programId: PublicKey;
@@ -255,6 +261,16 @@ export interface TokenPoolClient {
    * @returns Transaction signature
    */
   deleteChainConfig(options: DeleteChainConfigOptions): Promise<string>;
+
+  /**
+   * Updates the global self-served allowed flag
+   * @param options The options for updating the self-served allowed flag
+   * @returns Transaction signature
+   */
+  updateSelfServedAllowed(options: {
+    selfServedAllowed: boolean;
+    txOptions?: any;
+  }): Promise<string>;
 }
 
 /**
@@ -272,6 +288,13 @@ export async function createTokenPoolClient(
   tokenMint: PublicKey,
   options: TokenPoolClientOptions
 ): Promise<TokenPoolClient> {
+  // Update the module logger with the correct log level from options
+  if (options.logLevel !== undefined) {
+    logger = createLogger("TokenPoolClient", { level: options.logLevel });
+
+    setGlobalLogLevel(options.logLevel);
+  }
+
   // Get the token pool manager directly using the factory function
   const tokenPoolManager = createTokenPoolManager(programId, options);
 
@@ -725,6 +748,33 @@ export async function createTokenPoolClient(
       } catch (error) {
         logger.error(
           `Failed to delete chain config: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
+    updateSelfServedAllowed: async (options: {
+      selfServedAllowed: boolean;
+      txOptions?: any;
+    }) => {
+      const { selfServedAllowed, txOptions } = options;
+      logger.info(
+        `Updating global self-served allowed flag to: ${selfServedAllowed}`
+      );
+      try {
+        // Use the SDK client to update self-served allowed flag
+        const tx = await sdkClient.updateSelfServedAllowed({
+          selfServedAllowed,
+          ...txOptions, // Spread the tx options directly since UpdateSelfServedAllowedOptions extends TxOptions
+        });
+
+        logger.info(`Self-served allowed flag updated. Transaction: ${tx}`);
+        return tx;
+      } catch (error) {
+        logger.error(
+          `Failed to update self-served allowed flag: ${
             error instanceof Error ? error.message : String(error)
           }`
         );

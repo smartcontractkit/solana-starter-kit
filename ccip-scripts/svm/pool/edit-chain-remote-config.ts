@@ -115,7 +115,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("edit-chain-remote-config", {
-    level: (options["log-level"] as LogLevel) || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Chain Remote Configuration Editor");

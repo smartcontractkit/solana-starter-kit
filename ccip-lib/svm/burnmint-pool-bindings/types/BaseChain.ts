@@ -5,28 +5,28 @@ import * as borsh from "@coral-xyz/borsh"
 
 export interface BaseChainFields {
   remote: types.RemoteConfigFields
-  inbound_rate_limit: types.RateLimitTokenBucketFields
-  outbound_rate_limit: types.RateLimitTokenBucketFields
+  inboundRateLimit: types.RateLimitTokenBucketFields
+  outboundRateLimit: types.RateLimitTokenBucketFields
 }
 
 export interface BaseChainJSON {
   remote: types.RemoteConfigJSON
-  inbound_rate_limit: types.RateLimitTokenBucketJSON
-  outbound_rate_limit: types.RateLimitTokenBucketJSON
+  inboundRateLimit: types.RateLimitTokenBucketJSON
+  outboundRateLimit: types.RateLimitTokenBucketJSON
 }
 
 export class BaseChain {
   readonly remote: types.RemoteConfig
-  readonly inbound_rate_limit: types.RateLimitTokenBucket
-  readonly outbound_rate_limit: types.RateLimitTokenBucket
+  readonly inboundRateLimit: types.RateLimitTokenBucket
+  readonly outboundRateLimit: types.RateLimitTokenBucket
 
   constructor(fields: BaseChainFields) {
     this.remote = new types.RemoteConfig({ ...fields.remote })
-    this.inbound_rate_limit = new types.RateLimitTokenBucket({
-      ...fields.inbound_rate_limit,
+    this.inboundRateLimit = new types.RateLimitTokenBucket({
+      ...fields.inboundRateLimit,
     })
-    this.outbound_rate_limit = new types.RateLimitTokenBucket({
-      ...fields.outbound_rate_limit,
+    this.outboundRateLimit = new types.RateLimitTokenBucket({
+      ...fields.outboundRateLimit,
     })
   }
 
@@ -34,8 +34,8 @@ export class BaseChain {
     return borsh.struct(
       [
         types.RemoteConfig.layout("remote"),
-        types.RateLimitTokenBucket.layout("inbound_rate_limit"),
-        types.RateLimitTokenBucket.layout("outbound_rate_limit"),
+        types.RateLimitTokenBucket.layout("inboundRateLimit"),
+        types.RateLimitTokenBucket.layout("outboundRateLimit"),
       ],
       property
     )
@@ -45,11 +45,11 @@ export class BaseChain {
   static fromDecoded(obj: any) {
     return new BaseChain({
       remote: types.RemoteConfig.fromDecoded(obj.remote),
-      inbound_rate_limit: types.RateLimitTokenBucket.fromDecoded(
-        obj.inbound_rate_limit
+      inboundRateLimit: types.RateLimitTokenBucket.fromDecoded(
+        obj.inboundRateLimit
       ),
-      outbound_rate_limit: types.RateLimitTokenBucket.fromDecoded(
-        obj.outbound_rate_limit
+      outboundRateLimit: types.RateLimitTokenBucket.fromDecoded(
+        obj.outboundRateLimit
       ),
     })
   }
@@ -57,11 +57,11 @@ export class BaseChain {
   static toEncodable(fields: BaseChainFields) {
     return {
       remote: types.RemoteConfig.toEncodable(fields.remote),
-      inbound_rate_limit: types.RateLimitTokenBucket.toEncodable(
-        fields.inbound_rate_limit
+      inboundRateLimit: types.RateLimitTokenBucket.toEncodable(
+        fields.inboundRateLimit
       ),
-      outbound_rate_limit: types.RateLimitTokenBucket.toEncodable(
-        fields.outbound_rate_limit
+      outboundRateLimit: types.RateLimitTokenBucket.toEncodable(
+        fields.outboundRateLimit
       ),
     }
   }
@@ -69,19 +69,19 @@ export class BaseChain {
   toJSON(): BaseChainJSON {
     return {
       remote: this.remote.toJSON(),
-      inbound_rate_limit: this.inbound_rate_limit.toJSON(),
-      outbound_rate_limit: this.outbound_rate_limit.toJSON(),
+      inboundRateLimit: this.inboundRateLimit.toJSON(),
+      outboundRateLimit: this.outboundRateLimit.toJSON(),
     }
   }
 
   static fromJSON(obj: BaseChainJSON): BaseChain {
     return new BaseChain({
       remote: types.RemoteConfig.fromJSON(obj.remote),
-      inbound_rate_limit: types.RateLimitTokenBucket.fromJSON(
-        obj.inbound_rate_limit
+      inboundRateLimit: types.RateLimitTokenBucket.fromJSON(
+        obj.inboundRateLimit
       ),
-      outbound_rate_limit: types.RateLimitTokenBucket.fromJSON(
-        obj.outbound_rate_limit
+      outboundRateLimit: types.RateLimitTokenBucket.fromJSON(
+        obj.outboundRateLimit
       ),
     })
   }

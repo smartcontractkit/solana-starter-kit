@@ -233,7 +233,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("admin-inspect-token", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Configuration Inspector");

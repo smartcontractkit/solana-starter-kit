@@ -71,7 +71,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("get-chain-config", {
-    level: (options["log-level"] as LogLevel) || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Chain Configuration Reader (Read-Only)");

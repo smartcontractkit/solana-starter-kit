@@ -83,7 +83,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("global-config-initialize", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Pool Global Config Initialization");
@@ -143,7 +143,8 @@ async function main() {
 
     const clientOptions: TokenPoolClientOptions = {
       connection: config.connection,
-      logLevel: options.logLevel || LogLevel.INFO, // Use INFO as default
+      logLevel:
+        options.logLevel !== undefined ? options.logLevel : LogLevel.INFO, // Use INFO as default
       skipPreflight: options.skipPreflight,
     };
 
@@ -180,7 +181,7 @@ async function main() {
     logger.info("Next steps:");
     logger.info("1. Deploy your token mint (if not already done)");
     logger.info(
-      "2. Run: yarn svm:pool:initialize --token-mint <MINT> --burn-mint-pool-program <PROGRAM>"
+      "2. Run: yarn svm:pool:update-self-served-allowed --self-served-allowed true --burn-mint-pool-program <PROGRAM>"
     );
   } catch (error) {
     logger.error("Global config initialization failed:", error);

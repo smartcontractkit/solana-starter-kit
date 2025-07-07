@@ -1,5 +1,6 @@
 import { Commitment, PublicKey } from "@solana/web3.js";
 import { TokenPoolChainConfigResponse } from "../core/models";
+import { RemoteChainConfiguredEvent } from "./burnmint/events";
 
 /**
  * Options for controlling Solana transaction execution.
@@ -80,13 +81,13 @@ export interface TokenPoolUpdateOptions {
 }
 
 /**
- * Result type for chain configuration operations that includes optional event data
+ * Result type for chain configuration operations that includes event data
  */
-export interface ChainConfigResult {
+export interface RemoteChainConfigResult {
   /** Transaction signature */
   signature: string;
-  /** Parsed event data (if available) */
-  event?: any;
+  /** Parsed RemoteChainConfigured event data (if parsing succeeds) */
+  event?: RemoteChainConfiguredEvent;
 }
 
 /**
@@ -314,6 +315,38 @@ export interface InitializeStateVersionOptions extends TxOptions {
 }
 
 /**
+ * Options for updating the global self-served allowed flag
+ */
+export interface UpdateSelfServedAllowedOptions extends TxOptions {
+  /** Whether self-served pool creation is allowed */
+  selfServedAllowed: boolean;
+}
+
+/**
+ * Options for updating the global default router
+ */
+export interface UpdateDefaultRouterOptions extends TxOptions {
+  /** PublicKey of the new default router program */
+  routerAddress: PublicKey;
+}
+
+/**
+ * Options for updating the global default RMN
+ */
+export interface UpdateDefaultRmnOptions extends TxOptions {
+  /** PublicKey of the new default RMN program */
+  rmnAddress: PublicKey;
+}
+
+/**
+ * Options for transferring mint authority to a multisig
+ */
+export interface TransferMintAuthorityToMultisigOptions extends TxOptions {
+  /** PublicKey of the new multisig mint authority account */
+  newMultisigMintAuthority: PublicKey;
+}
+
+/**
  * Abstract interface for token pool clients
  */
 export interface TokenPoolClient {
@@ -378,7 +411,7 @@ export interface TokenPoolClient {
     mint: PublicKey,
     destChainSelector: bigint,
     options: InitChainRemoteConfigOptions
-  ): Promise<ChainConfigResult>;
+  ): Promise<RemoteChainConfigResult>;
 
   /**
    * Edit an existing chain remote configuration for a token pool.
@@ -398,7 +431,7 @@ export interface TokenPoolClient {
     mint: PublicKey,
     destChainSelector: bigint,
     options: EditChainRemoteConfigOptions
-  ): Promise<ChainConfigResult>;
+  ): Promise<RemoteChainConfigResult>;
 
   /**
    * Get an existing chain remote configuration for a token pool.
@@ -575,5 +608,64 @@ export interface TokenPoolClient {
   initializeStateVersion(
     mint: PublicKey,
     options?: InitializeStateVersionOptions
+  ): Promise<string>;
+
+  /**
+   * Updates the global self-served allowed flag for the token pool program.
+   *
+   * This controls whether pool creators can initialize pools without being the program upgrade authority.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Configuration options including the new self-served flag and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails.
+   */
+  updateSelfServedAllowed(
+    options: UpdateSelfServedAllowedOptions
+  ): Promise<string>;
+
+  /**
+   * Updates the global default router address for the token pool program.
+   *
+   * This sets the default router that new pools will use unless explicitly overridden.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Configuration options including the new default router address and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails.
+   */
+  updateDefaultRouter(options: UpdateDefaultRouterOptions): Promise<string>;
+
+  /**
+   * Updates the global default RMN address for the token pool program.
+   *
+   * This sets the default RMN (Risk Management Network) that new pools will use unless explicitly overridden.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Configuration options including the new default RMN address and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails.
+   */
+  updateDefaultRmn(options: UpdateDefaultRmnOptions): Promise<string>;
+
+  /**
+   * Transfers the mint authority of a token to a multisig account.
+   *
+   * This is a critical security operation for production deployments that ensures
+   * the mint authority is controlled by a multisig rather than a single key.
+   *
+   * Only callable by the program upgrade authority. The new multisig must:
+   * - Be a valid Token Program or Token-2022 multisig account
+   * - Include the pool signer as one of its signers
+   * - Meet specific threshold requirements for security
+   *
+   * @param mint Token mint whose authority should be transferred.
+   * @param options Configuration containing the new multisig address and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority, if the multisig is invalid, or if the transaction fails.
+   */
+  transferMintAuthorityToMultisig(
+    mint: PublicKey,
+    options: TransferMintAuthorityToMultisigOptions
   ): Promise<string>;
 }

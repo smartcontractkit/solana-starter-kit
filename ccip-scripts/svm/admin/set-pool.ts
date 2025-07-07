@@ -117,7 +117,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("admin-set-pool", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Admin Registry Set Pool");

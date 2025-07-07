@@ -12,4 +12,3 @@ export { BurnMintTokenPoolAccountReader } from "./accounts";
 
 // Export event parsing utilities
 export * from "./events";
-export type { ChainConfigResult } from "./client";

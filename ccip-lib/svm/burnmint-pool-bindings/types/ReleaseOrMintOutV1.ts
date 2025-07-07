@@ -4,46 +4,46 @@ import * as types from "../types" // eslint-disable-line @typescript-eslint/no-u
 import * as borsh from "@coral-xyz/borsh"
 
 export interface ReleaseOrMintOutV1Fields {
-  destination_amount: BN
+  destinationAmount: BN
 }
 
 export interface ReleaseOrMintOutV1JSON {
-  destination_amount: string
+  destinationAmount: string
 }
 
 export class ReleaseOrMintOutV1 {
-  readonly destination_amount: BN
+  readonly destinationAmount: BN
 
   constructor(fields: ReleaseOrMintOutV1Fields) {
-    this.destination_amount = fields.destination_amount
+    this.destinationAmount = fields.destinationAmount
   }
 
   static layout(property?: string) {
-    return borsh.struct([borsh.u64("destination_amount")], property)
+    return borsh.struct([borsh.u64("destinationAmount")], property)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static fromDecoded(obj: any) {
     return new ReleaseOrMintOutV1({
-      destination_amount: obj.destination_amount,
+      destinationAmount: obj.destinationAmount,
     })
   }
 
   static toEncodable(fields: ReleaseOrMintOutV1Fields) {
     return {
-      destination_amount: fields.destination_amount,
+      destinationAmount: fields.destinationAmount,
     }
   }
 
   toJSON(): ReleaseOrMintOutV1JSON {
     return {
-      destination_amount: this.destination_amount.toString(),
+      destinationAmount: this.destinationAmount.toString(),
     }
   }
 
   static fromJSON(obj: ReleaseOrMintOutV1JSON): ReleaseOrMintOutV1 {
     return new ReleaseOrMintOutV1({
-      destination_amount: new BN(obj.destination_amount),
+      destinationAmount: new BN(obj.destinationAmount),
     })
   }
 

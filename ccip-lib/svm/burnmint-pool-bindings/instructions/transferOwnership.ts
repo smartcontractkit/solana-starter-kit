@@ -4,31 +4,37 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface InitializeAccounts {
+export interface TransferOwnershipArgs {
+  proposedOwner: PublicKey
+}
+
+export interface TransferOwnershipAccounts {
   state: PublicKey
   mint: PublicKey
   authority: PublicKey
-  systemProgram: PublicKey
-  program: PublicKey
-  programData: PublicKey
-  config: PublicKey
 }
 
-export function initialize(
-  accounts: InitializeAccounts,
+export const layout = borsh.struct([borsh.publicKey("proposedOwner")])
+
+export function transferOwnership(
+  args: TransferOwnershipArgs,
+  accounts: TransferOwnershipAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
     { pubkey: accounts.state, isSigner: false, isWritable: true },
     { pubkey: accounts.mint, isSigner: false, isWritable: false },
-    { pubkey: accounts.authority, isSigner: true, isWritable: true },
-    { pubkey: accounts.systemProgram, isSigner: false, isWritable: false },
-    { pubkey: accounts.program, isSigner: false, isWritable: false },
-    { pubkey: accounts.programData, isSigner: false, isWritable: false },
-    { pubkey: accounts.config, isSigner: false, isWritable: false },
+    { pubkey: accounts.authority, isSigner: true, isWritable: false },
   ]
-  const identifier = Buffer.from([175, 175, 109, 31, 13, 152, 155, 237])
-  const data = identifier
+  const identifier = Buffer.from([65, 177, 215, 73, 53, 45, 99, 47])
+  const buffer = Buffer.alloc(1000)
+  const len = layout.encode(
+    {
+      proposedOwner: args.proposedOwner,
+    },
+    buffer
+  )
+  const data = Buffer.concat([identifier, buffer]).slice(0, 8 + len)
   const ix = new TransactionInstruction({ keys, programId, data })
   return ix
 }

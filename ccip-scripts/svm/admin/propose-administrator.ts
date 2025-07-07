@@ -91,7 +91,7 @@ async function main() {
 
   // Create logger
   const logger = createLogger("admin-propose-administrator", {
-    level: options.logLevel || LogLevel.INFO,
+    level: options.logLevel ?? LogLevel.INFO,
   });
 
   logger.info("CCIP Token Admin Registry Propose Administrator");

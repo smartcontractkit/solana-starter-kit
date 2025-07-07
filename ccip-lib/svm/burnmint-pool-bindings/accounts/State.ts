@@ -4,18 +4,33 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface StateFields {}
+export interface StateFields {
+  version: number
+  config: types.BaseConfigFields
+}
 
-export interface StateJSON {}
+export interface StateJSON {
+  version: number
+  config: types.BaseConfigJSON
+}
 
 export class State {
+  readonly version: number
+  readonly config: types.BaseConfig
+
   static readonly discriminator = Buffer.from([
     216, 146, 107, 94, 104, 75, 182, 177,
   ])
 
-  static readonly layout = borsh.struct([])
+  static readonly layout = borsh.struct([
+    borsh.u8("version"),
+    types.BaseConfig.layout("config"),
+  ])
 
-  constructor(fields: StateFields) {}
+  constructor(fields: StateFields) {
+    this.version = fields.version
+    this.config = new types.BaseConfig({ ...fields.config })
+  }
 
   static async fetch(
     c: Connection,
@@ -60,14 +75,23 @@ export class State {
 
     const dec = State.layout.decode(data.slice(8))
 
-    return new State({})
+    return new State({
+      version: dec.version,
+      config: types.BaseConfig.fromDecoded(dec.config),
+    })
   }
 
   toJSON(): StateJSON {
-    return {}
+    return {
+      version: this.version,
+      config: this.config.toJSON(),
+    }
   }
 
   static fromJSON(obj: StateJSON): State {
-    return new State({})
+    return new State({
+      version: obj.version,
+      config: types.BaseConfig.fromJSON(obj.config),
+    })
   }
 }

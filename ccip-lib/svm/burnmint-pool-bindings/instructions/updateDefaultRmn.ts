@@ -4,31 +4,39 @@ import * as borsh from "@coral-xyz/borsh" // eslint-disable-line @typescript-esl
 import * as types from "../types" // eslint-disable-line @typescript-eslint/no-unused-vars
 import { PROGRAM_ID } from "../programId"
 
-export interface InitializeAccounts {
-  state: PublicKey
-  mint: PublicKey
-  authority: PublicKey
-  systemProgram: PublicKey
-  program: PublicKey
-  programData: PublicKey
-  config: PublicKey
+export interface UpdateDefaultRmnArgs {
+  rmnAddress: PublicKey
 }
 
-export function initialize(
-  accounts: InitializeAccounts,
+export interface UpdateDefaultRmnAccounts {
+  config: PublicKey
+  authority: PublicKey
+  program: PublicKey
+  programData: PublicKey
+}
+
+export const layout = borsh.struct([borsh.publicKey("rmnAddress")])
+
+export function updateDefaultRmn(
+  args: UpdateDefaultRmnArgs,
+  accounts: UpdateDefaultRmnAccounts,
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
-    { pubkey: accounts.state, isSigner: false, isWritable: true },
-    { pubkey: accounts.mint, isSigner: false, isWritable: false },
-    { pubkey: accounts.authority, isSigner: true, isWritable: true },
-    { pubkey: accounts.systemProgram, isSigner: false, isWritable: false },
+    { pubkey: accounts.config, isSigner: false, isWritable: true },
+    { pubkey: accounts.authority, isSigner: true, isWritable: false },
     { pubkey: accounts.program, isSigner: false, isWritable: false },
     { pubkey: accounts.programData, isSigner: false, isWritable: false },
-    { pubkey: accounts.config, isSigner: false, isWritable: false },
   ]
-  const identifier = Buffer.from([175, 175, 109, 31, 13, 152, 155, 237])
-  const data = identifier
+  const identifier = Buffer.from([204, 186, 36, 125, 180, 133, 227, 162])
+  const buffer = Buffer.alloc(1000)
+  const len = layout.encode(
+    {
+      rmnAddress: args.rmnAddress,
+    },
+    buffer
+  )
+  const data = Buffer.concat([identifier, buffer]).slice(0, 8 + len)
   const ix = new TransactionInstruction({ keys, programId, data })
   return ix
 }

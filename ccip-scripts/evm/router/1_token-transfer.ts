@@ -11,7 +11,7 @@
  *
  * 2. Customize the message parameters below if needed
  *
- * 3. Run the script with: npm run evm:token-transfer
+ * 3. Run the script with: yarn evm:token-transfer
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)

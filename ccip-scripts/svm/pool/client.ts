@@ -1,12 +1,18 @@
 import { PublicKey, Connection } from "@solana/web3.js";
-import { TokenPoolType, createLogger } from "../../../ccip-lib/svm";
+import {
+  TokenPoolType,
+  createLogger,
+  LogLevel,
+  setGlobalLogLevel,
+} from "../../../ccip-lib/svm";
 import { createTokenPoolManager } from "../utils/client-factory";
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { loadKeypair } from "../utils/provider";
 import { CommonOptions, getKeypairPath } from "../utils/config-parser";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 
-const logger = createLogger("TokenPoolClient");
+// Module-level logger - will be updated with proper level in createTokenPoolClient
+let logger = createLogger("TokenPoolClient");
 
 export interface TokenPoolInfo {
   programId: PublicKey;
@@ -23,9 +29,21 @@ export interface InitializePoolOptions {
 }
 
 /**
- * Options for configuring a chain
+ * Options for initializing a chain remote configuration
  */
-export interface ConfigureChainOptions {
+export interface InitChainRemoteConfigOptions {
+  mint: PublicKey;
+  remoteChainSelector: bigint;
+  /** Pool addresses on the remote chain (must be empty for initialization, as required by Rust program) */
+  poolAddresses?: string[];
+  tokenAddress: string;
+  decimals: number;
+}
+
+/**
+ * Options for editing a chain remote configuration
+ */
+export interface EditChainRemoteConfigOptions {
   mint: PublicKey;
   remoteChainSelector: bigint;
   poolAddresses: string[];
@@ -108,6 +126,14 @@ export interface AppendRemotePoolAddressesOptions {
 }
 
 /**
+ * Options for getting a chain config
+ */
+export interface GetChainConfigOptions {
+  mint: PublicKey;
+  remoteChainSelector: bigint;
+}
+
+/**
  * Options for deleting a chain config
  */
 export interface DeleteChainConfigOptions {
@@ -116,6 +142,19 @@ export interface DeleteChainConfigOptions {
 }
 
 export interface TokenPoolClient {
+  /**
+   * Gets the global configuration information for the token pool program
+   * @returns Global configuration information
+   */
+  getGlobalConfigInfo(): Promise<any>;
+
+  /**
+   * Initializes the global configuration for the token pool program
+   * @param options The options for initializing global config
+   * @returns Transaction signature
+   */
+  initializeGlobalConfig(options?: { txOptions?: any }): Promise<string>;
+
   /**
    * Gets information about the token pool
    * @param options The options for getting pool info
@@ -131,11 +170,25 @@ export interface TokenPoolClient {
   initializePool(options: InitializePoolOptions): Promise<string>;
 
   /**
-   * Configures a chain for the token pool
-   * @param options The options for configuring a chain
+   * Initializes a chain remote configuration for the token pool
+   * @param options The options for initializing a chain remote config
    * @returns Transaction signature
    */
-  configureChain(options: ConfigureChainOptions): Promise<string>;
+  initChainRemoteConfig(options: InitChainRemoteConfigOptions): Promise<string>;
+
+  /**
+   * Edits a chain remote configuration for the token pool
+   * @param options The options for editing a chain remote config
+   * @returns Transaction signature
+   */
+  editChainRemoteConfig(options: EditChainRemoteConfigOptions): Promise<string>;
+
+  /**
+   * Gets a chain remote configuration for the token pool
+   * @param options The options for getting a chain remote config
+   * @returns Chain configuration data
+   */
+  getChainConfig(options: GetChainConfigOptions): Promise<any>;
 
   /**
    * Sets rate limits for token transfers
@@ -208,6 +261,16 @@ export interface TokenPoolClient {
    * @returns Transaction signature
    */
   deleteChainConfig(options: DeleteChainConfigOptions): Promise<string>;
+
+  /**
+   * Updates the global self-served allowed flag
+   * @param options The options for updating the self-served allowed flag
+   * @returns Transaction signature
+   */
+  updateSelfServedAllowed(options: {
+    selfServedAllowed: boolean;
+    txOptions?: any;
+  }): Promise<string>;
 }
 
 /**
@@ -225,6 +288,13 @@ export async function createTokenPoolClient(
   tokenMint: PublicKey,
   options: TokenPoolClientOptions
 ): Promise<TokenPoolClient> {
+  // Update the module logger with the correct log level from options
+  if (options.logLevel !== undefined) {
+    logger = createLogger("TokenPoolClient", { level: options.logLevel });
+
+    setGlobalLogLevel(options.logLevel);
+  }
+
   // Get the token pool manager directly using the factory function
   const tokenPoolManager = createTokenPoolManager(programId, options);
 
@@ -242,14 +312,50 @@ export async function createTokenPoolClient(
 
   // Create a wrapper around the SDK client that implements our interface
   return {
+    getGlobalConfigInfo: async () => {
+      logger.info(`Fetching global config info for program: ${programId}`);
+      try {
+        const globalConfigInfo = await sdkClient.getGlobalConfigInfo();
+
+        logger.debug(`Global config info retrieved successfully`);
+        return globalConfigInfo;
+      } catch (error) {
+        logger.error(
+          `Failed to fetch global config info: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
+    initializeGlobalConfig: async (options?: { txOptions?: any }) => {
+      logger.info(`Initializing global config for program: ${programId}`);
+      try {
+        const tx = await sdkClient.initializeGlobalConfig(options);
+
+        logger.info(
+          `Global config initialized successfully. Transaction: ${tx}`
+        );
+        return tx;
+      } catch (error) {
+        logger.error(
+          `Failed to initialize global config: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
     getPoolInfo: async () => {
-      logger.info(`Fetching pool info for token: ${tokenMint}`);
+      logger.debug(`Fetching pool info for token: ${tokenMint}`);
       try {
         const sdkPoolInfo = (await sdkClient.getPoolInfo(
           mintPubkey
         )) as BurnMintTokenPoolInfo;
 
-        logger.debug(`Pool info retrieved: ${JSON.stringify(sdkPoolInfo)}`);
+        logger.debug(`Pool info retrieved successfully`);
         return sdkPoolInfo;
       } catch (error) {
         logger.error(
@@ -281,7 +387,7 @@ export async function createTokenPoolClient(
       }
     },
 
-    configureChain: async (options: ConfigureChainOptions) => {
+    initChainRemoteConfig: async (options: InitChainRemoteConfigOptions) => {
       const {
         mint,
         remoteChainSelector,
@@ -290,20 +396,120 @@ export async function createTokenPoolClient(
         decimals,
       } = options;
       logger.info(
-        `Configuring chain ${remoteChainSelector.toString()} for mint: ${mint.toString()}`
+        `Initializing chain remote config for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
       );
       try {
-        const tx = await sdkClient.configureChain(mint, remoteChainSelector, {
-          poolAddresses,
-          tokenAddress,
-          decimals,
-        });
+        const result = await sdkClient.initChainRemoteConfig(
+          mint,
+          remoteChainSelector,
+          {
+            poolAddresses,
+            tokenAddress,
+            decimals,
+          }
+        );
 
-        logger.info(`Chain configured successfully. Transaction: ${tx}`);
-        return tx;
+        logger.info(
+          `Chain remote config initialized successfully. Transaction: ${result.signature}`
+        );
+
+        // Log event data if available
+        if (result.event) {
+          logger.debug(`Event data parsed:`, {
+            chainSelector: result.event.chainSelector.toString(),
+            mint: result.event.mint.toString(),
+            tokenAddress: Buffer.from(result.event.token.address).toString(
+              "hex"
+            ),
+            poolAddressCount: result.event.poolAddresses.length,
+          });
+        } else {
+          logger.debug(`No event data parsed from transaction`);
+        }
+
+        return result.signature;
       } catch (error) {
         logger.error(
-          `Failed to configure chain: ${
+          `Failed to initialize chain remote config: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
+    editChainRemoteConfig: async (options: EditChainRemoteConfigOptions) => {
+      const {
+        mint,
+        remoteChainSelector,
+        poolAddresses,
+        tokenAddress,
+        decimals,
+      } = options;
+      logger.info(
+        `Editing chain remote config for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
+      );
+      try {
+        const result = await sdkClient.editChainRemoteConfig(
+          mint,
+          remoteChainSelector,
+          {
+            poolAddresses,
+            tokenAddress,
+            decimals,
+          }
+        );
+
+        logger.info(
+          `Chain remote config edited successfully. Transaction: ${result.signature}`
+        );
+
+        // Log event data if available
+        if (result.event) {
+          logger.debug(`Event data parsed:`, {
+            chainSelector: result.event.chainSelector.toString(),
+            mint: result.event.mint.toString(),
+            tokenAddress: Buffer.from(result.event.token.address).toString(
+              "hex"
+            ),
+            previousTokenAddress: Buffer.from(
+              result.event.previousToken.address
+            ).toString("hex"),
+            poolAddressCount: result.event.poolAddresses.length,
+            previousPoolAddressCount: result.event.previousPoolAddresses.length,
+          });
+        } else {
+          logger.debug(`No event data parsed from transaction`);
+        }
+
+        return result.signature;
+      } catch (error) {
+        logger.error(
+          `Failed to edit chain remote config: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
+    getChainConfig: async (options: GetChainConfigOptions) => {
+      const { mint, remoteChainSelector } = options;
+      logger.info(
+        `Getting chain config for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
+      );
+      try {
+        const accountReader = sdkClient.getAccountReader();
+        const chainConfig = await accountReader.getChainConfig(
+          mint,
+          remoteChainSelector
+        );
+
+        logger.debug(`Chain config retrieved successfully`);
+        return chainConfig;
+      } catch (error) {
+        logger.error(
+          `Failed to get chain config: ${
             error instanceof Error ? error.message : String(error)
           }`
         );
@@ -349,7 +555,7 @@ export async function createTokenPoolClient(
       logger.info(
         `Checking if chain config exists for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
       );
-      
+
       try {
         // First check if the pool exists at all
         try {
@@ -358,21 +564,23 @@ export async function createTokenPoolClient(
           logger.debug(`No pool found for mint: ${mint.toString()}`);
           return false;
         }
-        
+
         // If available, prefer a direct exists check method
         const accountReader = sdkClient.getAccountReader();
-        
+
         // Check specifically for chain config existence
         // Use appropriate SDK method if available (hasChainConfig, existsChainConfig, etc.)
-        // If no direct check method available, fetch with minimal data 
+        // If no direct check method available, fetch with minimal data
         const chainConfig = await accountReader.getChainConfig(
-          mint, 
+          mint,
           remoteChainSelector
         );
-        
+
         const exists = !!chainConfig;
         logger.debug(
-          `Chain config ${exists ? "exists" : "does not exist"} for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
+          `Chain config ${
+            exists ? "exists" : "does not exist"
+          } for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
         );
         return exists;
       } catch (error) {
@@ -540,6 +748,33 @@ export async function createTokenPoolClient(
       } catch (error) {
         logger.error(
           `Failed to delete chain config: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
+    updateSelfServedAllowed: async (options: {
+      selfServedAllowed: boolean;
+      txOptions?: any;
+    }) => {
+      const { selfServedAllowed, txOptions } = options;
+      logger.info(
+        `Updating global self-served allowed flag to: ${selfServedAllowed}`
+      );
+      try {
+        // Use the SDK client to update self-served allowed flag
+        const tx = await sdkClient.updateSelfServedAllowed({
+          selfServedAllowed,
+          ...txOptions, // Spread the tx options directly since UpdateSelfServedAllowedOptions extends TxOptions
+        });
+
+        logger.info(`Self-served allowed flag updated. Transaction: ${tx}`);
+        return tx;
+      } catch (error) {
+        logger.error(
+          `Failed to update self-served allowed flag: ${
             error instanceof Error ? error.message : String(error)
           }`
         );

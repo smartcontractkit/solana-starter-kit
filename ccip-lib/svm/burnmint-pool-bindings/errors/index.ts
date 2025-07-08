@@ -1,12 +1,15 @@
 import { PublicKey } from "@solana/web3.js"
 import { PROGRAM_ID } from "../programId"
 import * as anchor from "./anchor"
+import * as custom from "./custom"
 
 export function fromCode(
   code: number,
   logs?: string[]
-): anchor.AnchorError | null {
-  return anchor.fromCode(code, logs)
+): custom.CustomError | anchor.AnchorError | null {
+  return code >= 6000
+    ? custom.fromCode(code, logs)
+    : anchor.fromCode(code, logs)
 }
 
 function hasOwnProperty<X extends object, Y extends PropertyKey>(
@@ -21,7 +24,7 @@ const errorRe = /Program (\w+) failed: custom program error: (\w+)/
 export function fromTxError(
   err: unknown,
   programId: PublicKey = PROGRAM_ID
-): anchor.AnchorError | null {
+): custom.CustomError | anchor.AnchorError | null {
   if (
     typeof err !== "object" ||
     err === null ||

@@ -18,6 +18,7 @@ import {
 import { BN } from "@coral-xyz/anchor";
 import { Logger } from "../../utils/logger";
 import { createErrorEnhancer } from "../../utils/errors";
+import { detectTokenProgram } from "../../utils/token";
 import {
   CCIPContext,
   CCIPSendRequest,
@@ -89,16 +90,11 @@ export async function sendCCIPMessage(
   // Determine the correct fee token program ID
   let feeTokenProgramId = TOKEN_PROGRAM_ID;
   if (!isNativeSol) {
-    try {
-      const feeTokenMintInfo = await connection.getAccountInfo(feeTokenMint);
-      if (feeTokenMintInfo) {
-        feeTokenProgramId = feeTokenMintInfo.owner;
-      } else {
-        feeTokenProgramId = TOKEN_2022_PROGRAM_ID;
-      }
-    } catch (error) {
-      feeTokenProgramId = TOKEN_2022_PROGRAM_ID;
-    }
+    feeTokenProgramId = await detectTokenProgram(
+      feeTokenMint,
+      connection,
+      logger
+    );
   }
 
   const selectorBigInt = BigInt(request.destChainSelector.toString());
@@ -194,17 +190,40 @@ export async function sendCCIPMessage(
     maxRetries: 5, // Increased retries
   });
 
-  // Wait for transaction confirmation with improved options
-  await connection.confirmTransaction(
-    {
-      signature,
-      blockhash,
-      lastValidBlockHeight,
-    },
-    "finalized"
-  ); // Using finalized
-
-  logger.info(`CCIP message sent successfully: ${signature}`);
+  // Handle transaction confirmation differently based on skipPreflight setting
+  if (sendOptions?.skipPreflight) {
+    // When skipPreflight is enabled, we want to return the signature even if the transaction fails
+    logger.warn("⚠️  skipPreflight enabled - returning signature without waiting for confirmation");
+    logger.info(`Transaction submitted with signature: ${signature}`);
+    
+    try {
+      // Still try to confirm but don't fail if it errors
+      await connection.confirmTransaction(
+        {
+          signature,
+          blockhash,
+          lastValidBlockHeight,
+        },
+        "finalized"
+      );
+      logger.info(`CCIP message sent successfully: ${signature}`);
+    } catch (confirmError) {
+      logger.warn(`Transaction confirmation failed, but transaction was submitted: ${signature}`);
+      // Don't throw the error, just log it and return the signature
+      logger.debug(`Confirmation error: ${confirmError instanceof Error ? confirmError.message : String(confirmError)}`);
+    }
+  } else {
+    // Normal confirmation behavior when skipPreflight is false
+    await connection.confirmTransaction(
+      {
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      },
+      "finalized"
+    );
+    logger.info(`CCIP message sent successfully: ${signature}`);
+  }
 
   return signature;
 }
@@ -354,27 +373,11 @@ async function buildTokenAccountsForSend(
       );
 
       // Determine token program from token mint
-      let tokenProgram = PublicKey.default;
-      try {
-        const tokenMintInfo = await connection.getAccountInfo(tokenMint);
-        if (tokenMintInfo) {
-          tokenProgram = tokenMintInfo.owner;
-          logger.debug(
-            `Auto-detected token program: ${tokenProgram.toString()} for token: ${tokenMint.toString()}`
-          );
-        } else {
-          logger.warn(
-            `Token mint info not found for ${tokenMint.toString()}, using fallback token program ${TOKEN_2022_PROGRAM_ID}`
-          );
-          tokenProgram = TOKEN_2022_PROGRAM_ID;
-        }
-      } catch (error) {
-        logger.warn(
-          `Error determining token program, using fallback: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
+      const tokenProgram = await detectTokenProgram(
+        tokenMint,
+        connection,
+        logger
+      );
 
       // Get token admin registry for this token to access lookup table
       const tokenAdminRegistry = await accountReader.getTokenAdminRegistry(

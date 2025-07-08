@@ -1,5 +1,6 @@
 import { Commitment, PublicKey } from "@solana/web3.js";
 import { TokenPoolChainConfigResponse } from "../core/models";
+import { RemoteChainConfiguredEvent } from "./burnmint/events";
 
 /**
  * Options for controlling Solana transaction execution.
@@ -80,21 +81,39 @@ export interface TokenPoolUpdateOptions {
 }
 
 /**
- * Options for configuring a chain in a burn-mint token pool
+ * Result type for chain configuration operations that includes event data
  */
-export interface BurnMintChainConfigOptions {
-  /** Whether transfers to this chain are enabled */
-  enabled: boolean;
-  /** Max tokens per message */
-  maxTokensPerMessage: bigint;
-  /** Fee bps (basis points) */
-  feeBps: number;
-  /** Pool addresses */
-  poolAddresses: string[];
-  /** Token address */
+export interface RemoteChainConfigResult {
+  /** Transaction signature */
+  signature: string;
+  /** Parsed RemoteChainConfigured event data (if parsing succeeds) */
+  event?: RemoteChainConfiguredEvent;
+}
+
+/**
+ * Options for initializing a chain remote configuration
+ */
+export interface InitChainRemoteConfigOptions {
+  /** Pool addresses on the remote chain (must be empty for initialization, as required by Rust program) */
+  poolAddresses?: string[];
+  /** Token address on the remote chain */
   tokenAddress: string;
-  /** Decimals */
-  decimals?: number;
+  /** Token decimals on the remote chain */
+  decimals: number;
+  /** Transaction options */
+  txOptions?: TxOptions;
+}
+
+/**
+ * Options for editing a chain remote configuration
+ */
+export interface EditChainRemoteConfigOptions {
+  /** Pool addresses on the remote chain */
+  poolAddresses: string[];
+  /** Token address on the remote chain */
+  tokenAddress: string;
+  /** Token decimals on the remote chain */
+  decimals: number;
   /** Transaction options */
   txOptions?: TxOptions;
 }
@@ -139,6 +158,17 @@ export interface BurnMintSetRateLimitOptions {
  * data without modifying state.
  */
 export interface TokenPoolAccountReader {
+  /**
+   * Fetch the global configuration for the token pool program
+   *
+   * Retrieves the program-wide configuration that applies to all pools,
+   * including global settings like self-served pool creation permissions.
+   *
+   * @returns Global configuration data including version and global settings
+   * @throws Error if global configuration is not found or not initialized
+   */
+  getGlobalConfigInfo(): Promise<any>;
+
   /**
    * Fetch the base configuration for a token pool
    *
@@ -285,6 +315,38 @@ export interface InitializeStateVersionOptions extends TxOptions {
 }
 
 /**
+ * Options for updating the global self-served allowed flag
+ */
+export interface UpdateSelfServedAllowedOptions extends TxOptions {
+  /** Whether self-served pool creation is allowed */
+  selfServedAllowed: boolean;
+}
+
+/**
+ * Options for updating the global default router
+ */
+export interface UpdateDefaultRouterOptions extends TxOptions {
+  /** PublicKey of the new default router program */
+  routerAddress: PublicKey;
+}
+
+/**
+ * Options for updating the global default RMN
+ */
+export interface UpdateDefaultRmnOptions extends TxOptions {
+  /** PublicKey of the new default RMN program */
+  rmnAddress: PublicKey;
+}
+
+/**
+ * Options for transferring mint authority to a multisig
+ */
+export interface TransferMintAuthorityToMultisigOptions extends TxOptions {
+  /** PublicKey of the new multisig mint authority account */
+  newMultisigMintAuthority: PublicKey;
+}
+
+/**
  * Abstract interface for token pool clients
  */
 export interface TokenPoolClient {
@@ -292,6 +354,28 @@ export interface TokenPoolClient {
    * Get the program ID for this token pool
    */
   getProgramId(): PublicKey;
+
+  /**
+   * Get the global configuration information for the token pool program
+   *
+   * Retrieves the program-wide configuration that applies to all pools.
+   *
+   * @returns Global configuration data including version and global settings
+   * @throws Error if global configuration is not found or not initialized
+   */
+  getGlobalConfigInfo(): Promise<any>;
+
+  /**
+   * Initialize the global configuration for the token pool program.
+   *
+   * This must be called once per program deployment before any pools can be initialized.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Optional transaction execution settings
+   * @returns A Promise resolving to the transaction signature string
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails
+   */
+  initializeGlobalConfig(options?: { txOptions?: TxOptions }): Promise<string>;
 
   /**
    * Get information about the token pool
@@ -310,11 +394,10 @@ export interface TokenPoolClient {
   ): Promise<string>;
 
   /**
-   * Configure a chain for a token pool.
+   * Initialize a new chain remote configuration for a token pool.
    *
-   * This method handles both initializing new chain configurations and updating existing ones.
-   * If the chain configuration for the specified remoteChainSelector doesn't exist, it will
-   * create a new one. If it already exists, it will update the configuration.
+   * This method creates a new chain configuration for the specified remoteChainSelector.
+   * The chain configuration must not already exist for this operation to succeed.
    *
    * Only the current owner can call this method.
    *
@@ -322,13 +405,48 @@ export interface TokenPoolClient {
    * @param destChainSelector The unique identifier (bigint) of the remote blockchain network.
    * @param options Configuration options including remote token address, pool addresses, and decimals.
    * @returns A Promise resolving to the transaction signature string.
-   * @throws Error if the pool doesn't exist, if the caller lacks permissions, or if the transaction fails.
+   * @throws Error if the pool doesn't exist, if the chain config already exists, if the caller lacks permissions, or if the transaction fails.
    */
-  configureChain(
+  initChainRemoteConfig(
     mint: PublicKey,
     destChainSelector: bigint,
-    options: Record<string, any>
-  ): Promise<string>;
+    options: InitChainRemoteConfigOptions
+  ): Promise<RemoteChainConfigResult>;
+
+  /**
+   * Edit an existing chain remote configuration for a token pool.
+   *
+   * This method updates an existing chain configuration for the specified remoteChainSelector.
+   * The chain configuration must already exist for this operation to succeed.
+   *
+   * Only the current owner can call this method.
+   *
+   * @param mint Token mint identifying the pool.
+   * @param destChainSelector The unique identifier (bigint) of the remote blockchain network.
+   * @param options Configuration options including remote token address, pool addresses, and decimals.
+   * @returns A Promise resolving to the transaction result with signature and optional event data.
+   * @throws Error if the pool doesn't exist, if the chain config doesn't exist, if the caller lacks permissions, or if the transaction fails.
+   */
+  editChainRemoteConfig(
+    mint: PublicKey,
+    destChainSelector: bigint,
+    options: EditChainRemoteConfigOptions
+  ): Promise<RemoteChainConfigResult>;
+
+  /**
+   * Get an existing chain remote configuration for a token pool.
+   *
+   * This method retrieves the chain configuration for the specified remoteChainSelector.
+   * The chain configuration must exist for this operation to succeed.
+   *
+   * This is a read-only operation that can be called by anyone.
+   *
+   * @param mint Token mint identifying the pool.
+   * @param destChainSelector The unique identifier (bigint) of the remote blockchain network.
+   * @returns A Promise resolving to the chain configuration data.
+   * @throws Error if the pool doesn't exist or if the chain config doesn't exist.
+   */
+  getChainConfig(mint: PublicKey, destChainSelector: bigint): Promise<any>;
 
   /**
    * Sets the rate limits for a specific remote chain configuration within a token pool.
@@ -403,7 +521,10 @@ export interface TokenPoolClient {
    * @returns A Promise resolving to the transaction signature string.
    * @throws Error if the caller is not the proposed owner or if the transaction fails.
    */
-  acceptAdminRole(mint: PublicKey, options?: AcceptAdminRoleOptions): Promise<string>;
+  acceptAdminRole(
+    mint: PublicKey,
+    options?: AcceptAdminRoleOptions
+  ): Promise<string>;
 
   /**
    * Sets the router address for the token pool.
@@ -426,7 +547,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including remote chain selector, addresses, and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  appendRemotePoolAddresses(mint: PublicKey, options: AppendRemotePoolAddressesOptions): Promise<string>;
+  appendRemotePoolAddresses(
+    mint: PublicKey,
+    options: AppendRemotePoolAddressesOptions
+  ): Promise<string>;
 
   /**
    * Deletes the configuration for a specific remote chain.
@@ -438,7 +562,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including remote chain selector and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  deleteChainConfig(mint: PublicKey, options: DeleteChainConfigOptions): Promise<string>;
+  deleteChainConfig(
+    mint: PublicKey,
+    options: DeleteChainConfigOptions
+  ): Promise<string>;
 
   /**
    * Configures the sender allowlist for the token pool.
@@ -449,7 +576,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including addresses to add, enabled flag, and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  configureAllowlist(mint: PublicKey, options: ConfigureAllowlistOptions): Promise<string>;
+  configureAllowlist(
+    mint: PublicKey,
+    options: ConfigureAllowlistOptions
+  ): Promise<string>;
 
   /**
    * Removes addresses from the sender allowlist for the token pool.
@@ -460,7 +590,10 @@ export interface TokenPoolClient {
    * @param options Configuration options including addresses to remove and transaction settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  removeFromAllowlist(mint: PublicKey, options: RemoveFromAllowlistOptions): Promise<string>;
+  removeFromAllowlist(
+    mint: PublicKey,
+    options: RemoveFromAllowlistOptions
+  ): Promise<string>;
 
   /**
    * Initializes the state version of a pool if it's currently uninitialized (version 0).
@@ -472,5 +605,67 @@ export interface TokenPoolClient {
    * @param options Optional transaction execution settings.
    * @returns A Promise resolving to the transaction signature string.
    */
-  initializeStateVersion(mint: PublicKey, options?: InitializeStateVersionOptions): Promise<string>;
+  initializeStateVersion(
+    mint: PublicKey,
+    options?: InitializeStateVersionOptions
+  ): Promise<string>;
+
+  /**
+   * Updates the global self-served allowed flag for the token pool program.
+   *
+   * This controls whether pool creators can initialize pools without being the program upgrade authority.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Configuration options including the new self-served flag and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails.
+   */
+  updateSelfServedAllowed(
+    options: UpdateSelfServedAllowedOptions
+  ): Promise<string>;
+
+  /**
+   * Updates the global default router address for the token pool program.
+   *
+   * This sets the default router that new pools will use unless explicitly overridden.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Configuration options including the new default router address and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails.
+   */
+  updateDefaultRouter(options: UpdateDefaultRouterOptions): Promise<string>;
+
+  /**
+   * Updates the global default RMN address for the token pool program.
+   *
+   * This sets the default RMN (Risk Management Network) that new pools will use unless explicitly overridden.
+   * Only callable by the program upgrade authority.
+   *
+   * @param options Configuration options including the new default RMN address and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority or if the transaction fails.
+   */
+  updateDefaultRmn(options: UpdateDefaultRmnOptions): Promise<string>;
+
+  /**
+   * Transfers the mint authority of a token to a multisig account.
+   *
+   * This is a critical security operation for production deployments that ensures
+   * the mint authority is controlled by a multisig rather than a single key.
+   *
+   * Only callable by the program upgrade authority. The new multisig must:
+   * - Be a valid Token Program or Token-2022 multisig account
+   * - Include the pool signer as one of its signers
+   * - Meet specific threshold requirements for security
+   *
+   * @param mint Token mint whose authority should be transferred.
+   * @param options Configuration containing the new multisig address and transaction settings.
+   * @returns A Promise resolving to the transaction signature string.
+   * @throws Error if the caller is not the program upgrade authority, if the multisig is invalid, or if the transaction fails.
+   */
+  transferMintAuthorityToMultisig(
+    mint: PublicKey,
+    options: TransferMintAuthorityToMultisigOptions
+  ): Promise<string>;
 }

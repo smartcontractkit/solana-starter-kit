@@ -2,35 +2,43 @@
 
 This directory contains reference implementation scripts for interacting with the Cross-Chain Interoperability Protocol (CCIP).
 
+> 🎯 **This is the main overview and quick reference guide**  
+> For detailed documentation: [SVM (Solana)](./svm/README.md) | [EVM (Ethereum)](./evm/README.md)
+
 ## Table of Contents
 
 - [Directory Structure](#directory-structure)
 - [Configuration](#configuration)
-- [Running Scripts](#running-scripts)
+- [Quick Start](#quick-start)
+- [Script Categories](#script-categories)
   - [Solana VM (SVM) Scripts](#solana-vm-svm-scripts)
   - [Ethereum VM (EVM) Scripts](#ethereum-vm-evm-scripts)
-- [Token Management](#token-management)
-- [Configuration Testing](#configuration-testing)
+- [Prerequisites](#prerequisites)
 - [Troubleshooting](#troubleshooting)
 
 ## Directory Structure
 
 The scripts are organized by virtual machine type and functionality:
 
-- `config/` - Unified configuration for all chains and platforms
-- `evm/` - Scripts for Ethereum Virtual Machine chains
-  - `router/` - EVM Router operations (transfers, messaging)
-  - `token/` - EVM token operations
-  - `utils/` - EVM utility functions
-- `svm/` - Scripts for Solana Virtual Machine
-  - `router/` - SVM Router operations (transfers, messaging)
-  - `token/` - SVM token operations (delegation, wrapping)
-  - `utils/` - SVM utility functions
-  - `receiver/` - Receivers for CCIP messages and token transfers
+```
+ccip-scripts/
+├── config/                    # Unified configuration for all chains
+├── evm/                      # Ethereum Virtual Machine scripts
+│   ├── router/               # Cross-chain transfers and messaging
+│   ├── token/                # Token operations (drip faucet)
+│   └── utils/                # EVM utility functions
+└── svm/                      # Solana Virtual Machine scripts
+    ├── router/               # Cross-chain transfers and messaging
+    ├── token/                # Token operations (creation, delegation)
+    ├── pool/                 # Token pool management
+    ├── admin/                # Token admin registry operations
+    ├── receiver/             # CCIP message receivers
+    └── utils/                # SVM utility functions
+```
 
 ## Configuration
 
-The configuration system has been unified to provide a consistent approach for both EVM and SVM chains. All network-specific settings, contract addresses, and chain selectors are centralized in the configuration files.
+The configuration system provides a unified approach for both EVM and SVM chains. All network-specific settings, contract addresses, and chain selectors are centralized in the configuration files.
 
 ### Key Configuration Elements
 
@@ -43,13 +51,13 @@ The configuration system has been unified to provide a consistent approach for b
 
 ```typescript
 // Import configuration elements
-import { 
-  ChainId, 
-  getEVMConfig, 
-  getCCIPSVMConfig, 
+import {
+  ChainId,
+  getEVMConfig,
+  getCCIPSVMConfig,
   getEVMFeeTokenAddress,
-  FeeTokenType
-} from './config';
+  FeeTokenType,
+} from "./config";
 
 // Get Ethereum configuration
 const evmConfig = getEVMConfig(ChainId.ETHEREUM_SEPOLIA);
@@ -58,102 +66,167 @@ console.log("Router address:", evmConfig.routerAddress);
 // Get Solana configuration
 const svmConfig = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
 console.log("Router program ID:", svmConfig.routerProgramId);
-
-// Get a specific fee token address
-const linkTokenAddress = getEVMFeeTokenAddress(evmConfig, FeeTokenType.LINK);
 ```
 
-## Running Scripts
+## Quick Start
 
-The scripts are organized by chain type and function. Use the yarn/npm scripts defined in `package.json` to run them.
+### For Solana (SVM) Development
+
+1. **Setup**: Install dependencies and fund wallet with SOL
+2. **Create Tokens**:
+   - **SPL Token (Legacy)**: `yarn svm:token:create` - Maximum compatibility
+   - **Token-2022**: `yarn svm:token:create-2022` - Advanced features & future-proof
+3. **Token Administration**: `yarn svm:admin:propose-administrator` → `yarn svm:admin:accept-admin-role`
+4. **Token Pools**: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize` → `yarn svm:pool:create-token-account`
+5. **CCIP Preparation**: `yarn svm:token:wrap` → `yarn svm:token:delegate`
+
+### For Ethereum (EVM) Development
+
+1. **Setup**: Install dependencies and fund wallet with test ETH
+2. **Get Test Tokens**: `yarn evm:token:drip`
+3. **Send Messages**: `yarn evm:transfer` / `yarn evm:arbitrary-messaging`
+
+## Script Categories
 
 ### Solana VM (SVM) Scripts
 
 #### Router Operations
 
-```bash
-# Check CCIP fee estimation
-yarn ccip:fee
-
-# Token transfer from Solana to another chain
-yarn svm:token-transfer
-
-# Send arbitrary messages through CCIP
-yarn svm:arbitrary-messaging
-
-# Send both data and tokens in a single transaction
-yarn svm:data-and-tokens
-```
+| Script                         | Purpose                                       |
+| ------------------------------ | --------------------------------------------- |
+| `yarn svm:fee`                 | Estimate CCIP fees for cross-chain operations |
+| `yarn svm:token-transfer`      | Transfer tokens between chains                |
+| `yarn svm:arbitrary-messaging` | Send arbitrary data between chains            |
+| `yarn svm:data-and-tokens`     | Send both data and tokens in one transaction  |
 
 #### Token Operations
 
-```bash
-# Wrap native SOL to wSOL (needed for token operations)
-yarn svm:token:wrap
+| Script                       | Purpose                                 |
+| ---------------------------- | --------------------------------------- |
+| `yarn svm:token:create`      | Create SPL Token (legacy) with metadata |
+| `yarn svm:token:create-2022` | Create Token-2022 with metadata         |
+| `yarn svm:token:mint`        | Mint tokens to specified accounts       |
+| `yarn svm:token:wrap`        | Wrap SOL to wSOL for CCIP fees          |
+| `yarn svm:token:delegate`    | Delegate token authority to CCIP router |
+| `yarn svm:token:check`       | Verify token delegations and balances   |
 
-# Specify custom amount in lamports
-yarn svm:token:wrap --amount 20000000
+#### Token Pool Management
 
-# Delegate token authority (required for CCIP transfers)
-yarn svm:token:delegate
+| Script                                   | Purpose                                        |
+| ---------------------------------------- | ---------------------------------------------- |
+| `yarn svm:pool:init-global-config`       | Initialize global config (once per deployment) |
+| `yarn svm:pool:initialize`               | Initialize token pool (once per token)         |
+| `yarn svm:pool:create-token-account`     | Create pool token account (ATA) for transfers  |
+| `yarn svm:pool:get-info`                 | Get detailed pool configuration                |
+| `yarn svm:pool:set-router`               | Set CCIP router for pool                       |
+| `yarn svm:pool:get-pool-signer`          | Get pool signer PDA address                    |
+| `yarn svm:pool:init-chain-remote-config` | Initialize remote chain configuration          |
+| `yarn svm:pool:edit-chain-remote-config` | Edit remote chain configuration                |
+| `yarn svm:pool:get-chain-config`         | Read remote chain configuration                |
 
-# Check token approval status
-yarn svm:token:check
-```
+#### Token Admin Registry
+
+| Script                                 | Purpose                                      |
+| -------------------------------------- | -------------------------------------------- |
+| `yarn svm:admin:propose-administrator` | Propose token administrator (mint authority) |
+| `yarn svm:admin:accept-admin-role`     | Accept administrator role (two-step process) |
+| `yarn svm:admin:create-alt`            | Create Address Lookup Table for pool         |
+| `yarn svm:admin:set-pool`              | Register ALT with token (administrator)      |
+| `yarn svm:admin:inspect-token`         | Inspect token CCIP configuration             |
+
+#### CCIP Receivers
+
+| Script                          | Purpose                                   |
+| ------------------------------- | ----------------------------------------- |
+| `yarn svm:receiver:deploy`      | Deploy a new CCIP receiver program        |
+| `yarn svm:receiver:initialize`  | Initialize receiver for incoming messages |
+| `yarn svm:receiver:get-message` | Get latest received message               |
+| `yarn svm:receiver:close`       | Close receiver storage accounts           |
+
+> 📖 **For detailed usage, options, and troubleshooting**: See [SVM Scripts Documentation](./svm/README.md)
 
 ### Ethereum VM (EVM) Scripts
 
 #### Router Operations
 
-```bash
-# Token transfer from Ethereum to another chain
-yarn evm:transfer
-
-# Send arbitrary messages through CCIP
-yarn evm:arbitrary-messaging
-
-# Send both data and tokens in a single transaction
-yarn evm:data-and-tokens
-```
+| Script                         | Purpose                                         |
+| ------------------------------ | ----------------------------------------------- |
+| `yarn evm:transfer`            | Transfer tokens from Ethereum to another chain  |
+| `yarn evm:arbitrary-messaging` | Send arbitrary messages through CCIP            |
+| `yarn evm:data-and-tokens`     | Send both data and tokens in single transaction |
 
 #### Token Operations
 
+| Script                | Purpose                               |
+| --------------------- | ------------------------------------- |
+| `yarn evm:token:drip` | Get test tokens on supported networks |
+
+> 📖 **For detailed EVM documentation**: See [EVM Scripts Documentation](./evm/README.md)
+
+## Prerequisites
+
+### General Requirements
+
+- Node.js v20+ (v23.11.0 recommended)
+- Yarn package manager
+- Git for cloning repositories
+
+### Solana (SVM) Requirements
+
+- Solana CLI tools
+- Wallet with SOL on Devnet for testing
+- Default keypair at `~/.config/solana/id.json`
+- Optional: Test keypair at `~/.config/solana/keytest.json`
+
+### Ethereum (EVM) Requirements
+
+- Web3 wallet (MetaMask, etc.)
+- Test ETH on supported networks
+- Private key configuration for scripts
+
+### Installation
+
 ```bash
-# Get test tokens on supported networks
-yarn evm:token:drip
+# Install all dependencies
+yarn install
+
+# Verify TypeScript compilation
+yarn type-check
 ```
-
-## Token Management
-
-Before sending tokens through CCIP from Solana, you must perform these steps:
-
-1. Wrap SOL if you're using native SOL as the source token:
-   ```bash
-   yarn svm:token:wrap
-   ```
-
-2. Delegate token authority to the CCIP program:
-   ```bash
-   yarn svm:token:delegate
-   ```
-
-3. Verify token approvals before attempting transfers:
-   ```bash
-   yarn svm:token:check
-   ```
-
-## Configuration Testing
-
-To verify that the configuration is working correctly, you can inspect the configuration values by adding custom logging to your scripts or creating a dedicated test script.
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Transaction Timeout** - If you encounter "block height exceeded" errors, try increasing the commitment levels or adding retries in your transactions.
+#### Solana (SVM)
 
-2. **Insufficient Balance** - Ensure you have enough balance for both the token transfer and gas fees. For Solana, remember that token operations require wrapped SOL.
+- **Insufficient Balance**: Ensure sufficient SOL for transaction fees
+- **Permission Errors**: Run `yarn svm:token:delegate` before CCIP transfers
+- **Network Issues**: Verify devnet connection and RPC endpoints
 
-3. **Missing Token Delegation** - CCIP transfers from Solana require token delegation to the CCIP program. Run `yarn svm:token:delegate` before token transfers.
+#### Ethereum (EVM)
 
-4. **Network Congestion** - During peak usage times, consider adjusting the confirmation options or increasing transaction priority. 
+- **Gas Estimation Failures**: Increase gas limits during network congestion
+- **Token Approval Issues**: Ensure sufficient token approvals for transfers
+- **Network Configuration**: Verify correct network settings in wallet
+
+### Debug Commands
+
+```bash
+# Increase logging verbosity for SVM scripts
+yarn svm:fee -- --log-level DEBUG
+
+# Skip preflight checks for complex transactions
+yarn svm:token-transfer -- --skip-preflight
+
+# Use test keypair for isolated testing
+yarn svm:token:wrap -- --use-test-keypair
+```
+
+### Getting Help
+
+- **Detailed Guides**: [SVM Documentation](./svm/README.md) | [EVM Documentation](./evm/README.md)
+- **Configuration Issues**: Check the `config/` directory for network settings
+- **Script-Specific Help**: Add `--help` flag to any script for usage information
+
+> 🔧 **For comprehensive troubleshooting**: See platform-specific documentation linked above

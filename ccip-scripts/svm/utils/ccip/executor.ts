@@ -86,7 +86,6 @@ export async function executeCCIPScript({
     const ccipClient = createCCIPClient({
       keypairPath,
       logLevel: options.logLevel,
-      skipPreflight: options.skipPreflight,
     });
 
     // Get configuration
@@ -354,6 +353,18 @@ export async function executeCCIPScript({
       ? { skipPreflight: true }
       : undefined;
 
+    logger.info(
+      `Transaction options: ${
+        sendOptions ? "skipPreflight=true" : "default settings"
+      }`
+    );
+
+    if (options.skipPreflight) {
+      logger.warn(
+        "⚠️  SKIPPING PREFLIGHT - Transaction will be forced to network even if it might fail"
+      );
+    }
+
     // Use the client to send the message
     const result = await ccipClient.sendWithMessageId(
       sendRequest,
@@ -377,11 +388,21 @@ export async function executeCCIPScript({
       `https://explorer.solana.com/tx/${result.txSignature}?cluster=devnet`
     );
   } catch (error) {
-    logger.error(
-      `\n❌ Failed to send CCIP message: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+    // Improved error message formatting
+    let errorMessage = "Unknown error";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (error && typeof error === "object") {
+      try {
+        errorMessage = JSON.stringify(error, null, 2);
+      } catch {
+        errorMessage = String(error);
+      }
+    } else {
+      errorMessage = String(error);
+    }
+
+    logger.error(`\n❌ Failed to send CCIP message: ${errorMessage}`);
 
     if (error instanceof Error && error.stack) {
       logger.debug("\nError stack:");
@@ -393,6 +414,7 @@ export async function executeCCIPScript({
         logger.error(JSON.stringify((error as any).context, null, 2));
       }
     }
+
     printUsage(usageName);
     process.exit(1);
   }

@@ -10,3 +10,5 @@ test-ledger
 .yarn
 id.json
 .env
+.env.enc
+log/*

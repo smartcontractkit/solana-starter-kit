@@ -16,7 +16,6 @@ export interface RegisterTokenOptions {
   tokenMint: PublicKey;
   lookupTable: PublicKey;
   writableIndices: number[];
-  destinationChain: number;
 }
 
 /**
@@ -47,6 +46,15 @@ export interface AcceptAdminRoleOptions {
 export interface TransferAdminRoleOptions {
   tokenMint: PublicKey;
   newAdmin: PublicKey;
+}
+
+/**
+ * Options for creating a token pool lookup table
+ */
+export interface CreateTokenPoolLookupTableOptions {
+  tokenMint: PublicKey;
+  poolProgramId: PublicKey;
+  feeQuoterProgramId: PublicKey;
 }
 
 export interface TokenRegistryClient {
@@ -93,6 +101,19 @@ export interface TokenRegistryClient {
   transferAdminRole(
     options: TransferAdminRoleOptions
   ): Promise<TokenRegistryTransaction>;
+
+  /**
+   * Creates an Address Lookup Table (ALT) for a token pool
+   *
+   * This method creates and extends an ALT with all the addresses required for CCIP token operations.
+   * The ALT is essential for efficient cross-chain transactions.
+   *
+   * @param options The options for creating a token pool lookup table
+   * @returns Promise resolving to the creation result with signature and ALT details
+   */
+  createTokenPoolLookupTable(
+    options: CreateTokenPoolLookupTableOptions
+  ): Promise<TokenRegistryTransaction>;
 }
 
 export async function createTokenRegistryClient(
@@ -107,11 +128,10 @@ export async function createTokenRegistryClient(
 
   return {
     setPool: async (options: RegisterTokenOptions) => {
-      const { tokenMint, lookupTable, writableIndices, destinationChain } =
-        options;
+      const { tokenMint, lookupTable, writableIndices } = options;
 
       logger.info(
-        `Registering token ${tokenMint.toString()} for destination chain ${destinationChain}`
+        `Registering token ${tokenMint.toString()} with lookup table ${lookupTable.toString()}`
       );
       logger.info(`Using lookup table: ${lookupTable.toString()}`);
       logger.info(`With writable indices: ${writableIndices.join(", ")}`);
@@ -238,6 +258,38 @@ export async function createTokenRegistryClient(
             error instanceof Error ? error.message : String(error)
           }`
         );
+        throw error;
+      }
+    },
+
+    createTokenPoolLookupTable: async (
+      options: CreateTokenPoolLookupTableOptions
+    ) => {
+      const { tokenMint, poolProgramId, feeQuoterProgramId } = options;
+
+      logger.info(
+        `Creating token pool lookup table for mint: ${tokenMint.toString()}`
+      );
+      logger.info(`Pool program ID: ${poolProgramId.toString()}`);
+      logger.info(`Fee quoter program ID: ${feeQuoterProgramId.toString()}`);
+      logger.info(`Token program ID: Auto-detected from on-chain data`);
+
+      try {
+        // Call the underlying client method
+        const result = await sdkClient.createTokenPoolLookupTable({
+          tokenMint,
+          poolProgramId,
+          feeQuoterProgramId,
+        });
+
+        logger.info(`Token pool lookup table created successfully!`);
+        logger.info(`ALT Address: ${result.lookupTableAddress.toString()}`);
+        logger.info(`Transaction: ${result.signature}`);
+        logger.info(`Total addresses in ALT: ${result.addresses.length}`);
+
+        return { signature: result.signature };
+      } catch (error) {
+        logger.error("Failed to create token pool lookup table:", error);
         throw error;
       }
     },

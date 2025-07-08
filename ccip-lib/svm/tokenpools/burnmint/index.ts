@@ -9,3 +9,6 @@
 // Export the client implementation
 export { BurnMintTokenPoolClient } from "./client";
 export { BurnMintTokenPoolAccountReader } from "./accounts";
+
+// Export event parsing utilities
+export * from "./events";

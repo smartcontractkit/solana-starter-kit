@@ -196,7 +196,7 @@ export function parseTokenArgs(): TokenOptions {
  * @param scriptName Name of the script for customized help
  */
 export function printUsage(scriptName: string): void {
-  console.log(`\nUsage: npm run ${scriptName} [options]\n`);
+  console.log(`\nUsage: yarn ${scriptName} [options]\n`);
   console.log("Common Options:");
   console.log(
     "  --network <devnet|mainnet>    Specify network (default: devnet)"

@@ -12,6 +12,8 @@ export interface SetRouterAccounts {
   state: PublicKey
   mint: PublicKey
   authority: PublicKey
+  program: PublicKey
+  programData: PublicKey
 }
 
 export const layout = borsh.struct([borsh.publicKey("newRouter")])
@@ -22,9 +24,11 @@ export function setRouter(
   programId: PublicKey = PROGRAM_ID
 ) {
   const keys: Array<AccountMeta> = [
-    { pubkey: accounts.state, isSigner: false, isWritable: true },
+    { pubkey: accounts.state, isSigner: false, isWritable: false },
     { pubkey: accounts.mint, isSigner: false, isWritable: false },
-    { pubkey: accounts.authority, isSigner: true, isWritable: false },
+    { pubkey: accounts.authority, isSigner: true, isWritable: true },
+    { pubkey: accounts.program, isSigner: false, isWritable: false },
+    { pubkey: accounts.programData, isSigner: false, isWritable: false },
   ]
   const identifier = Buffer.from([236, 248, 107, 200, 151, 160, 44, 250])
   const buffer = Buffer.alloc(1000)

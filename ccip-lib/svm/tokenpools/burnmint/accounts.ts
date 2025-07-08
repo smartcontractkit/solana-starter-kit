@@ -1,19 +1,35 @@
 import { PublicKey } from "@solana/web3.js";
 import { CCIPContext, TokenPoolChainConfigResponse } from "../../core/models";
-import { TokenPoolAccountReader, TokenPoolRateLimit, TokenPoolInfo } from "../abstract";
+import {
+  TokenPoolAccountReader,
+  TokenPoolRateLimit,
+  TokenPoolInfo,
+} from "../abstract";
 import { createLogger, Logger, LogLevel } from "../../utils/logger";
 import { createErrorEnhancer } from "../../utils/errors";
 import {
   findBurnMintPoolConfigPDA,
   findBurnMintPoolChainConfigPDA,
+  findGlobalConfigPDA,
+  TOKEN_POOL_GLOBAL_CONFIG_SEED,
+  TOKEN_POOL_STATE_SEED,
+  TOKEN_POOL_CHAIN_CONFIG_SEED,
 } from "../../utils/pdas/tokenpool";
-import {
-  State,
-  StateFields,
-  ChainConfig,
-  ChainConfigFields,
-} from "../../burnmint-pool-bindings/accounts";
 import { RemoteAddress } from "../../burnmint-pool-bindings/types";
+import { StateFields, State } from "../../burnmint-pool-bindings/types/State";
+import {
+  ChainConfigFields,
+  ChainConfig,
+} from "../../burnmint-pool-bindings/types/ChainConfig";
+import {
+  PoolConfigFields,
+  PoolConfig,
+} from "../../burnmint-pool-bindings/types/PoolConfig";
+
+/**
+ * Global configuration for burn-mint pools
+ */
+export type BurnMintGlobalConfig = PoolConfig;
 
 /**
  * Burn-mint pool configuration
@@ -23,7 +39,7 @@ export type BurnMintPoolConfig = StateFields;
 /**
  * Chain configuration for burn-mint pools
  */
-export type BurnMintChainConfig = ChainConfigFields;
+export type BurnMintChainConfig = ChainConfig;
 
 /**
  * Complete information for a burn-mint token pool
@@ -58,6 +74,99 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
   }
 
   /**
+   * Fetches the global configuration for the burn-mint token pool program
+   * @see TokenPoolAccountReader.getGlobalConfigInfo
+   */
+  async getGlobalConfigInfo(): Promise<BurnMintGlobalConfig> {
+    const enhanceError = createErrorEnhancer(this.logger);
+
+    try {
+      this.logger.debug(
+        `Fetching global config for program: ${this.programId.toString()}`
+      );
+      const [pda, bump] = findGlobalConfigPDA(this.programId);
+      this.logger.info(`📍 Global Config PDA: ${pda.toString()}`);
+      this.logger.debug(`  PDA bump: ${bump}`);
+      this.logger.trace(
+        `PDA derivation: seeds=[${TOKEN_POOL_GLOBAL_CONFIG_SEED}], program=${this.programId.toString()}`
+      );
+
+      // Get account info to first check if it exists and is owned by our program
+      this.logger.trace(
+        `Fetching account info for global config PDA: ${pda.toString()}`
+      );
+      const accountInfo = await this.context.provider.connection.getAccountInfo(
+        pda
+      );
+
+      if (!accountInfo) {
+        this.logger.debug(
+          `Global config account not found at PDA: ${pda.toString()}`
+        );
+        throw new Error(
+          `Global config not found for program: ${this.programId.toString()}`
+        );
+      }
+
+      this.logger.debug(
+        `Global config account found: owner=${accountInfo.owner.toString()}, dataLength=${
+          accountInfo.data.length
+        }, lamports=${accountInfo.lamports}`
+      );
+      this.logger.trace(
+        `Account data (first 32 bytes): ${Buffer.from(accountInfo.data)
+          .subarray(0, 32)
+          .toString("hex")}`
+      );
+
+      // Verify account is owned by our program
+      if (!accountInfo.owner.equals(this.programId)) {
+        this.logger.debug(
+          `Global config account owner mismatch: expected=${this.programId.toString()}, actual=${accountInfo.owner.toString()}`
+        );
+        throw new Error(
+          `Global config account is not owned by program: ${this.programId.toString()}`
+        );
+      }
+
+      // Decode the account data using borsh and the PoolConfig layout
+      this.logger.trace(
+        `Decoding global config data: discriminator=${Buffer.from(
+          accountInfo.data
+        )
+          .subarray(0, 8)
+          .toString("hex")}`
+      );
+      const decoded = PoolConfig.layout().decode(
+        Buffer.from(accountInfo.data).subarray(8)
+      ); // Skip 8-byte discriminator
+      this.logger.trace(
+        `Raw decoded global config data: version=${decoded.version}`
+      );
+      const globalConfig = PoolConfig.fromDecoded(decoded);
+
+      if (!globalConfig) {
+        throw new Error(
+          `Failed to decode global config for program: ${this.programId.toString()}`
+        );
+      }
+
+      this.logger.debug("Successfully decoded global config:", {
+        version: globalConfig.version,
+        selfServedAllowed: globalConfig.self_served_allowed,
+      });
+      this.logger.trace("Complete global config details:", globalConfig);
+
+      return globalConfig;
+    } catch (error) {
+      throw enhanceError(error, {
+        operation: "getGlobalConfigInfo",
+        programId: this.programId.toString(),
+      });
+    }
+  }
+
+  /**
    * Fetches a burn-mint pool config account
    * @see TokenPoolAccountReader.getPoolConfig
    */
@@ -68,26 +177,90 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       this.logger.debug(
         `Fetching burn-mint pool config for mint: ${mint.toString()}`
       );
-      const [pda] = findBurnMintPoolConfigPDA(mint, this.programId);
-      this.logger.trace(`Pool config PDA: ${pda.toString()}`);
-
-      // Use the generated account fetch method
-      const poolConfig = await State.fetch(
-        this.context.provider.connection,
-        pda,
-        this.programId
+      const [pda, bump] = findBurnMintPoolConfigPDA(mint, this.programId);
+      this.logger.info(`📍 Pool Config PDA: ${pda.toString()}`);
+      this.logger.debug(`  PDA bump: ${bump}`);
+      this.logger.trace(
+        `PDA derivation: seeds=[${TOKEN_POOL_STATE_SEED}, ${mint.toString()}], program=${this.programId.toString()}`
       );
 
-      if (!poolConfig) {
+      // Get account info to first check if it exists and is owned by our program
+      this.logger.trace(`Fetching account info for PDA: ${pda.toString()}`);
+      const accountInfo = await this.context.provider.connection.getAccountInfo(
+        pda
+      );
+
+      if (!accountInfo) {
+        this.logger.debug(`Account not found at PDA: ${pda.toString()}`);
         throw new Error(
           `Burn-mint pool config not found for mint: ${mint.toString()}`
         );
       }
 
-      this.logger.trace("Retrieved burn-mint pool config:", {
+      this.logger.debug(
+        `Account found: owner=${accountInfo.owner.toString()}, dataLength=${
+          accountInfo.data.length
+        }, lamports=${accountInfo.lamports}`
+      );
+      this.logger.trace(
+        `Account data (first 32 bytes): ${Buffer.from(accountInfo.data)
+          .subarray(0, 32)
+          .toString("hex")}`
+      );
+
+      // Verify account is owned by our program
+      if (!accountInfo.owner.equals(this.programId)) {
+        this.logger.debug(
+          `Account owner mismatch: expected=${this.programId.toString()}, actual=${accountInfo.owner.toString()}`
+        );
+        throw new Error(
+          `Account is not owned by program: ${this.programId.toString()}`
+        );
+      }
+
+      // Decode the account data using borsh and the State layout
+      this.logger.trace(
+        `Decoding account data: discriminator=${Buffer.from(accountInfo.data)
+          .subarray(0, 8)
+          .toString("hex")}`
+      );
+      const decoded = State.layout().decode(
+        Buffer.from(accountInfo.data).subarray(8)
+      ); // Skip 8-byte discriminator
+      this.logger.trace(`Raw decoded data: version=${decoded.version}`);
+      const poolConfig = State.fromDecoded(decoded);
+
+      if (!poolConfig) {
+        throw new Error(
+          `Failed to decode pool config for mint: ${mint.toString()}`
+        );
+      }
+
+      this.logger.debug("Successfully decoded pool config:", {
+        version: poolConfig.version,
         mint: poolConfig.config.mint.toString(),
         owner: poolConfig.config.owner.toString(),
+        decimals: poolConfig.config.decimals,
+        router: poolConfig.config.router.toString(),
+      });
+      this.logger.trace("Complete pool config details:", {
         version: poolConfig.version,
+        tokenProgram: poolConfig.config.tokenProgram.toString(),
+        mint: poolConfig.config.mint.toString(),
+        decimals: poolConfig.config.decimals,
+        poolSigner: poolConfig.config.poolSigner.toString(),
+        poolTokenAccount: poolConfig.config.poolTokenAccount.toString(),
+        owner: poolConfig.config.owner.toString(),
+        proposedOwner: poolConfig.config.proposedOwner.toString(),
+        rateLimitAdmin: poolConfig.config.rateLimitAdmin.toString(),
+        routerOnrampAuthority:
+          poolConfig.config.routerOnrampAuthority.toString(),
+        router: poolConfig.config.router.toString(),
+        rebalancer: poolConfig.config.rebalancer.toString(),
+        canAcceptLiquidity: poolConfig.config.canAcceptLiquidity,
+        listEnabled: poolConfig.config.listEnabled,
+        allowListLength: poolConfig.config.allowList.length,
+        rmnRemote: poolConfig.config.rmnRemote.toString(),
       });
 
       return poolConfig;
@@ -117,12 +290,16 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
       this.logger.debug(
         `Fetching chain config for mint: ${mint.toString()}, chain: ${remoteChainSelector.toString()}`
       );
-      const [pda] = findBurnMintPoolChainConfigPDA(
+      const [pda, bump] = findBurnMintPoolChainConfigPDA(
         remoteChainSelector,
         mint,
         this.programId
       );
-      this.logger.trace(`Chain config PDA: ${pda.toString()}`);
+      this.logger.info(`📍 Chain Config PDA: ${pda.toString()}`);
+      this.logger.debug(`  PDA bump: ${bump}`);
+      this.logger.trace(
+        `PDA derivation: seeds=[${TOKEN_POOL_CHAIN_CONFIG_SEED}, ${remoteChainSelector.toString()}, ${mint.toString()}], program=${this.programId.toString()}`
+      );
 
       // Get account info to first check if it exists and is owned by our program
       const accountInfo = await this.context.provider.connection.getAccountInfo(
@@ -142,8 +319,11 @@ export class BurnMintTokenPoolAccountReader implements TokenPoolAccountReader {
         );
       }
 
-      // Decode the account data
-      const chainConfigAccount = ChainConfig.decode(accountInfo.data);
+      // Decode the account data using borsh and the ChainConfig layout
+      const decoded = ChainConfig.layout().decode(
+        Buffer.from(accountInfo.data).subarray(8)
+      ); // Skip 8-byte discriminator
+      const chainConfigAccount = ChainConfig.fromDecoded(decoded);
 
       if (!chainConfigAccount) {
         throw new Error(

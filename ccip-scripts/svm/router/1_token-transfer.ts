@@ -11,7 +11,7 @@
  *
  * 2. Customize the message parameters below if needed
  *
- * 3. Run the script with: npm run svm:token-transfer
+ * 3. Run the script with: yarn svm:token-transfer
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)
@@ -24,10 +24,10 @@
  * --token-amount    : Amount to transfer (or comma-separated list matching the token-mint order)
  *
  * Example for single token transfer:
- * npm run svm:token-transfer -- --token-mint TokenAddressHere --token-amount 1000000
+ * yarn svm:token-transfer -- --token-mint TokenAddressHere --token-amount 1000000
  *
  * Example for multiple token transfer:
- * npm run svm:token-transfer -- --token-mint "TokenAddress1,TokenAddress2" --token-amount "1000000,2000000"
+ * yarn svm:token-transfer -- --token-mint "TokenAddress1,TokenAddress2" --token-amount "1000000,2000000"
  */
 
 // Import our unified configuration

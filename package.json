@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@chainlink/solana-sdk": "^0.2.2",
-    "@coral-xyz/anchor": "^0.31.0",
+    "@coral-xyz/anchor": "^0.31.1",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@metaplex-foundation/mpl-toolbox": "^0.10.0",
     "@metaplex-foundation/umi": "^1.2.0",

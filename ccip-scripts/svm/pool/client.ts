@@ -271,6 +271,22 @@ export interface TokenPoolClient {
     selfServedAllowed: boolean;
     txOptions?: any;
   }): Promise<string>;
+
+  /**
+   * Transfers the mint authority of a token to a multisig account
+   * @param options The options for transferring mint authority to multisig
+   * @returns Transaction signature
+   */
+  transferMintAuthorityToMultisig(options: TransferMintAuthorityToMultisigOptions): Promise<string>;
+}
+
+/**
+ * Options for transferring mint authority to a multisig
+ */
+export interface TransferMintAuthorityToMultisigOptions {
+  mint: PublicKey;
+  newMultisigMintAuthority: PublicKey;
+  txOptions?: any;
 }
 
 /**
@@ -775,6 +791,32 @@ export async function createTokenPoolClient(
       } catch (error) {
         logger.error(
           `Failed to update self-served allowed flag: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      }
+    },
+
+    transferMintAuthorityToMultisig: async (
+      options: TransferMintAuthorityToMultisigOptions
+    ) => {
+      const { mint, newMultisigMintAuthority, txOptions } = options;
+      logger.info(
+        `Transferring mint authority for mint: ${mint.toString()} to multisig: ${newMultisigMintAuthority.toString()}`
+      );
+      try {
+        // Use the SDK client to transfer mint authority to multisig
+        const tx = await sdkClient.transferMintAuthorityToMultisig(mint, {
+          newMultisigMintAuthority,
+          ...txOptions,
+        });
+
+        logger.info(`Mint authority transferred to multisig. Transaction: ${tx}`);
+        return tx;
+      } catch (error) {
+        logger.error(
+          `Failed to transfer mint authority to multisig: ${
             error instanceof Error ? error.message : String(error)
           }`
         );

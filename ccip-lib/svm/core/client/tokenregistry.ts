@@ -105,6 +105,25 @@ export interface CreateTokenPoolLookupTableResult {
 }
 
 /**
+ * Options for extending a token pool lookup table
+ */
+export interface ExtendTokenPoolLookupTableOptions
+  extends TokenRegistryTxOptions {
+  lookupTableAddress: PublicKey;
+  newAddresses: PublicKey[];
+}
+
+/**
+ * Result of extending a token pool lookup table
+ */
+export interface ExtendTokenPoolLookupTableResult {
+  signature: string;
+  lookupTableAddress: PublicKey;
+  newAddresses: PublicKey[];
+  totalAddresses: number;
+}
+
+/**
  * Client for managing token registry administration
  * Used to register and manage token pools with the CCIP router
  */
@@ -890,6 +909,158 @@ export class TokenRegistryClient {
       this.logger.debug("ALT creation result:", {
         lookupTableAddress: result.lookupTableAddress.toString(),
         addressCount: result.addresses.length,
+      });
+
+      return result;
+    } catch (error) {
+      const enhanceError = createErrorEnhancer(this.logger);
+      throw enhanceError(error, errorContext);
+    }
+  }
+
+  /**
+   * Extends an existing Address Lookup Table (ALT) with additional addresses.
+   *
+   * This method adds new addresses to an existing ALT, allowing for more flexible
+   * transaction composition. The caller must be the authority of the ALT to extend it.
+   *
+   * IMPORTANT CONSIDERATIONS:
+   * - ALTs can hold up to 256 addresses maximum
+   * - Each extend operation can add approximately 20-30 addresses per transaction
+   * - You can only extend ALTs where you are the authority
+   * - Extended addresses will be appended to the end of the existing addresses
+   * - The ALT must "warm up" for 1 slot before new addresses can be used
+   *
+   * @param options Configuration options including ALT address and new addresses
+   * @returns Promise resolving to the extension result with signature and ALT details
+   * @throws Error if the caller is not the authority, ALT is frozen, or capacity exceeded
+   */
+  async extendTokenPoolLookupTable(
+    options: ExtendTokenPoolLookupTableOptions
+  ): Promise<ExtendTokenPoolLookupTableResult> {
+    const errorContext = {
+      operation: "extendTokenPoolLookupTable",
+      lookupTableAddress: options.lookupTableAddress.toString(),
+      newAddressCount: options.newAddresses.length.toString(),
+    };
+
+    try {
+      this.logger.info(
+        `Extending lookup table ${options.lookupTableAddress.toString()} with ${
+          options.newAddresses.length
+        } new addresses`
+      );
+
+      // Get signer
+      const signerPublicKey = this.context.provider.getAddress();
+
+      this.logger.debug("Extend ALT details:", {
+        lookupTableAddress: options.lookupTableAddress.toString(),
+        newAddressCount: options.newAddresses.length,
+        signer: signerPublicKey.toString(),
+      });
+
+      // Verify the ALT exists and we have authority
+      this.logger.debug("Verifying ALT exists and checking authority...");
+      const altAccount =
+        await this.context.provider.connection.getAddressLookupTable(
+          options.lookupTableAddress
+        );
+
+      if (!altAccount.value) {
+        throw new Error(
+          `Address Lookup Table not found: ${options.lookupTableAddress.toString()}`
+        );
+      }
+
+      const currentAuthority = altAccount.value.state.authority;
+      if (!currentAuthority) {
+        throw new Error(
+          `ALT has no authority (frozen): ${options.lookupTableAddress.toString()}`
+        );
+      }
+
+      if (!currentAuthority.equals(signerPublicKey)) {
+        throw new Error(
+          `You are not the authority of this ALT. Authority: ${currentAuthority.toString()}, Your key: ${signerPublicKey.toString()}`
+        );
+      }
+
+      this.logger.debug(
+        `ALT verified. Current authority: ${currentAuthority.toString()}`
+      );
+      this.logger.debug(
+        `Current ALT contains ${altAccount.value.state.addresses.length} addresses`
+      );
+
+      // Check if ALT has space for new addresses
+      const currentAddressCount = altAccount.value.state.addresses.length;
+      const newAddressCount = options.newAddresses.length;
+      const totalAfterExtend = currentAddressCount + newAddressCount;
+
+      if (totalAfterExtend > 256) {
+        throw new Error(
+          `ALT capacity exceeded. Current: ${currentAddressCount}, Adding: ${newAddressCount}, Total would be: ${totalAfterExtend}, Max: 256`
+        );
+      }
+
+      this.logger.debug(
+        `ALT capacity check passed: ${currentAddressCount} + ${newAddressCount} = ${totalAfterExtend} / 256`
+      );
+
+      // Log the addresses being added
+      this.logger.debug("New addresses to add:");
+      options.newAddresses.forEach((addr, index) => {
+        this.logger.trace(
+          `  [${currentAddressCount + index}]: ${addr.toString()}`
+        );
+      });
+
+      // Create extend instruction
+      this.logger.debug("Creating extend ALT instruction...");
+      const extendInstruction = AddressLookupTableProgram.extendLookupTable({
+        lookupTable: options.lookupTableAddress,
+        authority: signerPublicKey,
+        payer: signerPublicKey,
+        addresses: options.newAddresses,
+      });
+
+      this.logger.trace("Extend ALT instruction:", {
+        programId: extendInstruction.programId.toString(),
+        dataLength: extendInstruction.data.length,
+        keyCount: extendInstruction.keys.length,
+        addressCount: options.newAddresses.length,
+      });
+
+      // Execute the transaction
+      this.logger.debug("Executing ALT extension transaction...");
+      const executionOptions: TransactionExecutionOptions = {
+        ...extractTxOptions(options),
+        errorContext,
+        operationName: "extendTokenPoolLookupTable",
+      };
+
+      const signature = await executeTransaction(
+        this.context,
+        [extendInstruction],
+        executionOptions
+      );
+
+      const result: ExtendTokenPoolLookupTableResult = {
+        signature,
+        lookupTableAddress: options.lookupTableAddress,
+        newAddresses: options.newAddresses,
+        totalAddresses: totalAfterExtend,
+      };
+
+      this.logger.info(
+        `Token pool lookup table extended successfully. ALT address: ${options.lookupTableAddress.toString()}`
+      );
+      this.logger.info(`Transaction signature: ${signature}`);
+      this.logger.debug("ALT extension result:", {
+        lookupTableAddress: result.lookupTableAddress.toString(),
+        newAddressCount: result.newAddresses.length,
+        totalAddresses: result.totalAddresses,
       });
 
       return result;

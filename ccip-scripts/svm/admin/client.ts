@@ -57,6 +57,14 @@ export interface CreateTokenPoolLookupTableOptions {
   feeQuoterProgramId: PublicKey;
 }
 
+/**
+ * Options for extending a token pool lookup table
+ */
+export interface ExtendTokenPoolLookupTableOptions {
+  lookupTableAddress: PublicKey;
+  newAddresses: PublicKey[];
+}
+
 export interface TokenRegistryClient {
   /**
    * Registers a token in the token admin registry
@@ -113,6 +121,19 @@ export interface TokenRegistryClient {
    */
   createTokenPoolLookupTable(
     options: CreateTokenPoolLookupTableOptions
+  ): Promise<TokenRegistryTransaction>;
+
+  /**
+   * Extends an existing Address Lookup Table (ALT) with additional addresses
+   *
+   * This method adds new addresses to an existing ALT, allowing for more flexible
+   * transaction composition. The caller must be the authority of the ALT to extend it.
+   *
+   * @param options The options for extending the lookup table
+   * @returns Promise resolving to the transaction signature
+   */
+  extendTokenPoolLookupTable(
+    options: ExtendTokenPoolLookupTableOptions
   ): Promise<TokenRegistryTransaction>;
 }
 
@@ -290,6 +311,41 @@ export async function createTokenRegistryClient(
         return { signature: result.signature };
       } catch (error) {
         logger.error("Failed to create token pool lookup table:", error);
+        throw error;
+      }
+    },
+
+    extendTokenPoolLookupTable: async (
+      options: ExtendTokenPoolLookupTableOptions
+    ) => {
+      const { lookupTableAddress, newAddresses } = options;
+
+      logger.info(
+        `Extending lookup table ${lookupTableAddress.toString()} with ${
+          newAddresses.length
+        } new addresses`
+      );
+      logger.debug("New addresses to add:");
+      newAddresses.forEach((addr, index) => {
+        logger.trace(`  [${index}]: ${addr.toString()}`);
+      });
+
+      try {
+        // Call the underlying client method
+        const result = await sdkClient.extendTokenPoolLookupTable({
+          lookupTableAddress,
+          newAddresses,
+        });
+
+        logger.info(`Lookup table extended successfully!`);
+        logger.info(`ALT Address: ${result.lookupTableAddress.toString()}`);
+        logger.info(`Transaction: ${result.signature}`);
+        logger.info(`Added ${result.newAddresses.length} new addresses`);
+        logger.info(`Total addresses in ALT: ${result.totalAddresses}`);
+
+        return { signature: result.signature };
+      } catch (error) {
+        logger.error("Failed to extend lookup table:", error);
         throw error;
       }
     },

@@ -28,7 +28,7 @@ import {
   createLogger,
 } from "../../../ccip-lib/svm";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
-import { ChainId, getCCIPSVMConfig } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import {
   findBurnMintPoolConfigPDA,
@@ -117,7 +117,8 @@ async function main() {
   logger.info("🏊 CCIP Token Pool Information");
 
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
 
   // Get keypair path and load wallet (for logging purposes)
   const keypairPath = getKeypairPath(options);

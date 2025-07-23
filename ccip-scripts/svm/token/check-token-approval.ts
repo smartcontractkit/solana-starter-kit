@@ -16,7 +16,7 @@ import {
   findExternalTokenPoolsSignerPDA,
   findDynamicTokenPoolsSignerPDA,
 } from "../../../ccip-lib/svm/utils/pdas";
-import { ChainId, getCCIPSVMConfig } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 
 /**
@@ -32,8 +32,7 @@ import { LogLevel, createLogger } from "../../../ccip-lib/svm";
  * "fee-billing" delegation type for ccip_send compatibility.
  */
 
-// Get configuration - we only support Solana Devnet for now
-const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+// Configuration will be resolved from options at runtime
 
 // =================================================================
 // TOKEN APPROVAL CONFIGURATION
@@ -79,29 +78,32 @@ interface TokenApprovalStatus {
   matchesExpectedDelegate: boolean;
 }
 
-const TOKEN_APPROVAL_CONFIG = {
-  // Tokens to check
-  tokensToCheck: [
-    {
-      // Wrapped SOL (wSOL)
-      tokenMint: NATIVE_MINT,
-      description: "Wrapped SOL (wSOL)",
-      delegationType: "fee-billing" as DelegationType,
-    },
-    {
-      // BnM token - using config value directly
-      tokenMint: config.bnmTokenMint,
-      description: "BnM Token",
-      delegationType: "fee-billing" as DelegationType, // Must use fee-billing for ccip_send compatibility
-    },
-    {
-      // LINK token - using config value directly
-      tokenMint: config.linkTokenMint,
-      description: "LINK Token",
-      delegationType: "fee-billing" as DelegationType,
-    },
-  ],
-};
+// Token approval configuration will be created dynamically based on network config
+function createTokenApprovalConfig(config: any): { tokensToCheck: TokenApprovalConfig[] } {
+  return {
+    // Tokens to check
+    tokensToCheck: [
+      {
+        // Wrapped SOL (wSOL)
+        tokenMint: NATIVE_MINT,
+        description: "Wrapped SOL (wSOL)",
+        delegationType: "fee-billing" as DelegationType,
+      },
+      {
+        // BnM token - using config value directly
+        tokenMint: config.bnmTokenMint,
+        description: "BnM Token",
+        delegationType: "fee-billing" as DelegationType, // Must use fee-billing for ccip_send compatibility
+      },
+      {
+        // LINK token - using config value directly
+        tokenMint: config.linkTokenMint,
+        description: "LINK Token",
+        delegationType: "fee-billing" as DelegationType,
+      },
+    ],
+  };
+}
 
 // =================================================================
 // SCRIPT CONFIGURATION
@@ -391,7 +393,8 @@ async function checkTokenApprovalEntrypoint(): Promise<void> {
     const walletKeypair = loadKeypair(keypairPath);
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
-    // Config is already defined at the top of the file
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig(cmdOptions);
     const routerProgramId = config.routerProgramId;
     logger.info(`Router Program ID: ${routerProgramId.toString()}`);
 
@@ -453,7 +456,8 @@ async function checkTokenApprovalEntrypoint(): Promise<void> {
     } else {
       // No custom tokens provided, use default configuration
       logger.info("No custom tokens provided, using default token configuration");
-      tokensToCheck = [...TOKEN_APPROVAL_CONFIG.tokensToCheck];
+      const tokenApprovalConfig = createTokenApprovalConfig(config);
+      tokensToCheck = [...tokenApprovalConfig.tokensToCheck];
     }
 
     const results = await checkTokenApprovals(

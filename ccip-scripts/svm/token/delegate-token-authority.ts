@@ -27,7 +27,7 @@ import {
   findExternalTokenPoolsSignerPDA,
   findDynamicTokenPoolsSignerPDA,
 } from "../../../ccip-lib/svm/utils/pdas";
-import { ChainId, getCCIPSVMConfig } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
 import { LogLevel, createLogger, Logger } from "../../../ccip-lib/svm";
 
 /**
@@ -47,8 +47,7 @@ import { LogLevel, createLogger, Logger } from "../../../ccip-lib/svm";
 // Maximum uint64 value for unlimited approvals - computes 2^64 - 1
 const MAX_UINT64 = ((BigInt(1) << BigInt(64)) - BigInt(1)).toString();
 
-// Get configuration - we only support Solana Devnet for now
-const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+// Configuration will be resolved from options at runtime
 
 // =================================================================
 // TYPES
@@ -86,34 +85,36 @@ interface TokenDelegateOptions extends ReturnType<typeof parseCommonArgs> {
 // =================================================================
 
 /**
- * Token delegation configuration for commonly used tokens
+ * Create token delegation configuration for commonly used tokens
  */
-const TOKEN_DELEGATION_CONFIG = {
-  // Tokens to delegate
-  tokenDelegations: [
-    {
-      // Wrapped SOL (wSOL)
-      tokenMint: NATIVE_MINT,
-      // Will determine program ID dynamically, but we know it uses the legacy TOKEN_PROGRAM_ID
-      delegationType: "fee-billing" as DelegationType, // Maps to fee billing signer PDA
-      amount: MAX_UINT64, // Unlimited approval
-    },
-    {
-      // BnM token
-      tokenMint: config.bnmTokenMint,
-      // Will determine program ID dynamically
-      delegationType: "fee-billing" as DelegationType, // Must use fee-billing PDA for ccip_send compatibility
-      amount: MAX_UINT64, // Unlimited approval
-    },
-    {
-      // LINK token
-      tokenMint: config.linkTokenMint,
-      // Will determine program ID dynamically
-      delegationType: "fee-billing" as DelegationType, // Maps to fee billing signer PDA
-      amount: MAX_UINT64, // Unlimited approval
-    },
-  ],
-};
+function createTokenDelegationConfig(config: any): { tokenDelegations: TokenDelegationConfig[] } {
+  return {
+    // Tokens to delegate
+    tokenDelegations: [
+      {
+        // Wrapped SOL (wSOL)
+        tokenMint: NATIVE_MINT,
+        // Will determine program ID dynamically, but we know it uses the legacy TOKEN_PROGRAM_ID
+        delegationType: "fee-billing" as DelegationType, // Maps to fee billing signer PDA
+        amount: MAX_UINT64, // Unlimited approval
+      },
+      {
+        // BnM token
+        tokenMint: config.bnmTokenMint,
+        // Will determine program ID dynamically
+        delegationType: "fee-billing" as DelegationType, // Must use fee-billing PDA for ccip_send compatibility
+        amount: MAX_UINT64, // Unlimited approval
+      },
+      {
+        // LINK token
+        tokenMint: config.linkTokenMint,
+        // Will determine program ID dynamically
+        delegationType: "fee-billing" as DelegationType, // Maps to fee billing signer PDA
+        amount: MAX_UINT64, // Unlimited approval
+      },
+    ],
+  };
+}
 
 /**
  * Script configuration parameters
@@ -324,6 +325,7 @@ async function resolveDelegateAddress(
  * @param connection Solana connection
  * @param logger Logger instance
  * @param options Additional options for the delegation
+ * @param config Network configuration
  */
 async function processTokenDelegation(
   delegation: TokenDelegationConfig,
@@ -331,7 +333,8 @@ async function processTokenDelegation(
   routerProgramId: PublicKey,
   connection: Connection,
   logger: Logger,
-  options: TokenDelegateOptions
+  options: TokenDelegateOptions,
+  config: any
 ): Promise<void> {
   try {
     // Convert tokenMint to PublicKey
@@ -439,8 +442,9 @@ async function processTokenDelegation(
 
     logger.info(`✅ Token delegation successful!`);
     logger.info(`Transaction signature: ${signature}`);
+    const explorerCluster = config.id === 'solana-mainnet' ? '' : '?cluster=devnet';
     logger.info(
-      `Explorer URL: https://explorer.solana.com/tx/${signature}?cluster=devnet`
+      `Explorer URL: https://explorer.solana.com/tx/${signature}${explorerCluster}`
     );
   } catch (error) {
     logger.error(
@@ -468,9 +472,12 @@ async function delegateTokenAuthority(): Promise<void> {
       level: cmdOptions.logLevel ?? LogLevel.INFO,
     });
 
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig(cmdOptions);
+    
     // Display environment information
     logger.info("\n==== Environment Information ====");
-    logger.info(`Solana Cluster: devnet`);
+    logger.info(`Solana Cluster: ${cmdOptions.network || "devnet"}`);
 
     // Get appropriate keypair path
     const keypairPath = getKeypairPath(cmdOptions);
@@ -552,7 +559,8 @@ async function delegateTokenAuthority(): Promise<void> {
     } else {
       // No custom tokens provided, use default configuration
       logger.info("No custom tokens provided, using default token configuration");
-      tokenDelegations = [...TOKEN_DELEGATION_CONFIG.tokenDelegations];
+      const tokenDelegationConfig = createTokenDelegationConfig(config);
+      tokenDelegations = [...tokenDelegationConfig.tokenDelegations];
     }
 
     // Process each delegation
@@ -570,7 +578,8 @@ async function delegateTokenAuthority(): Promise<void> {
         routerProgramId,
         connection,
         logger,
-        cmdOptions
+        cmdOptions,
+        config
       );
     }
 

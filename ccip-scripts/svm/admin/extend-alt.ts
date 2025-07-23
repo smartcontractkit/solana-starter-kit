@@ -35,7 +35,7 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { createErrorEnhancer } from "../../../ccip-lib/svm/utils/errors";
@@ -112,7 +112,8 @@ async function main() {
   logger.info("CCIP Address Lookup Table Extension");
 
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
 
   // Get keypair path and load wallet
   const keypairPath = getKeypairPath(options);

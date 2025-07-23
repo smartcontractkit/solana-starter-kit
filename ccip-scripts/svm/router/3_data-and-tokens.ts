@@ -27,6 +27,7 @@ import { AbiCoder } from "ethers";
 import {
   ChainId,
   getCCIPSVMConfig,
+  resolveNetworkConfig,
   CHAIN_SELECTORS,
   FeeTokenType as ConfigFeeTokenType,
 } from "../../config";
@@ -39,23 +40,58 @@ import {
   CCIPMessageConfig,
 } from "../utils";
 
-// Get configuration
-const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+// Configuration will be resolved from options at runtime
 
 // =================================================================
 // CCIP MESSAGE CONFIGURATION
 // Core parameters that will be sent in the CCIP message
 // =================================================================
+// Function to create message config based on network
+function createMessageConfig(config: any): CCIPMessageConfig {
+  return {
+    // Destination configuration
+    destinationChain: ChainId.ETHEREUM_SEPOLIA,
+    destinationChainSelector: CHAIN_SELECTORS[ChainId.ETHEREUM_SEPOLIA].toString(),
+    evmReceiverAddress: "0x9d087fC03ae39b088326b67fA3C788236645b717",
+
+    // Token transfers configuration - supports multiple tokens
+    tokenAmounts: [
+      {
+        tokenMint: config.bnmTokenMint, // BnM token based on network
+        amount: "10000000", // String representation of raw token amount (0.01 with 9 decimals)
+      },
+    ],
+
+    // Fee configuration
+    feeToken: ConfigFeeTokenType.NATIVE, // Use SOL for fees
+
+    // Encode message data with ABI encoding
+    messageData: (() => {
+      const abiCoder = new AbiCoder();
+      return abiCoder.encode(
+        ["string", "uint256"],
+        ["Hello from Solana!", BigInt(42)]
+      );
+    })(),
+
+    // Extra arguments configuration
+    extraArgs: {
+      gasLimit: 200000, // Set gas limit for receiver contract execution
+      allowOutOfOrderExecution: true, // Allow out-of-order execution
+    },
+  };
+}
+
 const CCIP_MESSAGE_CONFIG: CCIPMessageConfig = {
   // Destination configuration
   destinationChain: ChainId.ETHEREUM_SEPOLIA,
   destinationChainSelector: CHAIN_SELECTORS[ChainId.ETHEREUM_SEPOLIA].toString(),
   evmReceiverAddress: "0x9d087fC03ae39b088326b67fA3C788236645b717",
 
-  // Token transfers configuration - supports multiple tokens
+  // Token transfers configuration - will be resolved at runtime
   tokenAmounts: [
     {
-      tokenMint: config.bnmTokenMint, // BnM token on Solana Devnet
+      tokenMint: "PLACEHOLDER", // Will be replaced with actual config
       amount: "10000000", // String representation of raw token amount (0.01 with 9 decimals)
     },
   ],
@@ -96,11 +132,17 @@ async function dataAndTokenTransfer(): Promise<void> {
   // Parse command line arguments
   const cmdOptions = parseCCIPArgs("data-and-tokens");
 
+  // Resolve network configuration
+  const config = resolveNetworkConfig(cmdOptions);
+  
+  // Create network-aware message config
+  const messageConfig = createMessageConfig(config);
+
   // Execute the CCIP script with our configuration
   await executeCCIPScript({
     scriptName: "data-and-tokens",
     usageName: "svm:data-and-tokens",
-    messageConfig: CCIP_MESSAGE_CONFIG,
+    messageConfig,
     scriptConfig: SCRIPT_CONFIG,
     cmdOptions,
   });

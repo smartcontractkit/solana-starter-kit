@@ -25,11 +25,10 @@ import {
   printUsage,
   getKeypairPath,
 } from "../utils";
-import { ChainId, getCCIPSVMConfig } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 
-// Get configuration - we only support Solana Devnet for now
-const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+// Configuration will be resolved from options at runtime
 
 // =================================================================
 // SOL WRAPPING CONFIGURATION
@@ -241,6 +240,8 @@ async function wrapSolEntrypoint(): Promise<void> {
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
     // Config is already defined at the top of the file
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig(cmdOptions);
     const connection = config.connection;
 
     // Check wallet SOL balance

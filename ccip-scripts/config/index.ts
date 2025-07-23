@@ -24,6 +24,7 @@ export enum ChainId {
   BSC_TESTNET = "bsc-testnet",
   ARBITRUM_SEPOLIA = "arbitrum-sepolia",
   SOLANA_DEVNET = "solana-devnet",
+  SOLANA_MAINNET = "solana-mainnet",
   SONIC_BLAZE = "sonic-blaze",
 }
 
@@ -37,6 +38,7 @@ export const CHAIN_SELECTORS: Record<ChainId, bigint> = {
   [ChainId.BSC_TESTNET]: BigInt("13264668187771770619"),
   [ChainId.ARBITRUM_SEPOLIA]: BigInt("3478487238524512106"),
   [ChainId.SOLANA_DEVNET]: BigInt("16423721717087811551"),
+  [ChainId.SOLANA_MAINNET]: BigInt("124615329519749607"),
   [ChainId.SONIC_BLAZE]: BigInt("3676871237479449268"),
 };
 
@@ -91,6 +93,7 @@ export interface SVMChainConfig {
 }
 
 const DEFAULT_SOLANA_DEVNET_RPC_URL = "https://api.devnet.solana.com";
+const DEFAULT_SOLANA_MAINNET_RPC_URL = "https://api.mainnet-beta.solana.com";
 
 /**
  * EVM Chain Configurations
@@ -199,7 +202,7 @@ const EVM_CONFIGS: Record<
 /**
  * Solana Chain Configurations
  */
-const SVM_CONFIGS: Record<ChainId.SOLANA_DEVNET, SVMChainConfig> = {
+const SVM_CONFIGS: Record<ChainId.SOLANA_DEVNET | ChainId.SOLANA_MAINNET, SVMChainConfig> = {
   [ChainId.SOLANA_DEVNET]: {
     id: ChainId.SOLANA_DEVNET,
     name: "Solana Devnet",
@@ -231,6 +234,39 @@ const SVM_CONFIGS: Record<ChainId.SOLANA_DEVNET, SVMChainConfig> = {
     receiverProgramId: new PublicKey(
       "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"
     ), // CCIP Basic Receiver (see programs/ccip-basic-receiver/src/lib.rs)
+  },
+  [ChainId.SOLANA_MAINNET]: {
+    id: ChainId.SOLANA_MAINNET,
+    name: "Solana Mainnet",
+    connectionConfig: {
+      commitment: "confirmed",
+      disableRetryOnRateLimit: false,
+    },
+    connection: new Connection(
+      process.env.SOLANA_MAINNET_RPC_URL || DEFAULT_SOLANA_MAINNET_RPC_URL,
+      { commitment: "confirmed" }
+    ),
+    // TODO: Replace with actual mainnet program IDs when CCIP is deployed on mainnet
+    routerProgramId: new PublicKey(
+      "11111111111111111111111111111111" // PLACEHOLDER: Replace with mainnet CCIP Router program ID
+    ),
+    feeQuoterProgramId: new PublicKey(
+      "11111111111111111111111111111111" // PLACEHOLDER: Replace with mainnet Fee Quoter program ID
+    ),
+    rmnRemoteProgramId: new PublicKey(
+      "11111111111111111111111111111111" // PLACEHOLDER: Replace with mainnet RMN Remote program ID
+    ),
+    bnmTokenMint: new PublicKey("11111111111111111111111111111111"), // PLACEHOLDER: Replace with mainnet BnM token mint
+    linkTokenMint: new PublicKey("11111111111111111111111111111111"), // PLACEHOLDER: Replace with mainnet LINK token mint
+    wrappedNativeMint: NATIVE_MINT,
+    explorerUrl: "https://explorer.solana.com/tx/",
+
+    // Fields required for CCIPCoreConfig compatibility
+    nativeSol: PublicKey.default,
+    systemProgramId: SystemProgram.programId,
+    receiverProgramId: new PublicKey(
+      "11111111111111111111111111111111" // PLACEHOLDER: Replace with mainnet CCIP Basic Receiver program ID
+    ),
   },
 };
 
@@ -345,13 +381,110 @@ export function getEVMConfig(chainId: ChainId): EVMChainConfig {
  * Get Solana chain configuration by chain ID
  */
 export function getCCIPSVMConfig(chainId: ChainId): SVMChainConfig {
-  if (chainId !== ChainId.SOLANA_DEVNET) {
-    throw new Error(`Unsupported SVM chain ID: ${chainId}`);
+  if (chainId !== ChainId.SOLANA_DEVNET && chainId !== ChainId.SOLANA_MAINNET) {
+    throw new Error(`Unsupported SVM chain ID: ${chainId}. Supported: ${ChainId.SOLANA_DEVNET}, ${ChainId.SOLANA_MAINNET}`);
   }
 
   return SVM_CONFIGS[chainId];
 }
 
+/**
+ * Network resolution utilities for enhanced configuration management
+ */
+
+/**
+ * Resolve network string to ChainId enum
+ */
+export function resolveNetworkToChainId(network?: string): ChainId {
+  if (!network) {
+    return ChainId.SOLANA_DEVNET; // Default to devnet
+  }
+
+  const normalizedNetwork = network.toLowerCase().trim();
+  
+  switch (normalizedNetwork) {
+    case "devnet":
+    case "dev":
+      return ChainId.SOLANA_DEVNET;
+    case "mainnet":
+    case "mainnet-beta":
+    case "main":
+      return ChainId.SOLANA_MAINNET;
+    default:
+      throw new Error(
+        `Invalid network: ${network}. Supported networks: devnet, mainnet`
+      );
+  }
+}
+
+/**
+ * Validate network safety for production operations
+ */
+export function validateNetworkSafety(network: ChainId, operation: string): void {
+  if (network === ChainId.SOLANA_MAINNET) {
+    // Check for explicit mainnet allowance
+    if (!process.env.ALLOW_MAINNET) {
+      throw new Error(
+        `🚨 MAINNET PROTECTION: ${operation} on mainnet is disabled for safety.\n` +
+        `To enable mainnet operations, set environment variable: ALLOW_MAINNET=true\n` +
+        `⚠️  WARNING: Mainnet operations use real SOL and can incur costs!`
+      );
+    }
+    
+    // Additional safety check for placeholder program IDs
+    const config = SVM_CONFIGS[network];
+    if (config.routerProgramId.toString() === "11111111111111111111111111111111") {
+      throw new Error(
+        `🚨 MAINNET NOT READY: CCIP programs are not yet deployed on mainnet.\n` +
+        `Mainnet configuration contains placeholder program IDs.`
+      );
+    }
+  }
+}
+
+/**
+ * Enhanced network configuration resolver with safety checks
+ * This is the main function scripts should use for network-agnostic configuration
+ */
+export function resolveNetworkConfig(options: { network?: string }): SVMChainConfig {
+  // Step 1: Resolve network from options, environment, or default
+  const networkString = options.network || process.env.SOLANA_NETWORK || "devnet";
+  
+  // Step 2: Convert to ChainId enum
+  const chainId = resolveNetworkToChainId(networkString);
+  
+  // Step 3: Validate safety for the operation
+  validateNetworkSafety(chainId, "configuration resolution");
+  
+  // Step 4: Get configuration
+  const config = getCCIPSVMConfig(chainId);
+  
+  // Step 5: Validate RPC connectivity (basic check)
+  validateNetworkConnectivity(config);
+  
+  return config;
+}
+
+/**
+ * Validate network connectivity and configuration
+ */
+function validateNetworkConnectivity(config: SVMChainConfig): void {
+  if (!config.connection.rpcEndpoint) {
+    throw new Error(
+      `Invalid RPC endpoint for network ${config.id}. Check your configuration.`
+    );
+  }
+  
+  // Add more validation if needed (ping RPC, check program deployments, etc.)
+  // For now, just validate the endpoint is a valid URL
+  try {
+    new URL(config.connection.rpcEndpoint);
+  } catch (error) {
+    throw new Error(
+      `Invalid RPC URL format for network ${config.id}: ${config.connection.rpcEndpoint}`
+    );
+  }
+}
 
 /**
  * Get EVM fee token address based on config and token type

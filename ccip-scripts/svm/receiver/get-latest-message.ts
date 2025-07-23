@@ -1,8 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
-import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair, loadReceiverProgram } from "../utils";
+import { getCCIPSVMConfig, resolveNetworkConfig, ChainId } from "../../config";
+import { loadKeypair, loadReceiverProgram, parseCommonArgs } from "../utils";
 import { KEYPAIR_PATHS } from "../utils/config-parser";
 
 /**
@@ -27,8 +27,12 @@ async function main() {
   const logger = createLogger("ccip-receiver-get-latest-message", { level: LogLevel.INFO });
   logger.info("CCIP Basic Receiver - Get Latest Message");
 
+  // Parse command line arguments
+  const options = parseCommonArgs();
+  
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
   
   // Get program ID from config or use custom one if specified
   const programId = CUSTOM_PROGRAM_ID ? new PublicKey(CUSTOM_PROGRAM_ID) : config.receiverProgramId;

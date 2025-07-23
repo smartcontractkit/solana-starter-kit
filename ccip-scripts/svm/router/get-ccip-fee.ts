@@ -35,6 +35,7 @@ import {
   ChainId,
   CHAIN_SELECTORS,
   getCCIPSVMConfig,
+  resolveNetworkConfig,
   FeeTokenType as ConfigFeeTokenType,
 } from "../../config";
 
@@ -61,7 +62,7 @@ const FEE_CALCULATION_CONFIG: CCIPMessageConfig = {
   // Token transfers configuration - supports multiple tokens
   tokenAmounts: [
     {
-      tokenMint: getCCIPSVMConfig(ChainId.SOLANA_DEVNET).bnmTokenMint, // BnM token on Solana Devnet
+      tokenMint: "PLACEHOLDER", // Will be resolved at runtime
       amount: "10000000", // String representation of raw token amount (0.01 with 9 decimals)
     },
   ],
@@ -95,7 +96,17 @@ async function getFeeEstimation(): Promise<void> {
 
   try {
     // Get configuration
-    const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig(cmdOptions);
+    
+    // Create network-aware message config
+    const messageConfig = {
+      ...FEE_CALCULATION_CONFIG,
+      tokenAmounts: [{
+        ...FEE_CALCULATION_CONFIG.tokenAmounts[0],
+        tokenMint: config.bnmTokenMint
+      }]
+    };
 
     // Display environment information
     logger.info("\n==== Environment Information ====");

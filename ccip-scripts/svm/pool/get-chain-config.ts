@@ -29,7 +29,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
 import { TokenPoolType } from "../../../ccip-lib/svm";
-import { ChainId, getCCIPSVMConfig } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { parseArgs, displayAvailableRemoteChains } from "../utils/args-parser";
 import { loadKeypair } from "../utils";
@@ -79,7 +79,8 @@ async function main() {
   logger.info("CCIP Chain Configuration Reader (Read-Only)");
 
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
 
   try {
     // Parse addresses

@@ -3,8 +3,8 @@ import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
-import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair } from "../utils";
+import { getCCIPSVMConfig, resolveNetworkConfig, ChainId } from "../../config";
+import { loadKeypair, parseCommonArgs } from "../utils";
 import { KEYPAIR_PATHS } from "../utils/config-parser";
 
 /**
@@ -16,8 +16,12 @@ async function main() {
   const logger = createLogger("ccip-receiver-deploy", { level: LogLevel.INFO });
   logger.info("CCIP Basic Receiver Deployment");
 
+  // Parse command line arguments
+  const options = parseCommonArgs();
+  
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
   const connection = config.connection;
 
   // Find the local IDL file

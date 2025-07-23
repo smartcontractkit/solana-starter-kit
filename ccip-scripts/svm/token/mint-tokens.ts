@@ -45,12 +45,12 @@ import {
 import {
   ChainId,
   getCCIPSVMConfig,
+  resolveNetworkConfig,
   getExplorerUrl,
   getExplorerAddressUrl,
 } from "../../config";
 
-// Get configuration
-const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+// Configuration will be resolved from options at runtime
 
 // =================================================================
 // TOKEN MINTING CONFIGURATION
@@ -184,7 +184,7 @@ function validateMintTokenConfig(options: MintTokenOptions): void {
 /**
  * Get token information from mint address
  */
-async function getTokenInfo(mint: PublicKey): Promise<{
+async function getTokenInfo(mint: PublicKey, config: any): Promise<{
   decimals: number;
   supply: string;
 }> {
@@ -273,6 +273,9 @@ async function mintTokensEntrypoint(): Promise<void> {
     const walletKeypair = loadKeypair(keypairPath);
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig(cmdOptions);
+
     // Check wallet SOL balance
     logger.info("\n==== Wallet Balance Information ====");
     const balance = await config.connection.getBalance(walletKeypair.publicKey);
@@ -298,7 +301,7 @@ async function mintTokensEntrypoint(): Promise<void> {
 
     // Get token information
     logger.info("\n==== Token Information ====");
-    const tokenInfo = await getTokenInfo(mintAddress);
+    const tokenInfo = await getTokenInfo(mintAddress, config);
     logger.info(`Mint Address: ${mintAddress.toString()}`);
     logger.info(`Token Decimals: ${tokenInfo.decimals}`);
     logger.info(

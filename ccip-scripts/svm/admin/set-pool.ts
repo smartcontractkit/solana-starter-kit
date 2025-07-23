@@ -35,7 +35,7 @@
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
-import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 
@@ -123,7 +123,8 @@ async function main() {
   logger.info("CCIP Token Admin Registry Set Pool");
 
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
 
   // Get keypair path and load wallet
   const keypairPath = getKeypairPath(options);

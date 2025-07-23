@@ -1,5 +1,5 @@
 import { deriveStatePda } from "../../../ccip-lib/svm";
-import { ChainId, getCCIPSVMConfig } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkToChainId } from "../../config";
 
 // Export the functionality as a function instead of auto-executing
 export function getStateAddress(network: "devnet" | "mainnet" = "devnet") {
@@ -21,10 +21,7 @@ export function getStateAddress(network: "devnet" | "mainnet" = "devnet") {
 }
 
 export function getConfigPDA(network: "devnet" | "mainnet" = "devnet") {
-  const chainId = network === "mainnet" 
-    ? ChainId.SOLANA_DEVNET // For now, mainnet is not supported
-    : ChainId.SOLANA_DEVNET;
-    
+  const chainId = resolveNetworkToChainId(network);
   const config = getCCIPSVMConfig(chainId);
   return config;
 }

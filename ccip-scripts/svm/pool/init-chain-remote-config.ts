@@ -35,7 +35,7 @@ import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
 import { TokenPoolType } from "../../../ccip-lib/svm";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
-import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { parseArgs, displayAvailableRemoteChains } from "../utils/args-parser";
@@ -116,7 +116,8 @@ async function main() {
   logger.info("CCIP Chain Remote Configuration Initialization");
 
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
 
   // Get keypair path and load wallet
   const keypairPath = getKeypairPath(options);

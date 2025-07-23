@@ -23,7 +23,7 @@
 
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
-import { ChainId, getCCIPSVMConfig } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger, Logger } from "../../../ccip-lib/svm";
 import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
@@ -239,7 +239,8 @@ async function main() {
   logger.info("CCIP Token Configuration Inspector");
 
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
 
   // Get keypair path and load wallet (optional for read-only operations)
   const keypairPath = getKeypairPath(options);

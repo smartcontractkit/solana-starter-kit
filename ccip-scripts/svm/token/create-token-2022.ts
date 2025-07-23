@@ -64,12 +64,12 @@ import {
 import {
   ChainId,
   getCCIPSVMConfig,
+  resolveNetworkConfig,
   getExplorerUrl,
   getExplorerAddressUrl,
 } from "../../config";
 
-// Get configuration
-const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+// Configuration will be resolved from options at runtime
 
 // =================================================================
 // TOKEN CREATION CONFIGURATION
@@ -294,6 +294,9 @@ async function createTokenEntrypoint(): Promise<void> {
     // Load wallet keypair
     const walletKeypair = loadKeypair(keypairPath);
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
+
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig(cmdOptions);
 
     // Check wallet SOL balance
     logger.info("\n==== Wallet Balance Information ====");

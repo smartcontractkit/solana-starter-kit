@@ -24,7 +24,7 @@
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { TokenPoolManager, TokenPoolType, LogLevel, createLogger } from "../../../ccip-lib/svm";
-import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { findBurnMintPoolConfigPDA } from "../../../ccip-lib/svm/utils/pdas/tokenpool";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
@@ -99,7 +99,8 @@ async function main() {
   logger.info("CCIP Token Pool Initialization");
 
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
 
   // Get keypair path and load wallet
   const keypairPath = getKeypairPath(options);

@@ -1,8 +1,8 @@
 import { PublicKey, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { createLogger, LogLevel } from "../../../ccip-lib/svm";
-import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair, loadReceiverProgram } from "../utils";
+import { getCCIPSVMConfig, resolveNetworkConfig, ChainId } from "../../config";
+import { loadKeypair, loadReceiverProgram, parseCommonArgs } from "../utils";
 import { KEYPAIR_PATHS } from "../utils/config-parser";
 
 /**
@@ -26,8 +26,12 @@ async function main() {
   const logger = createLogger("ccip-receiver-close-storage", { level: LogLevel.INFO });
   logger.info("Attempting to close CCIP Basic Receiver state and messages storage accounts...");
 
+  // Parse command line arguments
+  const options = parseCommonArgs();
+  
   // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  // Resolve network configuration based on options
+  const config = resolveNetworkConfig(options);
   
   // Get program ID
   const programId = CUSTOM_PROGRAM_ID ? new PublicKey(CUSTOM_PROGRAM_ID) : config.receiverProgramId;

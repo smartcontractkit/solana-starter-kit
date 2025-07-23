@@ -18,6 +18,7 @@ import {
 import {
   ChainId,
   getCCIPSVMConfig,
+  resolveNetworkConfig,
   FeeTokenType as ConfigFeeTokenType,
 } from "../../../config";
 import {
@@ -106,7 +107,8 @@ export async function executeCCIPScript({
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
     // Get configuration
-    const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig({ network: (cmdOptions as any).network });
 
     // Create the CCIPClient directly using SDK
     const ccipClient = CCIPClient.create(

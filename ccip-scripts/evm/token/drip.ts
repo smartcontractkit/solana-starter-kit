@@ -6,9 +6,9 @@ import {
   CCIPEVMContext,
   MultiDripOptions,
   CCIPEVMWriteProvider,
+  CCIPMessenger,
 } from "../../../ccip-lib/evm";
 import { ChainId, getEVMConfig } from "../../config";
-import { createCCIPClient } from "../utils/client-factory";
 import { parseCommonArgs, printUsage } from "../utils/config-parser";
 import { formatBalance } from "../utils/provider";
 import { Logger } from "../../../ccip-lib/evm/core/models";
@@ -315,11 +315,12 @@ async function dripTokens(): Promise<void> {
       logger.info(`Faucet Address: ${config.faucetAddress}`);
     }
 
-    // Create CCIP client for provider access
-    const client = createCCIPClient({
-      ...options,
-      chainId: config.id,
-    });
+    // Create CCIP client using enhanced static method
+    const client = await CCIPMessenger.createFromConfig(
+      config,
+      options.privateKey!,
+      { logLevel: options.logLevel }
+    );
 
     // Get signer and address
     signer = (client.provider as CCIPEVMWriteProvider).signer;

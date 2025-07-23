@@ -6,7 +6,6 @@ import {
   ERC20Client,
   CCIPEVMWriteProvider,
 } from "../../../ccip-lib/evm";
-import { createCCIPClient } from "./client-factory";
 import { CCIPScriptOptions } from "./message-utils";
 import { ChainId, getEVMConfig, EVMChainConfig } from "../../config";
 
@@ -63,11 +62,12 @@ export async function setupClientContext(
 
   logger.info(`Router Address: ${config.routerAddress}`);
 
-  // Create CCIP client - pass chainId to client factory
-  const client = createCCIPClient({
-    ...options,
-    chainId: chainId,
-  });
+  // Create CCIP client using enhanced static method
+  const client = await CCIPMessenger.createFromConfig(
+    config,
+    options.privateKey!,
+    { logLevel: options.logLevel }
+  );
 
   // Get signer address from provider
   let signerAddress: string;

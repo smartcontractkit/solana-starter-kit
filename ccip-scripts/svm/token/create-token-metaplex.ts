@@ -91,6 +91,21 @@ interface CreateTokenOptions extends ReturnType<typeof parseTokenArgs> {
 
 /**
  * Parse command line arguments for token creation
+ * 
+ * Processes command line arguments specific to SPL token creation, extending
+ * the base token arguments with additional options like name, symbol, URI,
+ * decimals, initial supply, and fee basis points.
+ * 
+ * @returns Parsed token creation options with all command line arguments
+ * 
+ * @example
+ * ```typescript
+ * // Command: yarn svm:token:create-spl --name "My Token" --symbol "MTK" --decimals 6
+ * const options = parseCreateTokenArgs();
+ * // options.name === "My Token"
+ * // options.symbol === "MTK" 
+ * // options.decimals === 6
+ * ```
  */
 function parseCreateTokenArgs(): CreateTokenOptions {
   const tokenOptions = parseTokenArgs();
@@ -180,6 +195,19 @@ function parseCreateTokenArgs(): CreateTokenOptions {
 
 /**
  * Validate token creation configuration
+ * 
+ * Performs validation on all token creation parameters to ensure they meet
+ * Solana token standards and Metaplex requirements. Throws detailed error
+ * messages if any validation fails.
+ * 
+ * @param options Token creation options to validate
+ * @throws Error if any validation rules are violated
+ * 
+ * Validation rules:
+ * - Token name: 1-32 characters
+ * - Token symbol: 1-10 characters 
+ * - Decimals: 0-9
+ * - Fee basis points: 0-10000 (0-100%)
  */
 function validateCreateTokenConfig(options: CreateTokenOptions): void {
   const errors: string[] = [];
@@ -217,6 +245,21 @@ function validateCreateTokenConfig(options: CreateTokenOptions): void {
 
 /**
  * Create token configuration from command line options
+ * 
+ * Transforms parsed command line arguments into a properly structured
+ * SplTokenConfig object, applying defaults where values are not provided.
+ * This ensures all required fields are populated for token creation.
+ * 
+ * @param options Parsed command line options
+ * @returns Complete SplTokenConfig ready for token creation
+ * 
+ * @example
+ * ```typescript
+ * const options = { name: "MyToken", symbol: "MTK" };
+ * const config = createTokenConfigFromOptions(options);
+ * // config.tokenProgram === TokenProgram.SPL_TOKEN
+ * // config.decimals === 9 (default)
+ * ```
  */
 function createTokenConfigFromOptions(
   options: CreateTokenOptions
@@ -246,6 +289,23 @@ function createTokenConfigFromOptions(
 
 /**
  * Main SPL token creation function
+ * 
+ * Entry point for SPL token creation that orchestrates the entire process:
+ * 1. Parses command line arguments and validates configuration
+ * 2. Loads wallet keypair and checks SOL balance
+ * 3. Creates TokenCreationUtils instance and generates token
+ * 4. Displays comprehensive results including explorer URLs
+ * 
+ * This function handles all error cases and provides detailed logging
+ * throughout the token creation process.
+ * 
+ * @throws Error if wallet has insufficient SOL, validation fails, or token creation fails
+ * 
+ * @example
+ * ```bash
+ * # Create token with custom parameters:
+ * yarn svm:token:create-spl --name "My Token" --symbol "MTK" --decimals 6
+ * ```
  */
 async function createSplTokenEntrypoint(): Promise<void> {
   try {

@@ -90,10 +90,10 @@ export interface CommonOptions {
   /** Array of token amounts to transfer */
   tokenAmounts?: Array<{ token: string; amount: string }>;
 
-  /** Token address to use for transfer (deprecated, use tokenAmounts) */
+  /** Token address to use for transfer */
   token?: string;
 
-  /** Amount to transfer (deprecated, use tokenAmounts) */
+  /** Amount to transfer */
   amount?: string;
 
   /** Receiver address on Solana for the CCIP message */
@@ -174,20 +174,20 @@ export function parseCommonArgs(): CommonOptions {
     }
   }
 
-  // Parse token (deprecated)
+  // Parse token
   const tokenIndex = args.indexOf("--token");
   if (tokenIndex >= 0 && args.length > tokenIndex + 1) {
     options.token = args[tokenIndex + 1];
   }
 
-  // Parse amount (deprecated)
+  // Parse amount
   const amountIndex = args.indexOf("--amount");
   if (amountIndex >= 0 && args.length > amountIndex + 1) {
     options.amount = args[amountIndex + 1];
   }
 
-  // If both --token and --amount are provided but no --token-amounts,
-  // create tokenAmounts from these values for compatibility
+  // If --token and --amount are provided but no --token-amounts,
+  // create tokenAmounts from these values
   if (options.token && options.amount && !options.tokenAmounts) {
     options.tokenAmounts = [{ token: options.token, amount: options.amount }];
   }
@@ -270,13 +270,13 @@ export function printUsage(scriptName: string): void {
     "  --fee-token <token>             Token to use for CCIP fees (native, link, wrapped)"
   );
   console.log(
-    "  --token-amounts <list>          List of token:amount pairs (token1:amount1,token2:amount2,...)"
+    "  --token <address>               Token address to transfer (single token)"
   );
   console.log(
-    "  --token <address>               Token address to transfer (deprecated, use --token-amounts)"
+    "  --amount <amount>               Amount to transfer in raw units with decimals"
   );
   console.log(
-    "  --amount <amount>               Amount to transfer (deprecated, use --token-amounts)"
+    "  --token-amounts <list>          Multiple tokens: token1:amount1,token2:amount2,..."
   );
   console.log(
     "  --receiver <address>            Receiver address for CCIP message"

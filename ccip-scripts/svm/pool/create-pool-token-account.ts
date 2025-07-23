@@ -46,6 +46,15 @@ const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
 
 /**
  * Parse command line arguments specific to pool token account creation
+ * 
+ * Extends the base common arguments with pool-specific parameters required
+ * for creating Associated Token Accounts (ATAs) for token pool operations.
+ * 
+ * @returns Object containing parsed arguments including tokenMint and burnMintPoolProgram
+ * 
+ * Required arguments:
+ * - --token-mint: The mint address of the token for which to create pool ATA
+ * - --burn-mint-pool-program: Program ID of the burn-mint token pool program
  */
 function parsePoolTokenAccountArgs() {
   const commonArgs = parseCommonArgs();
@@ -78,6 +87,22 @@ function parsePoolTokenAccountArgs() {
   };
 }
 
+/**
+ * Main function for pool token account creation
+ * 
+ * Orchestrates the complete process of creating an Associated Token Account (ATA)
+ * for a token pool's signer PDA. This account is essential for the pool to hold
+ * tokens during cross-chain operations.
+ * 
+ * Process:
+ * 1. Validates arguments and loads wallet configuration
+ * 2. Verifies the token pool exists and gets pool information
+ * 3. Derives the pool signer PDA using the library function
+ * 4. Creates the ATA for the pool signer if it doesn't exist
+ * 5. Verifies successful creation
+ * 
+ * @throws Error if pool doesn't exist, insufficient SOL, or ATA creation fails
+ */
 async function main() {
   // Parse arguments
   const options = parsePoolTokenAccountArgs();
@@ -311,6 +336,16 @@ async function main() {
   }
 }
 
+/**
+ * Print comprehensive usage information for the pool token account creation script
+ * 
+ * Displays detailed help including:
+ * - Script purpose and prerequisites
+ * - Required and optional command line arguments
+ * - Usage examples with real addresses
+ * - What the script accomplishes
+ * - Next steps after successful execution
+ */
 function printUsage() {
   console.log(`
 🏊 CCIP Pool Token Account Creator

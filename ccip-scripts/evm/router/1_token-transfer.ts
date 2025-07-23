@@ -15,10 +15,20 @@
  *
  * You can override settings with command line arguments:
  * --fee-token       : Token to use for fees (native, wrapped-native, link, or address)
- * --receiver        : Solana receiver address
+ * --token           : Token address to transfer (single token transfer)
  * --amount          : Amount of tokens to send (in raw format with all decimals, e.g., "1000000000000000" for 0.001 with 18 decimals)
+ * --token-amounts   : Multiple tokens format: "token1:amount1,token2:amount2"
+ * --receiver        : Solana receiver address
+ * --token-receiver  : Solana wallet address to receive the tokens
  * --compute-units   : Solana compute units
  * --log-level       : Logging verbosity (0-5, where 0 is most verbose)
+ * 
+ * Examples:
+ * # Single token transfer
+ * yarn evm:token-transfer --token 0x779877A7B0D9E8603169DdbD7836e478b4624789 --amount 1000000000000000000
+ * 
+ * # Multiple token transfer
+ * yarn evm:token-transfer --token-amounts "0x779877A7B0D9E8603169DdbD7836e478b4624789:1000000000000000000,0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05:2000000000000000000"
  */
 
 import { parseScriptArgs } from "../utils/message-utils";
@@ -61,7 +71,7 @@ const MESSAGE_CONFIG = {
       // Token amount in raw format (with all decimals included)
       // IMPORTANT: This must be the full raw amount, not a decimal value
       // For example: 1 token with 18 decimals would be "100000000000000000"
-      amount: "100000000000000000", // 0.1 tokens with 18 decimals
+      amount: "20000000000000000000", // 20 tokens with 18 decimals
     },
   ],
 

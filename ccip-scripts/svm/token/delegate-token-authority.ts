@@ -173,12 +173,36 @@ function parseTokenDelegateArgs(): TokenDelegateOptions {
 /**
  * Checks if a token account exists and creates it if it doesn't
  * 
- * @param connection Solana connection
- * @param tokenMint Token mint address
- * @param owner Owner of the token account
- * @param tokenProgramId Token program ID
- * @param logger Logger instance
- * @returns Instructions to create ATA if needed and whether ATA exists
+ * This function is crucial for beginners to understand as Associated Token Accounts (ATAs)
+ * are required to hold SPL tokens. An ATA is a deterministic account address derived
+ * from the owner's wallet and token mint using the formula:
+ * 
+ * ATA = PDA(owner, token_program, mint)
+ * 
+ * The function:
+ * 1. Calculates the expected ATA address using getAssociatedTokenAddressSync
+ * 2. Checks if the account already exists on-chain via getAccountInfo
+ * 3. If it doesn't exist, creates an instruction to initialize it
+ * 4. Returns both the creation instructions and existence status
+ * 
+ * @param connection Solana RPC connection for on-chain account lookups
+ * @param tokenMint The token mint address (defines which token type)
+ * @param owner The wallet that will own the token account
+ * @param tokenProgramId Either TOKEN_PROGRAM_ID or TOKEN_2022_PROGRAM_ID
+ * @param logger Logger instance for debugging and informational messages
+ * @returns Object containing creation instructions (if needed) and existence boolean
+ * 
+ * @example
+ * ```typescript
+ * const { createATAInstructions, ataExists } = await checkAndCreateTokenAccount(
+ *   connection,
+ *   new PublicKey("TokenMint111111111111111111111111111111111"),
+ *   wallet.publicKey,
+ *   TOKEN_2022_PROGRAM_ID,
+ *   logger
+ * );
+ * // If ataExists === false, createATAInstructions contains the creation instruction
+ * ```
  */
 async function checkAndCreateTokenAccount(
   connection: Connection,

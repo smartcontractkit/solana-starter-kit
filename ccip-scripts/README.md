@@ -123,6 +123,8 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 | `yarn svm:pool:init-chain-remote-config` | Initialize remote chain configuration          |
 | `yarn svm:pool:edit-chain-remote-config` | Edit remote chain configuration                |
 | `yarn svm:pool:get-chain-config`         | Read remote chain configuration                |
+| `yarn svm:pool:transfer-mint-authority-to-multisig` | Transfer mint authority to multisig            |
+| `yarn svm:pool:update-self-served-allowed` | Update self-served flag for pool                      |
 
 #### Token Admin Registry
 
@@ -131,6 +133,7 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 | `yarn svm:admin:propose-administrator` | Propose token administrator (mint authority) |
 | `yarn svm:admin:accept-admin-role`     | Accept administrator role (two-step process) |
 | `yarn svm:admin:create-alt`            | Create Address Lookup Table for pool         |
+| `yarn svm:admin:extend-alt`            | Extend existing Address Lookup Table         |
 | `yarn svm:admin:set-pool`              | Register ALT with token (administrator)      |
 | `yarn svm:admin:inspect-token`         | Inspect token CCIP configuration             |
 

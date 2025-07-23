@@ -62,8 +62,22 @@ export interface TokenOptions extends CommonOptions {
 }
 
 /**
- * Parse common command line arguments
- * @returns Parsed options
+ * Parse common command line arguments shared across all CCIP scripts
+ * 
+ * Extracts standard CLI arguments that are used by most scripts including
+ * network selection, keypair path, logging level, and preflight settings.
+ * This provides a consistent interface across all CCIP scripts.
+ * 
+ * @returns Parsed common options with defaults applied
+ * 
+ * @example
+ * ```typescript
+ * // Command: yarn script --network devnet --log-level DEBUG --skip-preflight
+ * const options = parseCommonArgs();
+ * // options.network === "devnet"
+ * // options.logLevel === LogLevel.DEBUG
+ * // options.skipPreflight === true
+ * ```
  */
 export function parseCommonArgs(): CommonOptions {
   const args = process.argv.slice(2);
@@ -121,8 +135,33 @@ export function parseCommonArgs(): CommonOptions {
 
 /**
  * Get the appropriate keypair path based on options
+ * 
+ * Determines which keypair file to use based on the provided options,
+ * following a priority order:
+ * 1. Explicit keypair path (--keypair)
+ * 2. Test keypair if requested (--use-test-keypair)
+ * 3. Default Solana CLI keypair location
+ * 
+ * This function is essential for beginners as it handles the complexity
+ * of keypair selection automatically.
+ * 
  * @param options Options containing keypair preferences
- * @returns The keypair path to use
+ * @returns The resolved absolute path to the keypair file to use
+ * 
+ * @example
+ * ```typescript
+ * // With --keypair /custom/path.json
+ * const path1 = getKeypairPath({ keypairPath: "/custom/path.json" });
+ * // Returns: "/custom/path.json"
+ * 
+ * // With --use-test-keypair
+ * const path2 = getKeypairPath({ useTestKeypair: true });
+ * // Returns: "~/.config/solana/keytest.json"
+ * 
+ * // Default case
+ * const path3 = getKeypairPath({});
+ * // Returns: "~/.config/solana/id.json"
+ * ```
  */
 export function getKeypairPath(options: CommonOptions): string {
   // Explicit path takes precedence
@@ -141,7 +180,20 @@ export function getKeypairPath(options: CommonOptions): string {
 
 /**
  * Parse command line arguments for CCIP send operations
- * @returns Parsed CCIP send options
+ * 
+ * Extends common arguments with CCIP-specific parameters like fee token selection.
+ * This function is used by scripts that perform cross-chain operations and need
+ * to specify how transaction fees should be paid.
+ * 
+ * @returns Parsed CCIP send options including fee token configuration
+ * 
+ * @example
+ * ```typescript
+ * // Command: yarn ccip:send --fee-token native --log-level INFO
+ * const options = parseCCIPSendArgs();
+ * // options.feeToken === FeeTokenType.NATIVE
+ * // options.logLevel === LogLevel.INFO
+ * ```
  */
 export function parseCCIPSendArgs(): CCIPSendOptions {
   const options = parseCommonArgs();
@@ -170,7 +222,20 @@ export function parseCCIPSendArgs(): CCIPSendOptions {
 
 /**
  * Parse command line arguments for token operations
- * @returns Parsed token options
+ * 
+ * Extends common arguments with token-specific parameters like amount.
+ * Used by scripts that perform token operations like minting, burning,
+ * or transferring tokens. Amount is stored as string to preserve precision
+ * for large numbers that exceed JavaScript's safe integer limits.
+ * 
+ * @returns Parsed token options with amount as string for precision
+ * 
+ * @example
+ * ```typescript
+ * // Command: yarn token:mint --amount 1000000000000000000
+ * const options = parseTokenArgs();
+ * // options.amount === "1000000000000000000" (preserved as string)
+ * ```
  */
 export function parseTokenArgs(): TokenOptions {
   const options = parseCommonArgs();

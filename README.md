@@ -266,3 +266,54 @@ Price Is: 105.52
 
 ✨  Done in 10.49s.
 ```
+
+## Cross-Chain Interoperability Protocol (CCIP)
+
+This repository also includes comprehensive scripts and libraries for **Chainlink CCIP**, enabling cross-chain communication between Solana and EVM-compatible blockchains.
+
+### CCIP Features
+
+- **Token Transfers**: Send tokens from EVM chains to Solana and vice versa
+- **Arbitrary Messaging**: Send custom data between chains  
+- **Multi-Chain Support**: Works with Ethereum, Base, Optimism, BSC, Arbitrum, and more
+- **Token Pool Management**: Configure burn-mint token pools for cross-chain transfers
+- **Admin Registry**: Manage token administration across multiple chains
+
+### Quick Start with CCIP
+
+#### Send Tokens from Ethereum to Solana
+
+```bash
+# Get test tokens
+yarn evm:token:drip
+
+# Send BnM tokens to Solana
+yarn evm:transfer --token 0x779877A7B0D9E8603169DdbD7836e478b4624789 --amount 1000000000000000000
+```
+
+#### Send Tokens from Solana to Ethereum
+
+```bash
+# Create and configure a token
+yarn svm:token:create --name "MyToken" --symbol "MTK"
+
+# Delegate authority for CCIP transfers
+yarn svm:token:delegate
+
+# Send tokens cross-chain
+yarn svm:token-transfer --token-mint YourTokenMintAddress --token-amount 1000000
+```
+
+### CCIP Documentation
+
+For comprehensive CCIP documentation:
+
+- **[CCIP Scripts Overview](./ccip-scripts/README.md)** - Script commands and quick start
+- **[SVM Scripts Guide](./ccip-scripts/svm/README.md)** - Detailed Solana operations  
+- **[EVM Scripts Guide](./ccip-scripts/evm/README.md)** - Detailed EVM operations
+- **[SVM SDK Documentation](./ccip-lib/svm/README.md)** - Solana SDK reference
+- **[EVM SDK Documentation](./ccip-lib/evm/README.md)** - EVM SDK reference
+
+### CCIP Explorer
+
+Track your cross-chain messages on the [CCIP Explorer](https://ccip.chain.link)

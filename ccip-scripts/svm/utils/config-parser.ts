@@ -51,6 +51,9 @@ export interface CCIPSendOptions extends CommonOptions {
   
   /** Multiple token transfers support - internal usage */
   tokenAmounts?: Array<{ tokenMint: string, amount: string | number }>;
+  
+  /** EVM receiver address for cross-chain messages */
+  evmReceiverAddress?: string;
 }
 
 /**
@@ -305,6 +308,13 @@ export function printUsage(scriptName: string): void {
     );
   }
 
+  if (scriptName.startsWith("ccip:send") || scriptName.startsWith("svm:")) {
+    console.log("\nReceiver Options:");
+    console.log(
+      "  --receiver <address>          EVM receiver address (alternative: --evm-receiver-address)"
+    );
+  }
+
   if (scriptName === "token:delegate") {
     console.log("\nToken Delegation Options:");
     console.log(
@@ -431,6 +441,10 @@ export function parseCCIPArgs(
       if (!options.tokenAmounts) {
         options.tokenAmount = args[i + 1];
       }
+      i++;
+    } else if ((args[i] === "--receiver" || args[i] === "--evm-receiver-address") && i + 1 < args.length) {
+      // Parse receiver address - support both --receiver and --evm-receiver-address
+      options.evmReceiverAddress = args[i + 1];
       i++;
     }
   }

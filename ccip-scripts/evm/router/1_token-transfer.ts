@@ -71,7 +71,7 @@ const MESSAGE_CONFIG = {
       // Token amount in raw format (with all decimals included)
       // IMPORTANT: This must be the full raw amount, not a decimal value
       // For example: 1 token with 18 decimals would be "100000000000000000"
-      amount: "20000000000000000000", // 20 tokens with 18 decimals
+      amount: "10000000000000000", // 0.01 token with 18 decimals
     },
   ],
 

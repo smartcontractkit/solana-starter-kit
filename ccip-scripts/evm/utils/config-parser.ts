@@ -192,6 +192,13 @@ export function parseCommonArgs(): CommonOptions {
     options.tokenAmounts = [{ token: options.token, amount: options.amount }];
   }
 
+  // Handle partial token override: if --token is provided but no --amount,
+  // create tokenAmounts using the custom token with a default amount
+  if (options.token && !options.amount && !options.tokenAmounts) {
+    const defaultAmount = "10000000000000000"; // 0.01 token with 18 decimals (matches default config)
+    options.tokenAmounts = [{ token: options.token, amount: defaultAmount }];
+  }
+
   // Parse receiver (CCIP message receiver)
   const receiverIndex = args.indexOf("--receiver");
   if (receiverIndex >= 0 && args.length > receiverIndex + 1) {

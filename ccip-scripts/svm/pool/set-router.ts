@@ -27,7 +27,9 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
+import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolType } from "../../../ccip-lib/svm";
+import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
@@ -147,22 +149,22 @@ async function main() {
     logger.debug(`  Log level: ${options.logLevel}`);
 
     // Create token pool client
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel: options.logLevel || LogLevel.INFO, // Use INFO as default
-      skipPreflight: options.skipPreflight,
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
+    // Create token pool manager using SDK
+    const tokenPoolManager = createTokenPoolManager(
       burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel || LogLevel.INFO,
+        skipPreflight: options.skipPreflight,
+      }
     );
+
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
     // Check if pool exists
     logger.info("Checking if pool exists...");
     logger.debug(`Checking pool existence for mint: ${tokenMint.toString()}`);
-    const poolExists = await tokenPoolClient.hasPool({ mint: tokenMint });
+    const poolExists = await tokenPoolClient.hasPool(tokenMint);
     logger.debug(`Pool exists: ${poolExists}`);
 
     if (!poolExists) {
@@ -177,7 +179,7 @@ async function main() {
     // Get current pool info to show current router
     logger.info("Fetching current pool configuration...");
     try {
-      const poolInfo = await tokenPoolClient.getPoolInfo();
+      const poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
       const currentRouter = poolInfo.config.config.router.toString();
       logger.info(`Current router: ${currentRouter}`);
       logger.info(`Pool owner: ${poolInfo.config.config.owner.toString()}`);
@@ -202,9 +204,9 @@ async function main() {
 
     // Set the new router
     logger.info("Setting router to configured CCIP router...");
-    const signature = await tokenPoolClient.setRouter({
-      mint: tokenMint,
+    const signature = await tokenPoolClient.setRouter(tokenMint, {
       newRouter: newRouter,
+      skipPreflight: options.skipPreflight,
     });
 
     logger.info(`Router updated successfully!`);
@@ -215,7 +217,7 @@ async function main() {
     logger.info("Verifying router update...");
     logger.debug("Attempting to fetch pool info to verify router update...");
     try {
-      const updatedPoolInfo = await tokenPoolClient.getPoolInfo();
+      const updatedPoolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
       const updatedRouter = updatedPoolInfo.config.config.router.toString();
 
       if (updatedRouter === newRouter.toString()) {

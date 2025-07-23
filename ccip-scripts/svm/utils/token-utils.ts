@@ -1,12 +1,12 @@
 /**
- * Token Utility Functions
+ * CCIP Message Utility Functions
  * 
- * This module provides utility functions for working with tokens
- * on Solana, including determining token program IDs, fetching
- * token decimals, and formatting token amounts.
+ * This module provides utility functions for CCIP message handling
+ * and configuration. Token-specific utilities have been moved to the SDK.
+ * 
+ * NOTE: Token utilities (detectTokenProgram, fetchTokenDecimals, etc.) 
+ * have been moved to ccip-lib/svm/utils/token.ts - import from SDK instead.
  */
-
-// Only import what's needed for remaining functions
 
 /**
  * Message configuration interface

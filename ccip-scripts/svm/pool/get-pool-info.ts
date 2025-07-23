@@ -21,7 +21,9 @@
  */
 
 import { PublicKey } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
+import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolType } from "../../../ccip-lib/svm";
+import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
@@ -135,24 +137,22 @@ async function main() {
     logger.debug(`  Log level: ${options.logLevel}`);
     logger.debug(`  Wallet: ${walletKeypair.publicKey.toString()}`);
 
-    // Create token pool client
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel:
-        options.logLevel !== undefined ? options.logLevel : LogLevel.INFO, // Use INFO as default
-      skipPreflight: options.skipPreflight,
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
+    // Create token pool manager using SDK
+    const tokenPoolManager = createTokenPoolManager(
       burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel !== undefined ? options.logLevel : LogLevel.INFO,
+        skipPreflight: options.skipPreflight,
+      }
     );
+
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
     // Check if pool exists
     logger.info("Checking if pool exists...");
     logger.debug(`Checking pool existence for mint: ${tokenMint.toString()}`);
-    const poolExists = await tokenPoolClient.hasPool({ mint: tokenMint });
+    const poolExists = await tokenPoolClient.hasPool(tokenMint);
     logger.debug(`Pool exists: ${poolExists}`);
 
     if (!poolExists) {
@@ -168,7 +168,7 @@ async function main() {
     // Get pool information
     logger.info("Fetching pool information...");
     logger.debug("Retrieving complete pool configuration...");
-    const poolInfo = await tokenPoolClient.getPoolInfo();
+    const poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
     logger.debug("Pool info retrieved:", {
       poolType: poolInfo.poolType,
       version: poolInfo.config.version,

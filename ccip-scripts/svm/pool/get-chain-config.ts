@@ -27,7 +27,8 @@
  */
 
 import { PublicKey } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
+import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolType } from "../../../ccip-lib/svm";
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { parseArgs, displayAvailableRemoteChains } from "../utils/args-parser";
@@ -97,25 +98,21 @@ async function main() {
     logger.debug(`  Commitment level: ${config.connection.commitment}`);
     logger.debug(`  Log level: ${options["log-level"]}`);
 
-    // Create token pool client (read-only, no wallet needed)
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel: (options["log-level"] as LogLevel) || LogLevel.INFO,
-      skipPreflight: false, // Not relevant for read operations
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
+    // Create token pool manager using SDK
+    const tokenPoolManager = createTokenPoolManager(
       burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
+      {
+        keypairPath: `${process.env.HOME}/.config/solana/id.json`, // Default keypair for read operations
+        logLevel: (options["log-level"] as LogLevel) || LogLevel.INFO,
+        skipPreflight: false, // Not relevant for read operations
+      }
     );
+
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
     // Get the chain config
     logger.info("Retrieving chain configuration...");
-    const chainConfig = await tokenPoolClient.getChainConfig({
-      mint: tokenMint,
-      remoteChainSelector,
-    });
+    const chainConfig = await tokenPoolClient.getChainConfig(tokenMint, remoteChainSelector);
 
     // Display the configuration
     logger.info(`Chain configuration retrieved successfully! 🎉`);

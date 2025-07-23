@@ -28,7 +28,8 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
+import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolType } from "../../../ccip-lib/svm";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
@@ -137,22 +138,17 @@ async function main() {
     logger.debug(`  Authority: ${walletKeypair.publicKey.toString()}`);
     logger.debug(`  Skip preflight: ${options.skipPreflight}`);
 
-    // Create token pool client (we need a dummy mint for the client interface)
-    // The global config doesn't actually need a specific mint
-    const dummyMint = PublicKey.default; // Use default as placeholder
-
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel:
-        options.logLevel !== undefined ? options.logLevel : LogLevel.INFO, // Use INFO as default
-      skipPreflight: options.skipPreflight,
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
+    // Create token pool manager using SDK
+    const tokenPoolManager = createTokenPoolManager(
       burnMintPoolProgramId,
-      dummyMint,
-      clientOptions
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel !== undefined ? options.logLevel : LogLevel.INFO,
+        skipPreflight: options.skipPreflight,
+      }
     );
+
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
     // Initialize the global config
     logger.info("Initializing global configuration...");

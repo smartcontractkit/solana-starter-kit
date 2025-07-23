@@ -32,7 +32,9 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
+import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolType } from "../../../ccip-lib/svm";
+import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
@@ -165,27 +167,28 @@ async function main() {
     logger.debug(`  Skip preflight: ${options["skip-preflight"]}`);
     logger.debug(`  Log level: ${options["log-level"]}`);
 
-    // Create token pool client
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel: (options["log-level"] as LogLevel) || LogLevel.INFO,
-      skipPreflight: options["skip-preflight"],
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
+    // Create token pool manager using SDK
+    const tokenPoolManager = createTokenPoolManager(
       burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
+      {
+        keypairPath: keypairPath,
+        logLevel: (options["log-level"] as LogLevel) || LogLevel.INFO,
+        skipPreflight: options["skip-preflight"],
+      }
     );
+
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
     // Initialize the chain remote config (pool addresses must be empty for initialization)
     logger.info("Initializing chain remote configuration...");
-    const signature = await tokenPoolClient.initChainRemoteConfig({
-      mint: tokenMint,
-      remoteChainSelector,
+    const result = await tokenPoolClient.initChainRemoteConfig(tokenMint, remoteChainSelector, {
       tokenAddress,
       decimals,
+      txOptions: {
+        skipPreflight: options["skip-preflight"],
+      },
     });
+    const signature = result.signature;
 
     logger.info(`Chain remote configuration initialized successfully!`);
     logger.info(`Transaction signature: ${signature}`);

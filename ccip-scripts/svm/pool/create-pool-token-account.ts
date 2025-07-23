@@ -33,7 +33,9 @@ import {
   getAssociatedTokenAddress,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
+import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolType } from "../../../ccip-lib/svm";
+import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { detectTokenProgram } from "../../../ccip-lib/svm";
@@ -169,24 +171,24 @@ async function main() {
     logger.info(`Token Mint: ${tokenMint.toString()}`);
     logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
 
-    // Create token pool client to verify pool exists
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel: options.logLevel || LogLevel.INFO,
-      skipPreflight: options.skipPreflight,
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
+    // Create token pool manager using SDK
+    const tokenPoolManager = createTokenPoolManager(
       burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel || LogLevel.INFO,
+        skipPreflight: options.skipPreflight,
+      }
     );
+
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
     // Verify pool exists
     logger.info("Verifying pool exists...");
-    const poolExists = await tokenPoolClient.hasPool({ mint: tokenMint });
-
-    if (!poolExists) {
+    let poolInfo: BurnMintTokenPoolInfo;
+    try {
+      poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+    } catch (error) {
       logger.error("Pool does not exist for this token mint");
       logger.info("Initialize the pool first:");
       logger.info(
@@ -197,7 +199,6 @@ async function main() {
 
     // Get pool info to verify current state
     logger.info("Getting pool information...");
-    const poolInfo = await tokenPoolClient.getPoolInfo();
     const currentPoolTokenAccount = poolInfo.config.config.poolTokenAccount;
 
     logger.info(

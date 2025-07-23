@@ -23,21 +23,39 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Options for creating a CCIPClient
+ * Supported client types for the unified factory
+ */
+export type SVMClientType = 'ccip' | 'token-pool' | 'token-registry';
+
+/**
+ * Options for creating any SVM client through the unified factory
+ */
+export interface SVMClientFactoryOptions
+  extends CCIPClientOptions,
+    CommonOptions {
+  /** Type of client to create */
+  clientType?: SVMClientType;
+  /** Program ID for token pool operations (required for token-pool client) */
+  burnMintPoolProgramId?: PublicKey;
+  /** Router program ID for registry operations (required for token-registry client) */
+  routerProgramId?: string;
+}
+
+/**
+ * Legacy interface for backward compatibility
  */
 export interface CCIPClientFactoryOptions
   extends CCIPClientOptions,
     CommonOptions {}
 
 /**
- * Creates a configured CCIPClient instance
- *
- * @param options Client creation options
- * @returns CCIPClient instance
+ * Internal helper to create the common CCIP context
+ * This eliminates the duplication across all factory functions
  */
-export function createCCIPClient(
-  options: CCIPClientFactoryOptions = {}
-): CCIPClient {
+function createCCIPContext(
+  options: SVMClientFactoryOptions,
+  loggerName: string
+): CCIPContext {
   // We only support SOLANA_DEVNET for now
   const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
   const keypairPath = getKeypairPath(options);
@@ -46,18 +64,75 @@ export function createCCIPClient(
   const provider = createProviderFromPath(keypairPath, config.connection);
 
   // Build context with config and provider
-  const context: CCIPContext = {
+  return {
     // Use the adapter function to convert our config to the format expected by the library
     config: adaptSVMConfigForLibrary(config),
     provider,
     logger:
       options.logLevel !== undefined
-        ? createLogger("ccip-client", { level: options.logLevel })
+        ? createLogger(loggerName, { level: options.logLevel })
         : undefined,
   };
+}
 
-  // Return configured CCIPClient
-  return new CCIPClient(context);
+/**
+ * Unified factory for creating any SVM client type
+ * This consolidates the logic that was duplicated across 3 separate factories
+ *
+ * @param options Client creation options including client type
+ * @returns The requested client instance
+ */
+export function createSVMClient<T extends SVMClientType>(
+  options: SVMClientFactoryOptions & { clientType: T }
+): T extends 'ccip' ? CCIPClient 
+  : T extends 'token-pool' ? TokenPoolManager
+  : T extends 'token-registry' ? TokenRegistryClient
+  : never {
+  
+  switch (options.clientType) {
+    case 'ccip': {
+      const context = createCCIPContext(options, "ccip-client");
+      return new CCIPClient(context) as any;
+    }
+    
+    case 'token-pool': {
+      if (!options.burnMintPoolProgramId) {
+        throw new Error("burnMintPoolProgramId is required for token-pool client");
+      }
+      const context = createCCIPContext(options, "token-pool-manager");
+      const programIds: TokenPoolProgramIds = {
+        burnMint: options.burnMintPoolProgramId,
+      };
+      return new TokenPoolManager(context, programIds) as any;
+    }
+    
+    case 'token-registry': {
+      if (!options.routerProgramId) {
+        throw new Error("routerProgramId is required for token-registry client");
+      }
+      const context = createCCIPContext(options, "token-registry-client");
+      return new TokenRegistryClient(context, new PublicKey(options.routerProgramId)) as any;
+    }
+    
+    default:
+      throw new Error(`Unknown client type: ${options.clientType}`);
+  }
+}
+
+/**
+ * Creates a configured CCIPClient instance
+ * Legacy function maintained for backward compatibility
+ *
+ * @param options Client creation options
+ * @returns CCIPClient instance
+ */
+export function createCCIPClient(
+  options: CCIPClientFactoryOptions = {}
+): CCIPClient {
+  return createSVMClient({
+    ...options,
+    clientType: 'ccip' as const
+  });
 }
 
 /**
@@ -69,6 +144,7 @@ export interface TokenPoolManagerOptions extends CommonOptions {
 
 /**
  * Creates a TokenPoolManager for managing token pools
+ * Legacy function maintained for backward compatibility - uses the unified factory internally
  *
  * @param burnMintPoolProgramId Program ID for the burn-mint pool
  * @param options Client creation options
@@ -78,31 +154,11 @@ export function createTokenPoolManager(
   burnMintPoolProgramId: PublicKey,
   options: TokenPoolManagerOptions = {}
 ): TokenPoolManager {
-  // We only support SOLANA_DEVNET for now
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-  const keypairPath = getKeypairPath(options);
-
-  // Create provider from keypair path
-  const provider = createProviderFromPath(keypairPath, config.connection);
-
-  // Build context with config and provider
-  const context: CCIPContext = {
-    // Use the adapter function to convert our config to the format expected by the library
-    config: adaptSVMConfigForLibrary(config),
-    provider,
-    logger:
-      options.logLevel !== undefined
-        ? createLogger("token-pool-manager", { level: options.logLevel })
-        : undefined,
-  };
-
-  // Configure program IDs for the token pool types
-  const programIds: TokenPoolProgramIds = {
-    burnMint: burnMintPoolProgramId,
-  };
-
-  // Return the TokenPoolManager instance
-  return new TokenPoolManager(context, programIds);
+  return createSVMClient({
+    ...options,
+    clientType: 'token-pool' as const,
+    burnMintPoolProgramId
+  });
 }
 
 /**
@@ -114,6 +170,7 @@ export interface TokenRegistryClientOptions extends CommonOptions {
 
 /**
  * Creates a TokenRegistryClient for managing token registrations
+ * Legacy function maintained for backward compatibility - uses the unified factory internally
  *
  * @param routerProgramId Router program ID
  * @param options Client creation options
@@ -123,26 +180,11 @@ export function createTokenRegistryClient(
   routerProgramId: string,
   options: TokenRegistryClientOptions = {}
 ): TokenRegistryClient {
-  // We only support SOLANA_DEVNET for now
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-  const keypairPath = getKeypairPath(options);
-
-  // Create provider from keypair path
-  const provider = createProviderFromPath(keypairPath, config.connection);
-
-  // Build context with config and provider
-  const context: CCIPContext = {
-    // Use the adapter function to convert our config to the format expected by the library
-    config: adaptSVMConfigForLibrary(config),
-    provider,
-    logger:
-      options.logLevel !== undefined
-        ? createLogger("token-registry-client", { level: options.logLevel })
-        : undefined,
-  };
-
-  // Return the TokenRegistryClient instance
-  return new TokenRegistryClient(context, new PublicKey(routerProgramId));
+  return createSVMClient({
+    ...options,
+    clientType: 'token-registry' as const,
+    routerProgramId
+  });
 }
 
 /**

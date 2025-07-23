@@ -35,7 +35,9 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
+import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolType } from "../../../ccip-lib/svm";
+import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { parseArgs } from "../utils/args-parser";
@@ -158,38 +160,25 @@ async function main() {
     logger.debug(`  Skip preflight: ${options["skip-preflight"]}`);
     logger.debug(`  Log level: ${options["log-level"]}`);
 
-    // Create token pool client
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel: options["log-level"] || LogLevel.INFO,
-      skipPreflight: options["skip-preflight"],
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
+    // Create token pool manager using SDK
+    const tokenPoolManager = createTokenPoolManager(
       burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
+      {
+        keypairPath: keypairPath,
+        logLevel: options["log-level"] || LogLevel.INFO,
+        skipPreflight: options["skip-preflight"],
+      }
     );
 
-    // Check if pool exists
-    logger.info("Checking if pool exists...");
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+    // Check if pool exists and get current pool info for verification
+    logger.info("Checking if pool exists and fetching current pool configuration...");
     logger.debug(`Checking pool existence for mint: ${tokenMint.toString()}`);
-    const poolExists = await tokenPoolClient.hasPool({ mint: tokenMint });
-    logger.debug(`Pool exists: ${poolExists}`);
-
-    if (!poolExists) {
-      logger.error("Pool does not exist for this token mint");
-      logger.info("Initialize the pool first using 'yarn svm:pool:initialize'");
-      logger.debug(
-        `To initialize: yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
-      );
-      process.exit(1);
-    }
-
-    // Get current pool info for verification
-    logger.info("Fetching current pool configuration...");
+    let poolInfo: BurnMintTokenPoolInfo;
     try {
-      const poolInfo = await tokenPoolClient.getPoolInfo();
+      poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+      logger.debug(`Pool exists: true`);
       logger.info(`Pool owner: ${poolInfo.config.config.owner.toString()}`);
 
       logger.debug("Current pool details:", {
@@ -200,8 +189,12 @@ async function main() {
         router: poolInfo.config.config.router.toString(),
       });
     } catch (error) {
-      logger.warn(`Could not fetch current pool info: ${error}`);
-      logger.debug("Pool info fetch error:", error);
+      logger.error("Pool does not exist for this token mint");
+      logger.info("Initialize the pool first using 'yarn svm:pool:initialize'");
+      logger.debug(
+        `To initialize: yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
+      );
+      process.exit(1);
     }
 
     // Verify the new multisig address is valid
@@ -230,12 +223,9 @@ async function main() {
       "Ensure the multisig is properly configured and includes the pool signer."
     );
 
-    const signature = await tokenPoolClient.transferMintAuthorityToMultisig({
-      mint: tokenMint,
+    const signature = await tokenPoolClient.transferMintAuthorityToMultisig(tokenMint, {
       newMultisigMintAuthority: newMultisigMintAuthority,
-      txOptions: {
-        skipPreflight: options["skip-preflight"],
-      },
+      skipPreflight: options["skip-preflight"],
     });
 
     logger.info(`Mint authority transferred successfully! 🎉`);

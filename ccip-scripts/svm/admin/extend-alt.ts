@@ -249,18 +249,18 @@ async function main() {
 
       try {
         // Use the token registry client to extend the ALT
-        const signature = await tokenRegistryClient.extendTokenPoolLookupTable({
+        const result = await tokenRegistryClient.extendTokenPoolLookupTable({
           lookupTableAddress,
           newAddresses: batch,
         });
 
-        signatures.push(signature);
+        signatures.push(result.signature);
         logger.info(
           `Batch ${batchIndex + 1} completed successfully! Transaction: ${
-            signature
+            result.signature
           }`
         );
-        logger.info(`Explorer: ${getExplorerUrl(config.id, signature)}`);
+        logger.info(`Explorer: ${getExplorerUrl(config.id, result.signature)}`);
 
         // Wait a bit between batches to avoid overwhelming the network
         if (batchIndex < addressBatches.length - 1) {

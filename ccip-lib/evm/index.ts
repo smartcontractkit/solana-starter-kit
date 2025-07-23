@@ -1,5 +1,5 @@
 // Core components
-export { CCIPMessenger } from "./core/client/index";
+export { CCIPMessenger, CCIPClientBuilder } from "./core/client/index";
 export type {
   CCIPEVMContext,
   CCIPEVMConfig,
@@ -80,6 +80,10 @@ export {
   logLevelToString,
   parseLogLevel,
   LogLevel,
+} from "./utils/logger";
+
+export type {
+  Logger,
 } from "./utils/logger";
 
 // Export SDK version

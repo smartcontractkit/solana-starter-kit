@@ -8,6 +8,7 @@ import {
 } from "../../../ccip-lib/evm";
 import { CCIPScriptOptions } from "./message-utils";
 import { ChainId, getEVMConfig, EVMChainConfig } from "../../config";
+import { checkAndWarnBalance } from "./wallet-utils";
 
 /**
  * Token details with balance information
@@ -39,10 +40,37 @@ function isWriteProvider(provider: any): provider is CCIPEVMWriteProvider {
 }
 
 /**
- * Setup the CCIP client and context
- * @param options Script options
- * @param scriptName Name of the script for logging
- * @returns Client context
+ * Setup the CCIP client and context for script execution
+ * 
+ * This is a high-level wrapper around CCIPMessenger.createFromConfig()
+ * that adds script-friendly features like balance checking and logging.
+ * 
+ * **When to use this function:**
+ * - Writing executable scripts that need user feedback
+ * - Need automatic wallet balance validation
+ * - Want consistent logging setup across scripts
+ * - Require full context including signer address and config
+ * 
+ * **When to use CCIPMessenger.createFromConfig() directly:**
+ * - Building libraries or SDK extensions
+ * - Need minimal overhead without console output
+ * - Want custom context handling
+ * - Building middleware or service layers
+ * 
+ * @example
+ * ```typescript
+ * // For scripts - use setupClientContext
+ * const context = await setupClientContext(options, "token-transfer");
+ * context.logger.info(`Sending from: ${context.signerAddress}`);
+ * 
+ * // For libraries - use createFromConfig directly
+ * const client = await CCIPMessenger.createFromConfig(config, privateKey);
+ * ```
+ * 
+ * @param options Script options including privateKey, chainId, and logLevel
+ * @param scriptName Name of the script for logging purposes
+ * @returns Complete client context with client, logger, config, and signer address
+ * @throws Error if provider doesn't have signing capabilities or configuration is invalid
  */
 export async function setupClientContext(
   options: CCIPScriptOptions,
@@ -77,16 +105,9 @@ export async function setupClientContext(
     signerAddress = await client.provider.getAddress();
     logger.info(`Wallet Address: ${signerAddress}`);
 
-    // Check wallet balance
+    // Check wallet balance using utility function
     const provider = client.provider.provider;
-    const balance = await provider.getBalance(signerAddress);
-    logger.info(`Native Balance: ${ethers.formatEther(balance)} ETH`);
-
-    if (balance < ethers.parseEther("0.005")) {
-      logger.warn(
-        "⚠️ Warning: Low wallet balance. You may not have enough for gas fees."
-      );
-    }
+    await checkAndWarnBalance(provider, signerAddress, logger);
   } else {
     throw new Error(
       "Write provider with signing capabilities is required for this operation"

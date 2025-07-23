@@ -28,7 +28,7 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
 import { TokenPoolType } from "../../../ccip-lib/svm";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
@@ -139,13 +139,21 @@ async function main() {
     logger.debug(`  Skip preflight: ${options.skipPreflight}`);
 
     // Create token pool manager using SDK
-    const tokenPoolManager = createTokenPoolManager(
-      burnMintPoolProgramId,
+    const tokenPoolManager = TokenPoolManager.create(
+      config.connection,
+      walletKeypair,
       {
-        keypairPath: keypairPath,
-        logLevel: options.logLevel !== undefined ? options.logLevel : LogLevel.INFO,
-        skipPreflight: options.skipPreflight,
-      }
+        burnMint: burnMintPoolProgramId,
+         // Using same program for both
+      },
+      {
+        ccipRouterProgramId: config.routerProgramId.toString(),
+        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+        linkTokenMint: config.linkTokenMint.toString(),
+        receiverProgramId: config.receiverProgramId.toString(),
+      },
+      { logLevel: options.logLevel !== undefined ? options.logLevel : LogLevel.INFO }
     );
 
     const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);

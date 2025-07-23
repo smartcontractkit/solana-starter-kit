@@ -28,10 +28,9 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenRegistryClient } from "../utils/client-factory";
+import { TokenRegistryClient, LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 
 // ========== CONFIGURATION ==========
 // Customize these values if needed for your specific use case
@@ -147,14 +146,18 @@ async function main() {
     logger.debug(`  Log level: ${options.logLevel}`);
     logger.debug(`  New admin explicitly provided: ${!!options.newAdmin}`);
 
-    // Create token registry client
-    const tokenRegistryClient = createTokenRegistryClient(
+    // Create token registry client directly using SDK
+    const tokenRegistryClient = TokenRegistryClient.create(
+      config.connection,
+      walletKeypair,
       routerProgramId.toString(),
       {
-        keypairPath: keypairPath,
-        logLevel: options.logLevel,
-        skipPreflight: options.skipPreflight,
-      }
+        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+        linkTokenMint: config.linkTokenMint.toString(),
+        receiverProgramId: config.receiverProgramId.toString(),
+      },
+      { logLevel: options.logLevel }
     );
 
     // Check current token admin registry

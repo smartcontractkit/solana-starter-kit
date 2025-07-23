@@ -352,38 +352,6 @@ export function getCCIPSVMConfig(chainId: ChainId): SVMChainConfig {
   return SVM_CONFIGS[chainId];
 }
 
-/**
- * Adapter interface to map between our config and CCIPCoreConfig
- * This ensures compatibility with the library without changing our naming
- */
-export interface CCIPCoreAdapter {
-  ccipRouterProgramId: PublicKey;
-  feeQuoterProgramId: PublicKey;
-  rmnRemoteProgramId: PublicKey;
-  linkTokenMint: PublicKey;
-  tokenMint: PublicKey;
-  nativeSol: PublicKey;
-  systemProgramId: PublicKey;
-  programId: PublicKey;
-}
-
-/**
- * Convert SVMChainConfig to CCIPCoreAdapter for library compatibility
- */
-export function adaptSVMConfigForLibrary(
-  config: SVMChainConfig
-): CCIPCoreAdapter {
-  return {
-    ccipRouterProgramId: config.routerProgramId,
-    feeQuoterProgramId: config.feeQuoterProgramId,
-    rmnRemoteProgramId: config.rmnRemoteProgramId,
-    linkTokenMint: config.linkTokenMint,
-    tokenMint: config.bnmTokenMint,
-    nativeSol: config.nativeSol,
-    systemProgramId: config.systemProgramId,
-    programId: config.receiverProgramId,
-  };
-}
 
 /**
  * Get EVM fee token address based on config and token type

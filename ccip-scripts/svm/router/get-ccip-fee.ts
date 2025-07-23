@@ -27,6 +27,7 @@ import {
   AddressConversion,
   LogLevel,
   createLogger,
+  CCIPClient,
 } from "../../../ccip-lib/svm";
 
 // Import from centralized config
@@ -43,8 +44,8 @@ import {
   parseCCIPSendArgs,
   getKeypairPath,
   CCIPMessageConfig,
+  loadKeypair,
 } from "../utils";
-import { createCCIPClient } from "../utils/client-factory";
 
 // =================================================================
 // FEE CALCULATION CONFIGURATION
@@ -100,15 +101,24 @@ async function getFeeEstimation(): Promise<void> {
     logger.info("\n==== Environment Information ====");
     logger.info(`Solana Cluster: devnet`);
 
-    // Get keypair path
+    // Get keypair path and load wallet
     const keypairPath = getKeypairPath(cmdOptions);
+    const walletKeypair = loadKeypair(keypairPath);
 
-    // Create the CCIPClient with our factory
-    const ccipClient = createCCIPClient({
-      keypairPath,
-      logLevel: cmdOptions.logLevel,
-      skipPreflight: cmdOptions.skipPreflight,
-    });
+    // Create the CCIPClient with direct SDK call
+    const ccipClient = CCIPClient.create(
+      config.connection,
+      walletKeypair,
+      {
+        ccipRouterProgramId: config.routerProgramId.toString(),
+        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+        linkTokenMint: config.linkTokenMint.toString(),
+        tokenMint: config.bnmTokenMint.toString(),
+        receiverProgramId: config.receiverProgramId.toString(),
+      },
+      { logLevel: cmdOptions.logLevel }
+    );
 
     // Display CCIP Router information
     logger.info("\n==== CCIP Router Information ====");

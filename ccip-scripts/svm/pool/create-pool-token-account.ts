@@ -33,7 +33,7 @@ import {
   getAssociatedTokenAddress,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { createTokenPoolManager } from "../utils/client-factory";
+import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
 import { TokenPoolType } from "../../../ccip-lib/svm";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
@@ -172,13 +172,20 @@ async function main() {
     logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
 
     // Create token pool manager using SDK
-    const tokenPoolManager = createTokenPoolManager(
-      burnMintPoolProgramId,
+    const tokenPoolManager = TokenPoolManager.create(
+      config.connection,
+      walletKeypair,
       {
-        keypairPath: keypairPath,
-        logLevel: options.logLevel || LogLevel.INFO,
-        skipPreflight: options.skipPreflight,
-      }
+        burnMint: burnMintPoolProgramId,
+      },
+      {
+        ccipRouterProgramId: config.routerProgramId.toString(),
+        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+        linkTokenMint: config.linkTokenMint.toString(),
+        receiverProgramId: config.receiverProgramId.toString(),
+      },
+      { logLevel: options.logLevel || LogLevel.INFO }
     );
 
     const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);

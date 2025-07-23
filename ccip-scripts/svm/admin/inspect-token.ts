@@ -26,7 +26,7 @@ import { BN } from "@coral-xyz/anchor";
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger, Logger } from "../../../ccip-lib/svm";
-import { createTokenRegistryClient } from "../utils/client-factory";
+import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
 
 /**
  * Parse command line arguments specific to token inspection
@@ -254,13 +254,12 @@ async function main() {
     logger.info(`Network: ${config.id}`);
 
     // Create token registry client
-    const tokenRegistryClient = createTokenRegistryClient(
+    const tokenRegistryClient = TokenRegistryClient.create(
+      config.connection,
+      walletKeypair,
       config.routerProgramId.toString(),
-      {
-        keypairPath: keypairPath,
-        logLevel: options.logLevel,
-        skipPreflight: options.skipPreflight,
-      }
+      {},
+      { logLevel: options.logLevel }
     );
 
     // Fetch token admin registry

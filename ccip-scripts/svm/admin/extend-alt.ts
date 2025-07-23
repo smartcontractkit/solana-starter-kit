@@ -39,7 +39,7 @@ import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { createErrorEnhancer } from "../../../ccip-lib/svm/utils/errors";
-import { createTokenRegistryClient } from "../utils/client-factory";
+import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
 
 // ========== CONFIGURATION ==========
 // Customize these values if needed for your specific use case
@@ -149,13 +149,12 @@ async function main() {
     }
 
     // Create token registry client
-    const tokenRegistryClient = createTokenRegistryClient(
+    const tokenRegistryClient = TokenRegistryClient.create(
+      config.connection,
+      walletKeypair,
       config.routerProgramId.toString(),
-      {
-        keypairPath: keypairPath,
-        logLevel: options.logLevel,
-        skipPreflight: options.skipPreflight,
-      }
+      {},
+      { logLevel: options.logLevel }
     );
 
     // Parse addresses

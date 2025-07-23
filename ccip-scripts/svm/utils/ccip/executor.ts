@@ -6,6 +6,7 @@ import {
 } from "@solana/web3.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 import {
+  CCIPClient,
   CCIPSendRequest,
   CCIPSendOptions,
   ExtraArgsOptions,
@@ -25,7 +26,6 @@ import {
   printUsage,
 } from "../../utils";
 import { toOnChainAmount } from "../../../../ccip-lib/svm";
-import { createCCIPClient } from "../../utils/client-factory";
 import { validateSolBalance, validateTokenBalances } from "./validation";
 import { ExecutorOptions, CCIPOptions } from "./config-types";
 
@@ -105,14 +105,22 @@ export async function executeCCIPScript({
     const walletKeypair = loadKeypair(keypairPath);
     logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
 
-    // Create the CCIPClient with our factory
-    const ccipClient = createCCIPClient({
-      keypairPath,
-      logLevel: options.logLevel,
-    });
-
     // Get configuration
     const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+
+    // Create the CCIPClient directly using SDK
+    const ccipClient = CCIPClient.create(
+      config.connection,
+      walletKeypair,
+      {
+        ccipRouterProgramId: config.routerProgramId.toString(),
+        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+        linkTokenMint: config.linkTokenMint.toString(),
+        receiverProgramId: config.receiverProgramId.toString(),
+      },
+      { logLevel: options.logLevel }
+    );
 
     // STEP 4: Check wallet balance
     logger.info("\n==== Wallet Balance Information ====");

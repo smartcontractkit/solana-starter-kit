@@ -43,7 +43,7 @@ import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
-import { createTokenRegistryClient as sdkCreateTokenRegistryClient } from "../utils/client-factory";
+import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
 
 // ========== CONFIGURATION ==========
 // Customize these values if needed for your specific use case
@@ -163,9 +163,13 @@ async function main() {
     logger.debug(`  Log level: ${options.logLevel}`);
 
     // Create SDK token registry client to get full result
-    const sdkClient = sdkCreateTokenRegistryClient(routerProgramId.toString(), {
-      connection: config.connection,
-    });
+    const sdkClient = TokenRegistryClient.create(
+      config.connection,
+      walletKeypair,
+      routerProgramId.toString(),
+      {},
+      { logLevel: options.logLevel }
+    );
 
     // Create the ALT
     logger.info("Creating Address Lookup Table...");

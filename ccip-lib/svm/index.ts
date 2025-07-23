@@ -1,6 +1,8 @@
 // Core components
 export * from "./core/client/accounts";
 export * from "./core/client/index";
+export { TokenPoolManager } from "./core/client/tokenpools";
+export { TokenRegistryClient } from "./core/client/tokenregistry";
 
 // Export models with specific names to avoid conflicts
 export type {

@@ -8,6 +8,8 @@
  * have been moved to ccip-lib/svm/utils/token.ts - import from SDK instead.
  */
 
+// Only import what's needed for remaining functions
+
 /**
  * Message configuration interface
  */

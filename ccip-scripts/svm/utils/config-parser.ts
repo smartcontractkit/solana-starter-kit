@@ -42,15 +42,18 @@ export interface CommonOptions {
 export interface CCIPSendOptions extends CommonOptions {
   /** Type of token to use for fees */
   feeToken?: FeeTokenType | string;
-  
+
   /** Token mint address for CCIP token transfer (legacy single token support) */
   tokenMint?: string;
-  
+
   /** Token amount for CCIP token transfer (legacy single token support) */
   tokenAmount?: string | number;
-  
+
   /** Multiple token transfers support - internal usage */
-  tokenAmounts?: Array<{ tokenMint: string, amount: string | number }>;
+  tokenAmounts?: Array<{ tokenMint: string; amount: string | number }>;
+
+  /** EVM receiver address for cross-chain messages */
+  evmReceiverAddress?: string;
 }
 
 /**
@@ -63,13 +66,13 @@ export interface TokenOptions extends CommonOptions {
 
 /**
  * Parse common command line arguments shared across all CCIP scripts
- * 
+ *
  * Extracts standard CLI arguments that are used by most scripts including
  * network selection, keypair path, logging level, and preflight settings.
  * This provides a consistent interface across all CCIP scripts.
- * 
+ *
  * @returns Parsed common options with defaults applied
- * 
+ *
  * @example
  * ```typescript
  * // Command: yarn script --network devnet --log-level DEBUG --skip-preflight
@@ -135,29 +138,29 @@ export function parseCommonArgs(): CommonOptions {
 
 /**
  * Get the appropriate keypair path based on options
- * 
+ *
  * Determines which keypair file to use based on the provided options,
  * following a priority order:
  * 1. Explicit keypair path (--keypair)
  * 2. Test keypair if requested (--use-test-keypair)
  * 3. Default Solana CLI keypair location
- * 
+ *
  * This function is essential for beginners as it handles the complexity
  * of keypair selection automatically.
- * 
+ *
  * @param options Options containing keypair preferences
  * @returns The resolved absolute path to the keypair file to use
- * 
+ *
  * @example
  * ```typescript
  * // With --keypair /custom/path.json
  * const path1 = getKeypairPath({ keypairPath: "/custom/path.json" });
  * // Returns: "/custom/path.json"
- * 
+ *
  * // With --use-test-keypair
  * const path2 = getKeypairPath({ useTestKeypair: true });
  * // Returns: "~/.config/solana/keytest.json"
- * 
+ *
  * // Default case
  * const path3 = getKeypairPath({});
  * // Returns: "~/.config/solana/id.json"
@@ -180,13 +183,13 @@ export function getKeypairPath(options: CommonOptions): string {
 
 /**
  * Parse command line arguments for CCIP send operations
- * 
+ *
  * Extends common arguments with CCIP-specific parameters like fee token selection.
  * This function is used by scripts that perform cross-chain operations and need
  * to specify how transaction fees should be paid.
- * 
+ *
  * @returns Parsed CCIP send options including fee token configuration
- * 
+ *
  * @example
  * ```typescript
  * // Command: yarn ccip:send --fee-token native --log-level INFO
@@ -222,14 +225,14 @@ export function parseCCIPSendArgs(): CCIPSendOptions {
 
 /**
  * Parse command line arguments for token operations
- * 
+ *
  * Extends common arguments with token-specific parameters like amount.
  * Used by scripts that perform token operations like minting, burning,
  * or transferring tokens. Amount is stored as string to preserve precision
  * for large numbers that exceed JavaScript's safe integer limits.
- * 
+ *
  * @returns Parsed token options with amount as string for precision
- * 
+ *
  * @example
  * ```typescript
  * // Command: yarn token:mint --amount 1000000000000000000
@@ -279,7 +282,10 @@ export function printUsage(scriptName: string): void {
     "  --skip-preflight              Skip preflight transaction checks"
   );
 
-  if (scriptName.startsWith("ccip:send") || scriptName.startsWith("svm:token-transfer")) {
+  if (
+    scriptName.startsWith("ccip:send") ||
+    scriptName.startsWith("svm:token-transfer")
+  ) {
     console.log("\nCCIP Send Options:");
     console.log(
       "  --fee-token <token>           Fee token type: native, wrapped-native, link, or custom address"
@@ -294,15 +300,42 @@ export function printUsage(scriptName: string): void {
     console.log(
       "  --token-amount <amount>       Amount to transfer in raw units"
     );
+    console.log("  For multiple tokens, use comma-separated values:");
+    console.log('  --token-mint "address1,address2"  Multiple token addresses');
+    console.log('  --token-amount "amount1,amount2"  Corresponding amounts');
+  }
+
+  if (scriptName.startsWith("ccip:send") || scriptName.startsWith("svm:")) {
+    console.log("\nReceiver Options:");
     console.log(
-      "  For multiple tokens, use comma-separated values:"
+      "  --token-mint <address1,address2>  Token mint addresses to delegate (comma-separated)"
     );
     console.log(
-      "  --token-mint \"address1,address2\"  Multiple token addresses"
+      "                                    If provided, replaces default tokens (wSOL, BnM, LINK)"
     );
     console.log(
-      "  --token-amount \"amount1,amount2\"  Corresponding amounts"
+      "  --token-program-id <address>      Token program ID (default: TOKEN_2022_PROGRAM_ID)"
     );
+    console.log(
+      "  --delegation-type <type>          Delegation type: fee-billing, token-pool, custom (default: fee-billing)"
+    );
+    console.log(
+      "  --receiver <address>          EVM receiver address (alternative: --evm-receiver-address)"
+    );
+    console.log(
+      "  --custom-delegate <address>       Custom delegate address (required for custom delegation type)"
+    );
+    console.log("\nExamples:");
+    console.log("  # Delegate single custom token:");
+    console.log(
+      "  yarn svm:token:delegate --token-mint LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"
+    );
+    console.log("  # Delegate multiple custom tokens:");
+    console.log(
+      '  yarn svm:token:delegate --token-mint "TokenA...,TokenB...,TokenC..."'
+    );
+    console.log("  # Use defaults (wSOL, BnM, LINK):");
+    console.log("  yarn svm:token:delegate");
   }
 
   if (scriptName === "token:delegate") {
@@ -324,9 +357,13 @@ export function printUsage(scriptName: string): void {
     );
     console.log("\nExamples:");
     console.log("  # Delegate single custom token:");
-    console.log("  yarn svm:token:delegate --token-mint LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L");
+    console.log(
+      "  yarn svm:token:delegate --token-mint LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"
+    );
     console.log("  # Delegate multiple custom tokens:");
-    console.log("  yarn svm:token:delegate --token-mint \"TokenA...,TokenB...,TokenC...\"");
+    console.log(
+      '  yarn svm:token:delegate --token-mint "TokenA...,TokenB...,TokenC..."'
+    );
     console.log("  # Use defaults (wSOL, BnM, LINK):");
     console.log("  yarn svm:token:delegate");
   }
@@ -347,14 +384,22 @@ export function printUsage(scriptName: string): void {
     );
     console.log("\nExamples:");
     console.log("  # Check single custom token:");
-    console.log("  yarn svm:token:check --token-mint LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L");
+    console.log(
+      "  yarn svm:token:check --token-mint LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"
+    );
     console.log("  # Check multiple custom tokens:");
-    console.log("  yarn svm:token:check --token-mint \"TokenA...,TokenB...,TokenC...\"");
+    console.log(
+      '  yarn svm:token:check --token-mint "TokenA...,TokenB...,TokenC..."'
+    );
     console.log("  # Check defaults (wSOL, BnM, LINK):");
     console.log("  yarn svm:token:check");
   }
 
-  if (scriptName.startsWith("token:") && scriptName !== "token:delegate" && scriptName !== "token:check") {
+  if (
+    scriptName.startsWith("token:") &&
+    scriptName !== "token:delegate" &&
+    scriptName !== "token:check"
+  ) {
     console.log("\nToken Options:");
     console.log(
       "  --amount <number>             Amount to use for token operation (default: 1)"
@@ -377,7 +422,7 @@ export interface CCIPOptions extends CCIPSendOptions {
 /**
  * Parse command line arguments for CCIP scripts with support for
  * both single and multi-token formats
- * 
+ *
  * @param scriptType Identifies the type of script for specific argument handling
  * @returns Parsed command line arguments as CCIPOptions
  */
@@ -431,6 +476,13 @@ export function parseCCIPArgs(
       if (!options.tokenAmounts) {
         options.tokenAmount = args[i + 1];
       }
+      i++;
+    } else if (
+      (args[i] === "--receiver" || args[i] === "--evm-receiver-address") &&
+      i + 1 < args.length
+    ) {
+      // Parse receiver address - support both --receiver and --evm-receiver-address
+      options.evmReceiverAddress = args[i + 1];
       i++;
     }
   }

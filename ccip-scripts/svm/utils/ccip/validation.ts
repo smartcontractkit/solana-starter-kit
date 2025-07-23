@@ -3,7 +3,7 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync, getAccount } from "@solana/spl-token";
 import { Logger } from "../../../../ccip-lib/svm";
 import { TokenTransfer } from "./config-types";
-import { determineTokenProgramId, fetchTokenDecimals, formatTokenAmount } from "../token-utils";
+import { detectTokenProgram, fetchTokenDecimals, formatTokenAmount } from "../../../../ccip-lib/svm";
 
 /**
  * Validates that a wallet has sufficient SOL balance
@@ -62,7 +62,7 @@ export async function validateTokenBalances(
     const tokenAmount = tokenTransfer.amount.toString();
 
     // Get token program ID and decimals
-    const tokenProgramId = await determineTokenProgramId(
+    const tokenProgramId = await detectTokenProgram(
       tokenMint,
       connection,
       logger

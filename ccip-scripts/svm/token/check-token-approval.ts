@@ -9,8 +9,8 @@ import {
   parseCommonArgs,
   printUsage,
   getKeypairPath,
-  determineTokenProgramId,
 } from "../utils";
+import { detectTokenProgram } from "../../../ccip-lib/svm";
 import {
   findFeeBillingSignerPDA,
   findExternalTokenPoolsSignerPDA,
@@ -58,6 +58,8 @@ interface TokenApprovalConfig {
  * Extended options for token approval operations
  */
 interface TokenApprovalOptions extends ReturnType<typeof parseCommonArgs> {
+  // For custom token checking
+  tokenMint?: string;
   delegationType?: DelegationType;
   customDelegate?: string | PublicKey;
 }
@@ -122,7 +124,10 @@ function parseTokenApprovalArgs(): TokenApprovalOptions {
   };
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--delegation-type" && i + 1 < args.length) {
+    if (args[i] === "--token-mint" && i + 1 < args.length) {
+      options.tokenMint = args[i + 1];
+      i++;
+    } else if (args[i] === "--delegation-type" && i + 1 < args.length) {
       const delegationType = args[i + 1].toLowerCase();
       if (
         delegationType === "fee-billing" ||
@@ -244,7 +249,7 @@ async function checkTokenApprovals(
       logger.info(`Mint: ${tokenMint.toString()}`);
 
       // Determine token program dynamically
-      const tokenProgramId = await determineTokenProgramId(
+      const tokenProgramId = await detectTokenProgram(
         tokenMint,
         connection,
         logger
@@ -397,10 +402,62 @@ async function checkTokenApprovalEntrypoint(): Promise<void> {
     logger.info(`SOL Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
     logger.info(`Lamports Balance: ${balance} lamports`);
 
-    // Process token approvals - tokensToCheck is already fully defined
+    // Process token approvals
     logger.info("\n==== Processing Token Approvals ====");
+
+    let tokensToCheck: TokenApprovalConfig[] = [];
+
+    // If custom token mints are provided, use them instead of defaults
+    if (cmdOptions.tokenMint) {
+      // Support comma-separated token mints
+      const tokenMints = cmdOptions.tokenMint.split(',').map(mint => mint.trim());
+      
+      logger.info(`Custom token mints provided: ${tokenMints.join(', ')}`);
+      logger.info("Using custom tokens instead of defaults");
+
+      let effectiveDelegationType: DelegationType = "fee-billing"; // Default for ccip_send compatibility
+      let customDelegateAddress: PublicKey | string | undefined = undefined;
+      
+      if (cmdOptions.delegationType === "custom") {
+        if (!cmdOptions.customDelegate) {
+          logger.error("Error: --delegation-type 'custom' requires --custom-delegate to be set.");
+          throw new Error("Custom delegate not provided for custom delegation type.");
+        }
+        effectiveDelegationType = "custom";
+        customDelegateAddress = cmdOptions.customDelegate;
+        logger.info(`Using custom delegation type for all provided tokens.`);
+      } else if (cmdOptions.delegationType === "token-pool") {
+        // If user explicitly asks for token-pool, warn them about ccip_send compatibility
+        logger.warn(
+          `Warning: Delegation type 'token-pool' specified. ` +
+          `For ccip_send compatibility, checking against 'fee-billing' signer PDA. ` +
+          `If delegation to a pool-specific PDA is also needed, handle it separately.`
+        );
+        effectiveDelegationType = "fee-billing";
+      } else {
+        // Default case (no delegationType specified or fee-billing)
+        logger.info(`Using 'fee-billing' delegation type for all tokens for ccip_send compatibility.`);
+      }
+
+      // Create approval config for each provided token mint
+      for (const tokenMint of tokenMints) {
+        const customTokenConfig: TokenApprovalConfig = {
+          tokenMint: tokenMint,
+          description: `Custom Token (${tokenMint.slice(0, 8)}...)`,
+          delegationType: effectiveDelegationType,
+        };
+
+        tokensToCheck.push(customTokenConfig);
+        logger.info(`Added custom token check for: ${tokenMint}`);
+      }
+    } else {
+      // No custom tokens provided, use default configuration
+      logger.info("No custom tokens provided, using default token configuration");
+      tokensToCheck = [...TOKEN_APPROVAL_CONFIG.tokensToCheck];
+    }
+
     const results = await checkTokenApprovals(
-      TOKEN_APPROVAL_CONFIG.tokensToCheck,
+      tokensToCheck,
       cmdOptions,
       logger,
       connection,

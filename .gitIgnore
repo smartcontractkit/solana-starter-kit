@@ -12,3 +12,4 @@ id.json
 .env
 .env.enc
 log/*
+tmp/*

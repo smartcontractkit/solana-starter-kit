@@ -20,8 +20,8 @@ import {
   getKeypairPath,
   parseCommonArgs,
   printUsage,
-  determineTokenProgramId,
 } from "../utils";
+import { detectTokenProgram } from "../../../ccip-lib/svm";
 import {
   findFeeBillingSignerPDA,
   findExternalTokenPoolsSignerPDA,
@@ -173,12 +173,36 @@ function parseTokenDelegateArgs(): TokenDelegateOptions {
 /**
  * Checks if a token account exists and creates it if it doesn't
  * 
- * @param connection Solana connection
- * @param tokenMint Token mint address
- * @param owner Owner of the token account
- * @param tokenProgramId Token program ID
- * @param logger Logger instance
- * @returns Instructions to create ATA if needed and whether ATA exists
+ * This function is crucial for beginners to understand as Associated Token Accounts (ATAs)
+ * are required to hold SPL tokens. An ATA is a deterministic account address derived
+ * from the owner's wallet and token mint using the formula:
+ * 
+ * ATA = PDA(owner, token_program, mint)
+ * 
+ * The function:
+ * 1. Calculates the expected ATA address using getAssociatedTokenAddressSync
+ * 2. Checks if the account already exists on-chain via getAccountInfo
+ * 3. If it doesn't exist, creates an instruction to initialize it
+ * 4. Returns both the creation instructions and existence status
+ * 
+ * @param connection Solana RPC connection for on-chain account lookups
+ * @param tokenMint The token mint address (defines which token type)
+ * @param owner The wallet that will own the token account
+ * @param tokenProgramId Either TOKEN_PROGRAM_ID or TOKEN_2022_PROGRAM_ID
+ * @param logger Logger instance for debugging and informational messages
+ * @returns Object containing creation instructions (if needed) and existence boolean
+ * 
+ * @example
+ * ```typescript
+ * const { createATAInstructions, ataExists } = await checkAndCreateTokenAccount(
+ *   connection,
+ *   new PublicKey("TokenMint111111111111111111111111111111111"),
+ *   wallet.publicKey,
+ *   TOKEN_2022_PROGRAM_ID,
+ *   logger
+ * );
+ * // If ataExists === false, createATAInstructions contains the creation instruction
+ * ```
  */
 async function checkAndCreateTokenAccount(
   connection: Connection,
@@ -328,7 +352,7 @@ async function processTokenDelegation(
       );
     } else {
       // Dynamically determine token program ID from the mint account
-      tokenProgramId = await determineTokenProgramId(
+      tokenProgramId = await detectTokenProgram(
         tokenMint,
         connection,
         logger
@@ -478,13 +502,16 @@ async function delegateTokenAuthority(): Promise<void> {
     // Process each token delegation from config
     logger.info("\n==== Processing Token Delegations ====");
 
-    // Create a copy of token delegations from config
-    const tokenDelegations: TokenDelegationConfig[] = [
-      ...TOKEN_DELEGATION_CONFIG.tokenDelegations,
-    ];
+    let tokenDelegations: TokenDelegationConfig[] = [];
 
-    // Add any additional tokens from command line
+    // If custom token mints are provided, use them instead of defaults
     if (cmdOptions.tokenMint) {
+      // Support comma-separated token mints
+      const tokenMints = cmdOptions.tokenMint.split(',').map(mint => mint.trim());
+      
+      logger.info(`Custom token mints provided: ${tokenMints.join(', ')}`);
+      logger.info("Using custom tokens instead of defaults");
+
       let effectiveDelegationType: DelegationType = "fee-billing"; // Default for ccip_send compatibility
       let customDelegateAddress: PublicKey | string | undefined = undefined;
       
@@ -495,33 +522,37 @@ async function delegateTokenAuthority(): Promise<void> {
         }
         effectiveDelegationType = "custom";
         customDelegateAddress = cmdOptions.customDelegate;
-        logger.info(`Using custom delegation type for ${cmdOptions.tokenMint}.`);
+        logger.info(`Using custom delegation type for all provided tokens.`);
       } else if (cmdOptions.delegationType === "token-pool") {
         // If user explicitly asks for token-pool, warn them about ccip_send compatibility
         logger.warn(
-          `Warning: Delegation type 'token-pool' specified for ${cmdOptions.tokenMint}. ` +
+          `Warning: Delegation type 'token-pool' specified. ` +
           `For ccip_send compatibility, authority will be delegated to the 'fee-billing' signer PDA. ` +
           `If delegation to a pool-specific PDA is also needed, handle it separately.`
         );
         effectiveDelegationType = "fee-billing";
       } else {
         // Default case (no delegationType specified or fee-billing)
-        logger.info(`Using 'fee-billing' delegation type for ${cmdOptions.tokenMint} for ccip_send compatibility.`);
+        logger.info(`Using 'fee-billing' delegation type for all tokens for ccip_send compatibility.`);
       }
 
-      const customTokenConfig: TokenDelegationConfig = {
-        tokenMint: cmdOptions.tokenMint,
-        tokenProgramId: cmdOptions.tokenProgramId,
-        delegationType: effectiveDelegationType,
-        amount: MAX_UINT64,
-      };
+      // Create delegation config for each provided token mint
+      for (const tokenMint of tokenMints) {
+        const customTokenConfig: TokenDelegationConfig = {
+          tokenMint: tokenMint,
+          tokenProgramId: cmdOptions.tokenProgramId,
+          delegationType: effectiveDelegationType,
+          customDelegate: customDelegateAddress,
+          amount: MAX_UINT64,
+        };
 
-      if (customDelegateAddress) {
-        customTokenConfig.customDelegate = customDelegateAddress;
+        tokenDelegations.push(customTokenConfig);
+        logger.info(`Added custom token delegation for: ${tokenMint}`);
       }
-
-      tokenDelegations.push(customTokenConfig);
-      logger.info(`Added custom token delegation for: ${cmdOptions.tokenMint}`);
+    } else {
+      // No custom tokens provided, use default configuration
+      logger.info("No custom tokens provided, using default token configuration");
+      tokenDelegations = [...TOKEN_DELEGATION_CONFIG.tokenDelegations];
     }
 
     // Process each delegation

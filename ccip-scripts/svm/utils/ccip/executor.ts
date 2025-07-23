@@ -23,9 +23,8 @@ import {
   loadKeypair,
   getKeypairPath,
   printUsage,
-  toOnChainAmount,
-  messageDataToBuffer,
 } from "../../utils";
+import { toOnChainAmount } from "../../../../ccip-lib/svm";
 import { createCCIPClient } from "../../utils/client-factory";
 import { validateSolBalance, validateTokenBalances } from "./validation";
 import { ExecutorOptions, CCIPOptions } from "./config-types";
@@ -77,6 +76,30 @@ export async function executeCCIPScript({
       ...cmdOptions,
     };
 
+    // STEP 2.1: Handle partial token override cases
+    // If user provided --token-mint but no --token-amount, and no tokenAmounts array was created,
+    // then create a tokenAmounts array using the custom mint with the default amount
+    if (cmdOptions.tokenMint && !cmdOptions.tokenAmounts) {
+      logger.debug(`Detected partial token override: custom mint with default amount`);
+      logger.debug(`Custom token mint: ${cmdOptions.tokenMint}`);
+      
+      // Use the amount from the default configuration (first token) or the provided amount
+      const defaultAmount = cmdOptions.tokenAmount || 
+        (messageConfig.tokenAmounts.length > 0 ? messageConfig.tokenAmounts[0].amount : "0");
+      
+      logger.debug(`Using amount: ${defaultAmount} (${cmdOptions.tokenAmount ? 'custom' : 'default'})`);
+      
+      // Create the tokenAmounts array with the custom mint
+      options.tokenAmounts = [
+        {
+          tokenMint: cmdOptions.tokenMint,
+          amount: defaultAmount,
+        },
+      ];
+      
+      logger.debug(`Created tokenAmounts array for partial override`);
+    }
+
     // STEP 3: Set up client
     // Load wallet keypair
     const walletKeypair = loadKeypair(keypairPath);
@@ -122,7 +145,7 @@ export async function executeCCIPScript({
       const tokenAmount = tokenTransfer.amount.toString();
 
       // Determine token program and get decimals
-      const tokenProgramId = await determineTokenProgramId(
+      const tokenProgramId = await detectTokenProgram(
         tokenMint,
         connection,
         logger
@@ -422,8 +445,9 @@ export async function executeCCIPScript({
 
 // Import these after function to avoid circular dependencies
 import {
-  determineTokenProgramId,
+  detectTokenProgram,
   fetchTokenDecimals,
   formatTokenAmount,
-} from "../token-utils";
+} from "../../../../ccip-lib/svm";
+import { messageDataToBuffer } from "../token-utils";
 import { getCCIPExplorerUrl } from "../../../evm/utils";

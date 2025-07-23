@@ -36,7 +36,7 @@ import {
 import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
-import { determineTokenProgramId } from "../utils/token-utils";
+import { detectTokenProgram } from "../../../ccip-lib/svm";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { findPoolSignerPDA } from "../../../ccip-lib/svm/utils/pdas/tokenpool";
 
@@ -205,7 +205,7 @@ async function main() {
     );
 
     // Determine token program ID
-    const tokenProgramId = await determineTokenProgramId(
+    const tokenProgramId = await detectTokenProgram(
       tokenMint,
       config.connection,
       logger

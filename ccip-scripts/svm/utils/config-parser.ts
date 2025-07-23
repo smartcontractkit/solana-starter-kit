@@ -308,20 +308,53 @@ export function printUsage(scriptName: string): void {
   if (scriptName === "token:delegate") {
     console.log("\nToken Delegation Options:");
     console.log(
-      "  --token-mint <address>        Custom token mint address to delegate"
+      "  --token-mint <address1,address2>  Token mint addresses to delegate (comma-separated)"
     );
     console.log(
-      "  --token-program-id <address>  Token program ID (default: TOKEN_2022_PROGRAM_ID)"
+      "                                    If provided, replaces default tokens (wSOL, BnM, LINK)"
     );
     console.log(
-      "  --delegation-type <type>      Delegation type: fee-billing, token-pool, custom (default: token-pool)"
+      "  --token-program-id <address>      Token program ID (default: TOKEN_2022_PROGRAM_ID)"
     );
     console.log(
-      "  --custom-delegate <address>   Custom delegate address (required for custom delegation type)"
+      "  --delegation-type <type>          Delegation type: fee-billing, token-pool, custom (default: fee-billing)"
     );
+    console.log(
+      "  --custom-delegate <address>       Custom delegate address (required for custom delegation type)"
+    );
+    console.log("\nExamples:");
+    console.log("  # Delegate single custom token:");
+    console.log("  yarn svm:token:delegate --token-mint LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L");
+    console.log("  # Delegate multiple custom tokens:");
+    console.log("  yarn svm:token:delegate --token-mint \"TokenA...,TokenB...,TokenC...\"");
+    console.log("  # Use defaults (wSOL, BnM, LINK):");
+    console.log("  yarn svm:token:delegate");
   }
 
-  if (scriptName.startsWith("token:") && scriptName !== "token:delegate") {
+  if (scriptName === "token:check") {
+    console.log("\nToken Approval Check Options:");
+    console.log(
+      "  --token-mint <address1,address2>  Token mint addresses to check (comma-separated)"
+    );
+    console.log(
+      "                                    If provided, replaces default tokens (wSOL, BnM, LINK)"
+    );
+    console.log(
+      "  --delegation-type <type>          Expected delegation type: fee-billing, token-pool, custom (default: fee-billing)"
+    );
+    console.log(
+      "  --custom-delegate <address>       Expected custom delegate address (required for custom delegation type)"
+    );
+    console.log("\nExamples:");
+    console.log("  # Check single custom token:");
+    console.log("  yarn svm:token:check --token-mint LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L");
+    console.log("  # Check multiple custom tokens:");
+    console.log("  yarn svm:token:check --token-mint \"TokenA...,TokenB...,TokenC...\"");
+    console.log("  # Check defaults (wSOL, BnM, LINK):");
+    console.log("  yarn svm:token:check");
+  }
+
+  if (scriptName.startsWith("token:") && scriptName !== "token:delegate" && scriptName !== "token:check") {
     console.log("\nToken Options:");
     console.log(
       "  --amount <number>             Amount to use for token operation (default: 1)"

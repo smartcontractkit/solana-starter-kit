@@ -23,6 +23,7 @@ export * from "./utils/logger";
 export * from "./utils/errors";
 export * from "./utils/conversion";
 export * from "./utils/keypair";
+export * from "./utils/token";
 
 // Bindings exports
 export * from "./bindings/types";

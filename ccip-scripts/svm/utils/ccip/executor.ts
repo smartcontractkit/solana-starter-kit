@@ -23,9 +23,8 @@ import {
   loadKeypair,
   getKeypairPath,
   printUsage,
-  toOnChainAmount,
-  messageDataToBuffer,
 } from "../../utils";
+import { toOnChainAmount } from "../../../../ccip-lib/svm";
 import { createCCIPClient } from "../../utils/client-factory";
 import { validateSolBalance, validateTokenBalances } from "./validation";
 import { ExecutorOptions, CCIPOptions } from "./config-types";
@@ -122,7 +121,7 @@ export async function executeCCIPScript({
       const tokenAmount = tokenTransfer.amount.toString();
 
       // Determine token program and get decimals
-      const tokenProgramId = await determineTokenProgramId(
+      const tokenProgramId = await detectTokenProgram(
         tokenMint,
         connection,
         logger
@@ -422,8 +421,9 @@ export async function executeCCIPScript({
 
 // Import these after function to avoid circular dependencies
 import {
-  determineTokenProgramId,
+  detectTokenProgram,
   fetchTokenDecimals,
   formatTokenAmount,
-} from "../token-utils";
+} from "../../../../ccip-lib/svm";
+import { messageDataToBuffer } from "../token-utils";
 import { getCCIPExplorerUrl } from "../../../evm/utils";

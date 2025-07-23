@@ -30,6 +30,7 @@ import {
   createAssociatedToken,
 } from "@metaplex-foundation/mpl-toolbox";
 import { createLogger, LogLevel } from "./logger";
+import { detectTokenProgram } from "./token";
 
 /**
  * Supported token programs
@@ -292,10 +293,13 @@ export class TokenCreationUtils {
     mint: PublicKey,
     amount: bigint,
     recipient?: PublicKey | UmiPublicKey,
-    tokenProgramId: PublicKey = TOKEN_2022_PROGRAM_ID,
+    tokenProgramId?: PublicKey,
     options: TokenOperationOptions = {}
   ): Promise<MintResult> {
-    const tokenProgram = umiPublicKey(tokenProgramId.toString());
+    // If no token program specified, detect it from the mint
+    const resolvedTokenProgramId = tokenProgramId || await detectTokenProgram(mint, this.connection, this.logger);
+    
+    const tokenProgram = umiPublicKey(resolvedTokenProgramId.toString());
     const mintPubkey = umiPublicKey(mint.toString());
     const recipientKey = recipient
       ? typeof recipient === "string" || "toBase58" in recipient
@@ -398,10 +402,13 @@ export class TokenCreationUtils {
   async findOrCreateATA(
     mint: PublicKey,
     owner: PublicKey | UmiPublicKey,
-    tokenProgramId: PublicKey = TOKEN_2022_PROGRAM_ID,
+    tokenProgramId?: PublicKey,
     options: TokenOperationOptions = {}
   ): Promise<PublicKey> {
-    const tokenProgram = umiPublicKey(tokenProgramId.toString());
+    // If no token program specified, detect it from the mint
+    const resolvedTokenProgramId = tokenProgramId || await detectTokenProgram(mint, this.connection, this.logger);
+    
+    const tokenProgram = umiPublicKey(resolvedTokenProgramId.toString());
     const mintPubkey = umiPublicKey(mint.toString());
     const ownerKey =
       typeof owner === "string" || "toBase58" in owner

@@ -20,8 +20,8 @@ import {
   getKeypairPath,
   parseCommonArgs,
   printUsage,
-  determineTokenProgramId,
 } from "../utils";
+import { detectTokenProgram } from "../../../ccip-lib/svm";
 import {
   findFeeBillingSignerPDA,
   findExternalTokenPoolsSignerPDA,
@@ -352,7 +352,7 @@ async function processTokenDelegation(
       );
     } else {
       // Dynamically determine token program ID from the mint account
-      tokenProgramId = await determineTokenProgramId(
+      tokenProgramId = await detectTokenProgram(
         tokenMint,
         connection,
         logger
@@ -502,13 +502,16 @@ async function delegateTokenAuthority(): Promise<void> {
     // Process each token delegation from config
     logger.info("\n==== Processing Token Delegations ====");
 
-    // Create a copy of token delegations from config
-    const tokenDelegations: TokenDelegationConfig[] = [
-      ...TOKEN_DELEGATION_CONFIG.tokenDelegations,
-    ];
+    let tokenDelegations: TokenDelegationConfig[] = [];
 
-    // Add any additional tokens from command line
+    // If custom token mints are provided, use them instead of defaults
     if (cmdOptions.tokenMint) {
+      // Support comma-separated token mints
+      const tokenMints = cmdOptions.tokenMint.split(',').map(mint => mint.trim());
+      
+      logger.info(`Custom token mints provided: ${tokenMints.join(', ')}`);
+      logger.info("Using custom tokens instead of defaults");
+
       let effectiveDelegationType: DelegationType = "fee-billing"; // Default for ccip_send compatibility
       let customDelegateAddress: PublicKey | string | undefined = undefined;
       
@@ -519,33 +522,37 @@ async function delegateTokenAuthority(): Promise<void> {
         }
         effectiveDelegationType = "custom";
         customDelegateAddress = cmdOptions.customDelegate;
-        logger.info(`Using custom delegation type for ${cmdOptions.tokenMint}.`);
+        logger.info(`Using custom delegation type for all provided tokens.`);
       } else if (cmdOptions.delegationType === "token-pool") {
         // If user explicitly asks for token-pool, warn them about ccip_send compatibility
         logger.warn(
-          `Warning: Delegation type 'token-pool' specified for ${cmdOptions.tokenMint}. ` +
+          `Warning: Delegation type 'token-pool' specified. ` +
           `For ccip_send compatibility, authority will be delegated to the 'fee-billing' signer PDA. ` +
           `If delegation to a pool-specific PDA is also needed, handle it separately.`
         );
         effectiveDelegationType = "fee-billing";
       } else {
         // Default case (no delegationType specified or fee-billing)
-        logger.info(`Using 'fee-billing' delegation type for ${cmdOptions.tokenMint} for ccip_send compatibility.`);
+        logger.info(`Using 'fee-billing' delegation type for all tokens for ccip_send compatibility.`);
       }
 
-      const customTokenConfig: TokenDelegationConfig = {
-        tokenMint: cmdOptions.tokenMint,
-        tokenProgramId: cmdOptions.tokenProgramId,
-        delegationType: effectiveDelegationType,
-        amount: MAX_UINT64,
-      };
+      // Create delegation config for each provided token mint
+      for (const tokenMint of tokenMints) {
+        const customTokenConfig: TokenDelegationConfig = {
+          tokenMint: tokenMint,
+          tokenProgramId: cmdOptions.tokenProgramId,
+          delegationType: effectiveDelegationType,
+          customDelegate: customDelegateAddress,
+          amount: MAX_UINT64,
+        };
 
-      if (customDelegateAddress) {
-        customTokenConfig.customDelegate = customDelegateAddress;
+        tokenDelegations.push(customTokenConfig);
+        logger.info(`Added custom token delegation for: ${tokenMint}`);
       }
-
-      tokenDelegations.push(customTokenConfig);
-      logger.info(`Added custom token delegation for: ${cmdOptions.tokenMint}`);
+    } else {
+      // No custom tokens provided, use default configuration
+      logger.info("No custom tokens provided, using default token configuration");
+      tokenDelegations = [...TOKEN_DELEGATION_CONFIG.tokenDelegations];
     }
 
     // Process each delegation

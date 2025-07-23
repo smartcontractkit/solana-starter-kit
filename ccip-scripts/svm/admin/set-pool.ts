@@ -34,7 +34,7 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenRegistryClient } from "./client";
+import { createTokenRegistryClient } from "../utils/client-factory";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
@@ -185,9 +185,13 @@ async function main() {
     logger.debug(`  Log level: ${options.logLevel}`);
 
     // Create token registry client
-    const tokenRegistryClient = await createTokenRegistryClient(
+    const tokenRegistryClient = createTokenRegistryClient(
       config.routerProgramId.toString(),
-      config.connection
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel,
+        skipPreflight: options.skipPreflight,
+      }
     );
 
     // Check current token admin registry status
@@ -195,9 +199,9 @@ async function main() {
     logger.debug(`Checking registry for mint: ${tokenMint.toString()}`);
 
     try {
-      const currentRegistry = await tokenRegistryClient.getTokenAdminRegistry({
-        tokenMint,
-      });
+      const currentRegistry = await tokenRegistryClient.getTokenAdminRegistry(
+        tokenMint
+      );
 
       if (currentRegistry) {
         logger.info(
@@ -296,16 +300,16 @@ async function main() {
 
     // Set the pool (register ALT with token)
     logger.info("Setting pool (registering ALT with token)...");
-    const result = await tokenRegistryClient.setPool({
+    const signature = await tokenRegistryClient.setPool({
       tokenMint,
       lookupTable: lookupTableAddress,
       writableIndices,
     });
 
     logger.info(`Pool set successfully!`);
-    logger.info(`Transaction signature: ${result.signature}`);
+    logger.info(`Transaction signature: ${signature}`);
     logger.info(
-      `Solana Explorer: ${getExplorerUrl(config.id, result.signature)}`
+      `Solana Explorer: ${getExplorerUrl(config.id, signature)}`
     );
 
     // Verify the pool was set
@@ -313,9 +317,9 @@ async function main() {
     logger.debug("Attempting to fetch updated registry to verify pool...");
 
     try {
-      const updatedRegistry = await tokenRegistryClient.getTokenAdminRegistry({
-        tokenMint,
-      });
+      const updatedRegistry = await tokenRegistryClient.getTokenAdminRegistry(
+        tokenMint
+      );
 
       if (updatedRegistry) {
         const currentLookupTable = updatedRegistry.lookupTable.toString();

@@ -16,14 +16,7 @@ export type {
 // Export MessageStatus enum
 export { MessageStatus } from "./core/models";
 
-// Export factory functions
-export {
-  createRouterClient,
-  createTokenAdminRegistryClient,
-  createTokenPoolClient,
-  createERC20Client,
-  createBurnMintERC677HelperClient,
-} from "./core/client/index";
+// Export factory functions removed - use direct class instantiation instead
 
 // Export specialized contract clients
 export {

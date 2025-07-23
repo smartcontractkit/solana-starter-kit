@@ -1,2 +1,2 @@
 export { CCIPMessenger } from "./CCIPMessenger";
-export * from "./factories";
+// Factories removed - use direct class instantiation instead

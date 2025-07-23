@@ -2,11 +2,10 @@ import { ethers } from "ethers";
 import {
   LogLevel,
   createLogger,
-  createBurnMintERC677HelperClient,
+  BurnMintERC677HelperClient,
   CCIPEVMContext,
   MultiDripOptions,
   CCIPEVMWriteProvider,
-  BurnMintERC677HelperClient,
 } from "../../../ccip-lib/evm";
 import { ChainId, getEVMConfig } from "../../config";
 import { createCCIPClient } from "../utils/client-factory";
@@ -349,7 +348,7 @@ async function dripTokens(): Promise<void> {
       logger,
     };
 
-    tokenClient = createBurnMintERC677HelperClient(
+    tokenClient = new BurnMintERC677HelperClient(
       tokenContext,
       config.bnmTokenAddress
     );

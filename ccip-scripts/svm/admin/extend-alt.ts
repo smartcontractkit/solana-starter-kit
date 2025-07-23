@@ -39,7 +39,7 @@ import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { createErrorEnhancer } from "../../../ccip-lib/svm/utils/errors";
-import { createTokenRegistryClient } from "./client";
+import { createTokenRegistryClient } from "../utils/client-factory";
 
 // ========== CONFIGURATION ==========
 // Customize these values if needed for your specific use case
@@ -149,9 +149,13 @@ async function main() {
     }
 
     // Create token registry client
-    const tokenRegistryClient = await createTokenRegistryClient(
+    const tokenRegistryClient = createTokenRegistryClient(
       config.routerProgramId.toString(),
-      config.connection
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel,
+        skipPreflight: options.skipPreflight,
+      }
     );
 
     // Parse addresses
@@ -245,18 +249,18 @@ async function main() {
 
       try {
         // Use the token registry client to extend the ALT
-        const result = await tokenRegistryClient.extendTokenPoolLookupTable({
+        const signature = await tokenRegistryClient.extendTokenPoolLookupTable({
           lookupTableAddress,
           newAddresses: batch,
         });
 
-        signatures.push(result.signature);
+        signatures.push(signature);
         logger.info(
           `Batch ${batchIndex + 1} completed successfully! Transaction: ${
-            result.signature
+            signature
           }`
         );
-        logger.info(`Explorer: ${getExplorerUrl(config.id, result.signature)}`);
+        logger.info(`Explorer: ${getExplorerUrl(config.id, signature)}`);
 
         // Wait a bit between batches to avoid overwhelming the network
         if (batchIndex < addressBatches.length - 1) {

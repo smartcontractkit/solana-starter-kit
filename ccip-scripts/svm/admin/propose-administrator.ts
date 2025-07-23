@@ -28,7 +28,7 @@
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenRegistryClient } from "./client";
+import { createTokenRegistryClient } from "../utils/client-factory";
 import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
@@ -148,9 +148,13 @@ async function main() {
     logger.debug(`  New admin explicitly provided: ${!!options.newAdmin}`);
 
     // Create token registry client
-    const tokenRegistryClient = await createTokenRegistryClient(
+    const tokenRegistryClient = createTokenRegistryClient(
       routerProgramId.toString(),
-      config.connection
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel,
+        skipPreflight: options.skipPreflight,
+      }
     );
 
     // Check current token admin registry
@@ -158,9 +162,9 @@ async function main() {
     logger.debug(`Checking registry for mint: ${tokenMint.toString()}`);
 
     try {
-      const currentRegistry = await tokenRegistryClient.getTokenAdminRegistry({
-        tokenMint,
-      });
+      const currentRegistry = await tokenRegistryClient.getTokenAdminRegistry(
+        tokenMint
+      );
 
       if (currentRegistry) {
         logger.info(
@@ -214,15 +218,15 @@ async function main() {
 
     // Propose the new administrator
     logger.info("Proposing new administrator...");
-    const result = await tokenRegistryClient.proposeAdministrator({
+    const signature = await tokenRegistryClient.proposeAdministrator({
       tokenMint,
       newAdmin: newAdminPubkey,
     });
 
     logger.info(`Administrator proposed successfully!`);
-    logger.info(`Transaction signature: ${result.signature}`);
+    logger.info(`Transaction signature: ${signature}`);
     logger.info(
-      `Solana Explorer: ${getExplorerUrl(config.id, result.signature)}`
+      `Solana Explorer: ${getExplorerUrl(config.id, signature)}`
     );
 
     // Verify the proposal
@@ -230,9 +234,9 @@ async function main() {
     logger.debug("Attempting to fetch registry to verify proposal...");
 
     try {
-      const updatedRegistry = await tokenRegistryClient.getTokenAdminRegistry({
-        tokenMint,
-      });
+      const updatedRegistry = await tokenRegistryClient.getTokenAdminRegistry(
+        tokenMint
+      );
 
       if (updatedRegistry) {
         const pendingAdmin = updatedRegistry.pendingAdministrator.toString();

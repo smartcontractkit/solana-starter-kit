@@ -3,7 +3,6 @@ import {
   createLogger,
   LogLevel,
   CCIPMessenger,
-  createERC20Client,
   ERC20Client,
   CCIPEVMWriteProvider,
 } from "../../../ccip-lib/evm";
@@ -126,7 +125,7 @@ export async function getTokenDetails(
 
   for (const { token: tokenAddress } of tokenAmounts) {
     // Create a proper ERC20 client for the token
-    const tokenClient = createERC20Client(
+    const tokenClient = new ERC20Client(
       {
         provider: client.provider,
         config: client.config,

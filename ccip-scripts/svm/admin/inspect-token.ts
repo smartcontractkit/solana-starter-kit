@@ -26,7 +26,7 @@ import { BN } from "@coral-xyz/anchor";
 import { ChainId, getCCIPSVMConfig } from "../../config";
 import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
 import { LogLevel, createLogger, Logger } from "../../../ccip-lib/svm";
-import { createTokenRegistryClient } from "./client";
+import { createTokenRegistryClient } from "../utils/client-factory";
 
 /**
  * Parse command line arguments specific to token inspection
@@ -254,9 +254,13 @@ async function main() {
     logger.info(`Network: ${config.id}`);
 
     // Create token registry client
-    const tokenRegistryClient = await createTokenRegistryClient(
+    const tokenRegistryClient = createTokenRegistryClient(
       config.routerProgramId.toString(),
-      config.connection
+      {
+        keypairPath: keypairPath,
+        logLevel: options.logLevel,
+        skipPreflight: options.skipPreflight,
+      }
     );
 
     // Fetch token admin registry
@@ -266,9 +270,9 @@ async function main() {
       "================================================================================"
     );
 
-    const registry = await tokenRegistryClient.getTokenAdminRegistry({
-      tokenMint,
-    });
+    const registry = await tokenRegistryClient.getTokenAdminRegistry(
+      tokenMint
+    );
 
     if (!registry) {
       logger.error("❌ No token admin registry found for this token");

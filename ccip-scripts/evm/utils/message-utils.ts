@@ -88,6 +88,13 @@ export function createCCIPMessageRequest(
     accounts: options.accounts,
   };
 
+  // Log accounts list before encoding for better visibility
+  if (options.accounts && options.accounts.length > 0) {
+    logger.info(`Solana accounts to include: [${options.accounts.join(", ")}]`);
+  } else {
+    logger.debug("No additional Solana accounts specified");
+  }
+
   // Use SDK's utility to create properly formatted extra args
   const extraArgs = createSolanaExtraArgs(extraArgsOptions, logger);
 

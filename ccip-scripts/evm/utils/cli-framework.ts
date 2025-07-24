@@ -344,7 +344,7 @@ export abstract class CCIPCommand<T extends BaseCommandOptions> {
       this.logger.error(`❌ ${this.metadata.name} failed:`);
       if (error instanceof Error) {
         this.logger.error(error.message);
-        if (this.logger.level <= LogLevel.DEBUG && error.stack) {
+        if (this.options.logLevel && this.options.logLevel <= LogLevel.DEBUG && error.stack) {
           this.logger.debug("\nStack trace:");
           this.logger.debug(error.stack);
         }

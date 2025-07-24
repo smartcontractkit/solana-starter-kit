@@ -27,6 +27,8 @@
     "svm:pool:edit-chain-remote-config": "ts-node ./ccip-scripts/svm/pool/edit-chain-remote-config.ts",
     "svm:pool:get-chain-config": "ts-node ./ccip-scripts/svm/pool/get-chain-config.ts",
     "svm:pool:get-pool-signer": "ts-node ./ccip-scripts/svm/pool/get-pool-signer.ts",
+    "svm:pool:set-rate-limit": "ts-node ./ccip-scripts/svm/pool/set-rate-limit.ts",
+    "svm:pool:configure-allowlist": "ts-node ./ccip-scripts/svm/pool/configure-allowlist.ts",
     "svm:pool:transfer-mint-authority-to-multisig": "ts-node ./ccip-scripts/svm/pool/transfer-mint-authority-to-multisig.ts",
     "svm:admin:propose-administrator": "ts-node ./ccip-scripts/svm/admin/propose-administrator.ts",
     "svm:admin:accept-admin-role": "ts-node ./ccip-scripts/svm/admin/accept-admin-role.ts",

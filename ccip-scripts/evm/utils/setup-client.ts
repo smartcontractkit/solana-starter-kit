@@ -3,24 +3,17 @@ import {
   createLogger,
   LogLevel,
   CCIPMessenger,
-  createERC20Client,
-  ERC20Client,
   CCIPEVMWriteProvider,
+  CCIPTokenValidator,
+  TokenDetails,
+  TokenAmountSpec,
 } from "../../../ccip-lib/evm";
-import { createCCIPClient } from "./client-factory";
 import { CCIPScriptOptions } from "./message-utils";
-import { ChainId, getEVMConfig, EVMChainConfig } from "../../config";
+import { getEVMConfig, EVMChainConfig } from "../../config";
+import { checkAndWarnBalance } from "./wallet-utils";
 
-/**
- * Token details with balance information
- */
-export interface TokenDetails {
-  tokenClient: ERC20Client;
-  tokenAddress: string;
-  tokenSymbol: string;
-  tokenDecimals: number;
-  tokenBalance: bigint;
-}
+// Re-export TokenDetails from SDK
+export type { TokenDetails } from "../../../ccip-lib/evm";
 
 /**
  * Client context with all necessary components
@@ -41,10 +34,37 @@ function isWriteProvider(provider: any): provider is CCIPEVMWriteProvider {
 }
 
 /**
- * Setup the CCIP client and context
- * @param options Script options
- * @param scriptName Name of the script for logging
- * @returns Client context
+ * Setup the CCIP client and context for script execution
+ *
+ * This is a high-level wrapper around CCIPMessenger.createFromConfig()
+ * that adds script-friendly features like balance checking and logging.
+ *
+ * **When to use this function:**
+ * - Writing executable scripts that need user feedback
+ * - Need automatic wallet balance validation
+ * - Want consistent logging setup across scripts
+ * - Require full context including signer address and config
+ *
+ * **When to use CCIPMessenger.createFromConfig() directly:**
+ * - Building libraries or SDK extensions
+ * - Need minimal overhead without console output
+ * - Want custom context handling
+ * - Building middleware or service layers
+ *
+ * @example
+ * ```typescript
+ * // For scripts - use setupClientContext
+ * const context = await setupClientContext(options, "token-transfer");
+ * context.logger.info(`Sending from: ${context.signerAddress}`);
+ *
+ * // For libraries - use createFromConfig directly
+ * const client = await CCIPMessenger.createFromConfig(config, privateKey);
+ * ```
+ *
+ * @param options Script options including privateKey, chainId, and logLevel
+ * @param scriptName Name of the script for logging purposes
+ * @returns Complete client context with client, logger, config, and signer address
+ * @throws Error if provider doesn't have signing capabilities or configuration is invalid
  */
 export async function setupClientContext(
   options: CCIPScriptOptions,
@@ -64,11 +84,12 @@ export async function setupClientContext(
 
   logger.info(`Router Address: ${config.routerAddress}`);
 
-  // Create CCIP client - pass chainId to client factory
-  const client = createCCIPClient({
-    ...options,
-    chainId: chainId,
-  });
+  // Create CCIP client using enhanced static method
+  const client = await CCIPMessenger.createFromConfig(
+    config,
+    options.privateKey!,
+    { logLevel: options.logLevel }
+  );
 
   // Get signer address from provider
   let signerAddress: string;
@@ -78,16 +99,9 @@ export async function setupClientContext(
     signerAddress = await client.provider.getAddress();
     logger.info(`Wallet Address: ${signerAddress}`);
 
-    // Check wallet balance
+    // Check wallet balance using utility function
     const provider = client.provider.provider;
-    const balance = await provider.getBalance(signerAddress);
-    logger.info(`Native Balance: ${ethers.formatEther(balance)} ETH`);
-
-    if (balance < ethers.parseEther("0.005")) {
-      logger.warn(
-        "⚠️ Warning: Low wallet balance. You may not have enough for gas fees."
-      );
-    }
+    await checkAndWarnBalance(provider, signerAddress, logger);
   } else {
     throw new Error(
       "Write provider with signing capabilities is required for this operation"
@@ -114,7 +128,7 @@ export async function getTokenDetails(
   context: ClientContext,
   tokenAmounts: Array<{ token: string; amount: string }>
 ): Promise<TokenDetails[]> {
-  const { client, logger, signerAddress } = context;
+  const { client, signerAddress } = context;
 
   if (tokenAmounts.length === 0) {
     throw new Error(
@@ -122,106 +136,47 @@ export async function getTokenDetails(
     );
   }
 
-  const results: TokenDetails[] = [];
+  // Extract token addresses
+  const tokenAddresses = tokenAmounts.map(ta => ta.token);
 
-  for (const { token: tokenAddress } of tokenAmounts) {
-    // Create a proper ERC20 client for the token
-    const tokenClient = createERC20Client(
-      {
-        provider: client.provider,
-        config: client.config,
-        logger: logger,
-      },
-      tokenAddress
-    );
+  // Use SDK validation utility
+  const ccipContext = {
+    provider: client.provider,
+    config: client.config,
+    logger: context.logger,
+  };
 
-    // Get token details
-    const tokenSymbol = await tokenClient.getSymbol();
-    const tokenDecimals = await tokenClient.getDecimals();
-    const tokenBalance = await tokenClient.getBalance(signerAddress);
-
-    logger.info(`Token: ${tokenSymbol} (${tokenAddress})`);
-    logger.info(
-      `Token Balance: ${ethers.formatUnits(
-        tokenBalance,
-        tokenDecimals
-      )} ${tokenSymbol}`
-    );
-
-    results.push({
-      tokenClient,
-      tokenAddress,
-      tokenSymbol,
-      tokenDecimals,
-      tokenBalance,
-    });
-  }
-
-  return results;
+  return CCIPTokenValidator.getTokenDetails(ccipContext, signerAddress, tokenAddresses);
 }
 
 /**
  * Validate that there's enough token balance for all transfers
  * @param context Client context
- * @param tokenDetailsList List of token details
+ * @param tokenDetailsList List of token details (optional, will be fetched if not provided)
  * @returns Map of token addresses to validated amounts
  */
-export function validateTokenAmounts(
+export async function validateTokenAmounts(
   context: ClientContext,
-  tokenDetailsList: TokenDetails[]
-): Map<string, bigint> {
-  const { logger, options } = context;
+  tokenDetailsList?: TokenDetails[]
+): Promise<Map<string, bigint>> {
+  const { client, logger, options, signerAddress } = context;
 
   if (!options.tokenAmounts || options.tokenAmounts.length === 0) {
     throw new Error("No token amounts provided for validation");
   }
 
-  const validatedAmounts = new Map<string, bigint>();
+  // Use SDK validation utility
+  const ccipContext = {
+    provider: client.provider,
+    config: client.config,
+    logger: logger,
+  };
 
-  for (const { token, amount } of options.tokenAmounts) {
-    // Find matching token details
-    const tokenDetails = tokenDetailsList.find(
-      (td) => td.tokenAddress.toLowerCase() === token.toLowerCase()
-    );
+  const validationResult = await CCIPTokenValidator.validateTokenAmounts(
+    ccipContext,
+    signerAddress,
+    options.tokenAmounts
+  );
 
-    if (!tokenDetails) {
-      throw new Error(`Token details not found for ${token}`);
-    }
-
-    // Parse amount - all amounts are treated as raw values
-    let parsedAmount: bigint;
-    try {
-      parsedAmount = BigInt(amount);
-    } catch (error) {
-      throw new Error(
-        `Invalid amount format for ${tokenDetails.tokenSymbol}: ${amount}. Expected raw token amount (with all decimals).`
-      );
-    }
-
-    // Check if balance is sufficient
-    if (tokenDetails.tokenBalance < parsedAmount) {
-      const formattedBalance = ethers.formatUnits(
-        tokenDetails.tokenBalance,
-        tokenDetails.tokenDecimals
-      );
-      const formattedAmount = ethers.formatUnits(
-        parsedAmount,
-        tokenDetails.tokenDecimals
-      );
-
-      throw new Error(
-        `Insufficient ${tokenDetails.tokenSymbol} balance. Have ${formattedBalance}, need ${formattedAmount}`
-      );
-    }
-
-    logger.info(
-      `Transfer Amount: ${ethers.formatUnits(
-        parsedAmount,
-        tokenDetails.tokenDecimals
-      )} ${tokenDetails.tokenSymbol}`
-    );
-    validatedAmounts.set(token, parsedAmount);
-  }
-
-  return validatedAmounts;
+  return validationResult.validatedAmounts;
 }

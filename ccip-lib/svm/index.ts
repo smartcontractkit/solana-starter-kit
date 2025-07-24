@@ -1,6 +1,8 @@
 // Core components
 export * from "./core/client/accounts";
 export * from "./core/client/index";
+export { TokenPoolManager } from "./core/client/tokenpools";
+export { TokenRegistryClient } from "./core/client/tokenregistry";
 
 // Export models with specific names to avoid conflicts
 export type {
@@ -24,6 +26,8 @@ export * from "./utils/errors";
 export * from "./utils/conversion";
 export * from "./utils/keypair";
 export * from "./utils/token";
+export { SolanaAccountManager } from "./utils/accounts";
+export type { AccountSpec } from "./utils/accounts";
 
 // Bindings exports
 export * from "./bindings/types";

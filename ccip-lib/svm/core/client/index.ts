@@ -1,4 +1,4 @@
-import { TransactionInstruction } from "@solana/web3.js";
+import { TransactionInstruction, Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createLogger, Logger, LogLevel } from "../../utils/logger";
 import {
   CCIPContext,
@@ -9,8 +9,10 @@ import {
   ExtraArgsOptions,
   CCIPCoreConfig,
   CCIPProvider,
+  CCIPClientKeypairOptions,
 } from "../models";
 import * as types from "../../bindings/types";
+import { loadKeypair } from "../../utils/keypair";
 
 // Import functionality from separate modules
 import { calculateFee } from "./fee";
@@ -47,6 +49,107 @@ export class CCIPClient {
 
     // Initialize account reader with the same context
     this.accountReader = new CCIPAccountReader(this.context);
+  }
+
+  /**
+   * Creates a new CCIP client from configuration and keypair
+   * @param options Configuration options including keypair path and config
+   * @returns A new CCIPClient instance
+   */
+  static createFromKeypair(options: CCIPClientKeypairOptions): CCIPClient {
+    // Load keypair
+    const wallet = loadKeypair(options.keypairPath);
+    
+    // Create connection
+    const connection = new Connection(
+      options.endpoint || "https://api.devnet.solana.com",
+      options.commitment as any || "confirmed"
+    );
+    
+    // Create provider
+    const provider: CCIPProvider = {
+      connection,
+      wallet,
+      getAddress: () => wallet.publicKey,
+      signTransaction: async (tx) => {
+        if ('version' in tx) {
+          // VersionedTransaction
+          tx.sign([wallet]);
+        } else {
+          // Legacy Transaction
+          tx.partialSign(wallet);
+        }
+        return tx;
+      },
+    };
+    
+    // Create context
+    const context: CCIPContext = {
+      provider,
+      config: options.config,
+      logger: createLogger("ccip-client", { level: options.logLevel ?? LogLevel.INFO }),
+    };
+    
+    return new CCIPClient(context);
+  }
+
+  /**
+   * Creates a new CCIP client from simplified configuration
+   * This is a convenience method that accepts a partial config and fills in defaults
+   * @param connection Solana connection
+   * @param wallet Keypair for signing
+   * @param config Partial configuration (only required fields needed)
+   * @param options Optional client options
+   * @returns A new CCIPClient instance
+   */
+  static create(
+    connection: Connection,
+    wallet: Keypair,
+    config: {
+      ccipRouterProgramId: string;
+      feeQuoterProgramId: string;
+      rmnRemoteProgramId: string;
+      linkTokenMint?: string;
+      tokenMint?: string;
+      receiverProgramId?: string;
+    },
+    options?: { logLevel?: LogLevel }
+  ): CCIPClient {
+    // Create provider
+    const provider: CCIPProvider = {
+      connection,
+      wallet,
+      getAddress: () => wallet.publicKey,
+      signTransaction: async (tx) => {
+        if ('version' in tx) {
+          tx.sign([wallet]);
+        } else {
+          tx.partialSign(wallet);
+        }
+        return tx;
+      },
+    };
+
+    // Build core config with defaults
+    const coreConfig: CCIPCoreConfig = {
+      ccipRouterProgramId: new PublicKey(config.ccipRouterProgramId),
+      feeQuoterProgramId: new PublicKey(config.feeQuoterProgramId),
+      rmnRemoteProgramId: new PublicKey(config.rmnRemoteProgramId),
+      linkTokenMint: new PublicKey(config.linkTokenMint || "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"),
+      tokenMint: new PublicKey(config.tokenMint || "11111111111111111111111111111111"),
+      nativeSol: PublicKey.default,
+      systemProgramId: new PublicKey("11111111111111111111111111111111"),
+      programId: new PublicKey(config.receiverProgramId || "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"),
+    };
+
+    // Create context
+    const context: CCIPContext = {
+      provider,
+      config: coreConfig,
+      logger: createLogger("ccip-client", { level: options?.logLevel ?? LogLevel.INFO }),
+    };
+
+    return new CCIPClient(context);
   }
 
   /**

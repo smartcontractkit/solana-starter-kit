@@ -1,337 +1,235 @@
 /**
- * Token Admin Registry Accept Admin Role Script
+ * Token Admin Registry Accept Admin Role Script (CLI Framework Version)
  *
  * This script accepts the administrator role for a token's admin registry.
  * Only the proposed administrator can execute this operation.
  *
  * This is step 2 of the two-step administrator transfer process. The current
  * signer must be the pending administrator that was previously proposed.
- *
- * The router address is automatically loaded from the configuration, ensuring
- * consistency with other CCIP scripts and reducing configuration errors.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
- * 2. Ensure you are the proposed administrator for the token
- * 3. Provide the token mint address
- * 4. Run the script with: yarn svm:admin:accept-admin-role
- *
- * Required arguments:
- * --token-mint       : Token mint address
- *
- * Optional arguments:
- * --keypair          : Path to your keypair file
- * --log-level        : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight   : Skip transaction preflight checks
- *
- * Example usage:
- * yarn svm:admin:accept-admin-role --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenRegistryClient } from "./client";
-import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
-import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
+import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
+import { loadKeypair, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
-
-// ========== CONFIGURATION ==========
-// Customize these values if needed for your specific use case
-const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
-// ========== END CONFIGURATION ==========
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Parse command line arguments specific to accepting admin role
+ * Configuration for admin role acceptance
  */
-function parseAcceptAdminArgs() {
-  const commonArgs = parseCommonArgs();
-  const args = process.argv.slice(2);
+const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
 
-  let tokenMint: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--token-mint":
-        if (i + 1 < args.length) {
-          tokenMint = args[i + 1];
-          i++;
-        }
-        break;
-    }
-  }
-
-  return {
-    ...commonArgs,
-    tokenMint,
-  };
+/**
+ * Options specific to the accept-admin-role command
+ */
+interface AcceptAdminRoleOptions extends BaseCommandOptions {
+  tokenMint: string;
 }
 
-async function main() {
-  // Parse arguments
-  const options = parseAcceptAdminArgs();
-
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+/**
+ * Token Admin Registry Accept Admin Role Command
+ */
+class AcceptAdminRoleCommand extends CCIPCommand<AcceptAdminRoleOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "accept-admin-role",
+      description: "✅ CCIP Token Admin Registry Role Acceptor\n\nAccepts the administrator role for a token's admin registry. Only the proposed administrator can execute this operation.",
+      examples: [
+        "# Accept administrator role (you must be the pending administrator)",
+        "yarn svm:admin:accept-admin-role \\",
+        "  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        "",
+        "# With debug logging",
+        "yarn svm:admin:accept-admin-role \\",
+        "  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\",
+        "  --log-level DEBUG"
+      ],
+      notes: [
+        "Only the pending administrator can accept the admin role",
+        "This is step 2 of a 2-step process - the admin must be proposed first",
+        "Router program ID is automatically loaded from CCIP configuration",
+        "Role acceptance requires SOL for transaction fees",
+        "Use 'yarn svm:admin:propose-administrator' for step 1 of the process",
+        "Once accepted, you become the administrator and can manage the token's CCIP settings"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Validate required arguments
-  if (!options.tokenMint) {
-    console.error("Error: --token-mint is required");
-    printUsage();
-    process.exit(1);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "token-mint",
+        required: true,
+        type: "string",
+        description: "Token mint address",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+      }
+    ];
   }
 
-  // Create logger
-  const logger = createLogger("admin-accept-admin-role", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
+  protected async execute(): Promise<void> {
+    this.logger.info("CCIP Token Admin Registry - Accept Admin Role");
+    this.logger.info("======================================================");
 
-  logger.info("CCIP Token Admin Registry Accept Admin Role");
+    // Resolve network configuration based on options
+    const config = resolveNetworkConfig(this.options);
 
-  // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-
-  // Get keypair path and load wallet
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  try {
+    // Get keypair path and load wallet
+    const keypairPath = getKeypairPath(this.options);
     const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Router Program: ${config.routerProgramId.toString()}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
 
-    // Check balance
-    const balance = await config.connection.getBalance(walletKeypair.publicKey);
-    const solBalance = balance / LAMPORTS_PER_SOL;
-    logger.info(`Wallet balance: ${solBalance} SOL`);
-
-    if (solBalance < MIN_SOL_REQUIRED) {
-      logger.error(
-        `Insufficient balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees.`
-      );
-      logger.info(
-        "Request airdrop from Solana devnet faucet before proceeding."
-      );
-      logger.info(
-        `solana airdrop 1 ${walletKeypair.publicKey.toString()} --url devnet`
-      );
-      process.exit(1);
+    // Convert token mint string to PublicKey
+    let tokenMint: PublicKey;
+    try {
+      tokenMint = new PublicKey(this.options.tokenMint);
+    } catch (error) {
+      throw new Error(`Invalid token mint address: ${this.options.tokenMint}`);
     }
 
-    // Parse addresses
-    const tokenMint = new PublicKey(options.tokenMint);
-    const signerAddress = walletKeypair.publicKey;
-    const routerProgramId = config.routerProgramId; // Get router from config
+    this.logger.info(`Token Mint: ${tokenMint.toString()}`);
 
-    logger.info(`Token Mint: ${tokenMint.toString()}`);
-    logger.info(`Signer (Proposed Admin): ${signerAddress.toString()}`);
-    logger.info(`CCIP Router (from config): ${routerProgramId.toString()}`);
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 CHECKING WALLET BALANCE");
+    this.logger.info("======================================================");
 
-    logger.debug(`Configuration details:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Commitment level: ${config.connection.commitment}`);
-    logger.debug(`  Skip preflight: ${options.skipPreflight}`);
-    logger.debug(`  Log level: ${options.logLevel}`);
+    const solBalance = await config.connection.getBalance(walletKeypair.publicKey);
+    const solBalanceInSol = solBalance / LAMPORTS_PER_SOL;
+    
+    this.logger.info(`SOL Balance: ${solBalanceInSol.toFixed(9)} SOL (${solBalance} lamports)`);
 
-    // Create token registry client
-    const tokenRegistryClient = await createTokenRegistryClient(
-      routerProgramId.toString(),
-      config.connection
+    if (solBalanceInSol < MIN_SOL_REQUIRED) {
+      throw new Error(
+        `Insufficient SOL balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees, but you have ${solBalanceInSol.toFixed(9)} SOL.`
+      );
+    }
+
+    this.logger.info(`✅ Sufficient balance for transaction fees (minimum: ${MIN_SOL_REQUIRED} SOL)`);
+
+    // Create Token Registry client
+    this.logger.info("");
+    this.logger.info("🔗 CONNECTING TO TOKEN REGISTRY");
+    this.logger.info("======================================================");
+
+    const tokenRegistryClient = TokenRegistryClient.create(
+      config.connection,
+      walletKeypair,
+      config.routerProgramId.toString(),
+      {},
+      { logLevel: this.options.logLevel }
     );
 
-    // Check current token admin registry state
-    logger.info("Checking current token admin registry...");
-    logger.debug(`Checking registry for mint: ${tokenMint.toString()}`);
+    // Get current token admin registry
+    this.logger.info("📋 Fetching current token admin registry...");
+    
+    const registry = await tokenRegistryClient.getTokenAdminRegistry(tokenMint);
+    
+    if (!registry) {
+      throw new Error(`No token admin registry found for token ${tokenMint.toString()}. The token must be registered first.`);
+    }
 
-    try {
-      const currentRegistry = await tokenRegistryClient.getTokenAdminRegistry({
-        tokenMint,
-      });
+    this.logger.info("✅ Token admin registry found!");
+    this.logger.info(`Current Administrator: ${registry.administrator.toString()}`);
+    this.logger.info(`Pending Administrator: ${registry.pendingAdministrator.toString()}`);
 
-      if (!currentRegistry) {
-        logger.error("No token admin registry found for this token mint");
-        logger.info(
-          "The administrator must be proposed first using 'yarn svm:admin:propose-administrator'"
-        );
-        logger.info(
-          `Use: yarn svm:admin:propose-administrator --token-mint ${tokenMint.toString()}`
-        );
-        process.exit(1);
-      }
-
-      logger.info(
-        `Current administrator: ${currentRegistry.administrator.toString()}`
+    // Verify that the current wallet is the pending administrator
+    if (!registry.pendingAdministrator.equals(walletKeypair.publicKey)) {
+      throw new Error(
+        `Access denied: You are not the pending administrator for this token.\n` +
+        `Pending Administrator: ${registry.pendingAdministrator.toString()}\n` +
+        `Your Wallet: ${walletKeypair.publicKey.toString()}\n\n` +
+        `Only the pending administrator can accept the admin role.`
       );
-      logger.info(
-        `Current pending administrator: ${currentRegistry.pendingAdministrator.toString()}`
-      );
-      logger.info(`Lookup table: ${currentRegistry.lookupTable.toString()}`);
+    }
 
-      // Check if signer is the pending administrator
-      if (!currentRegistry.pendingAdministrator.equals(signerAddress)) {
-        logger.error(`Signer is not the pending administrator for this token`);
-        logger.error(
-          `Pending administrator: ${currentRegistry.pendingAdministrator.toString()}`
-        );
-        logger.error(`Your address: ${signerAddress.toString()}`);
-        logger.info("Only the pending administrator can accept the admin role");
-        if (currentRegistry.pendingAdministrator.equals(PublicKey.default)) {
-          logger.info(
-            "No pending administrator set. Use 'yarn svm:admin:propose-administrator' first"
-          );
-        }
-        process.exit(1);
-      }
+    this.logger.info(`✅ Verified: You are the pending administrator`);
 
-      // Check if the current admin is already set (shouldn't be the case normally)
-      if (currentRegistry.administrator.equals(signerAddress)) {
-        logger.info(
-          "✅ You are already the current administrator for this token"
-        );
-        logger.info("No changes needed");
-        return;
-      }
-
-      logger.debug("Current registry details:", {
-        administrator: currentRegistry.administrator.toString(),
-        pendingAdministrator: currentRegistry.pendingAdministrator.toString(),
-        lookupTable: currentRegistry.lookupTable.toString(),
-        mint: currentRegistry.mint.toString(),
-      });
-    } catch (error) {
-      logger.error(`Could not fetch token admin registry: ${error}`);
-      logger.info(
-        "Ensure the administrator has been proposed first using 'yarn svm:admin:propose-administrator'"
-      );
-      process.exit(1);
+    // Check if already the current administrator
+    if (registry.administrator.equals(walletKeypair.publicKey)) {
+      this.logger.info("ℹ️ You are already the current administrator for this token.");
+      this.logger.info("No action needed - role acceptance not required.");
+      return;
     }
 
     // Accept the admin role
-    logger.info("Accepting administrator role...");
-    const result = await tokenRegistryClient.acceptAdminRole({
-      tokenMint,
-    });
+    this.logger.info("");
+    this.logger.info("🎯 ACCEPTING ADMINISTRATOR ROLE");
+    this.logger.info("======================================================");
 
-    logger.info(`Administrator role accepted successfully!`);
-    logger.info(`Transaction signature: ${result.signature}`);
-    logger.info(
-      `Solana Explorer: ${getExplorerUrl(config.id, result.signature)}`
-    );
-
-    // Verify the role acceptance
-    logger.info("Verifying administrator role acceptance...");
-    logger.debug("Attempting to fetch registry to verify role transfer...");
+    this.logger.info("Preparing to accept administrator role...");
+    this.logger.info(`Token: ${tokenMint.toString()}`);
+    this.logger.info(`New Administrator (you): ${walletKeypair.publicKey.toString()}`);
+    this.logger.info(`Previous Administrator: ${registry.administrator.toString()}`);
 
     try {
-      const updatedRegistry = await tokenRegistryClient.getTokenAdminRegistry({
+      const signature = await tokenRegistryClient.acceptAdminRole({
         tokenMint,
       });
 
-      if (updatedRegistry) {
-        const currentAdmin = updatedRegistry.administrator.toString();
-        const pendingAdmin = updatedRegistry.pendingAdministrator.toString();
+      this.logger.info("");
+      this.logger.info("✅ ROLE ACCEPTANCE SUCCESSFUL!");
+      this.logger.info("======================================================");
+      this.logger.info(`Transaction Signature: ${signature}`);
+      this.logger.info(`Explorer URL: ${getExplorerUrl(config.id, signature)}`);
 
-        if (updatedRegistry.administrator.equals(signerAddress)) {
-          logger.info("✅ Administrator role transfer verified successfully!");
-          logger.info(`New administrator: ${currentAdmin}`);
-          logger.info(
-            `Pending administrator: ${pendingAdmin} (should be default/cleared)`
-          );
+      this.logger.info("");
+      this.logger.info("📋 UPDATED REGISTRY INFORMATION");
+      this.logger.info("======================================================");
+      this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+      this.logger.info(`New Administrator: ${walletKeypair.publicKey.toString()}`);
+      this.logger.info(`Previous Administrator: ${registry.administrator.toString()}`);
 
-          logger.debug("Role transfer verification details:", {
-            newAdministrator: currentAdmin,
-            pendingAdministrator: pendingAdmin,
-            signerAddress: signerAddress.toString(),
-            lookupTable: updatedRegistry.lookupTable.toString(),
-          });
-        } else {
-          logger.warn(
-            "Administrator role acceptance completed but verification shows different admin"
-          );
-          logger.warn(`Expected: ${signerAddress.toString()}`);
-          logger.warn(`Actual: ${currentAdmin}`);
-        }
+      this.logger.info("");
+      this.logger.info("🎉 SUCCESS!");
+      this.logger.info("You are now the administrator for this token's CCIP registry.");
+      this.logger.info("You can now manage the token's CCIP settings and transfer administration to others.");
 
-        logger.trace("Complete verification info:", updatedRegistry);
+      this.logger.info("");
+      this.logger.info("📝 NEXT STEPS:");
+      this.logger.info("• Use 'yarn svm:admin:set-pool' to configure token pools");
+      this.logger.info("• Use 'yarn svm:admin:propose-administrator' to transfer admin rights");
+      this.logger.info("• Monitor the token's CCIP operations through the explorer");
 
-        logger.info("");
-        logger.info("🎉 Administrator Role Transfer Complete!");
-        logger.info(
-          `   ✅ You are now the administrator for token ${tokenMint.toString()}`
-        );
-        logger.info(
-          `   ✅ You can now manage pools and cross-chain configurations`
-        );
-        logger.info(
-          `   ✅ Use token pool scripts to set up CCIP functionality`
-        );
-
-        logger.info("");
-        logger.info("📋 Next Steps:");
-        logger.info(`   • Set up token pools if needed`);
-        logger.info(`   • Configure cross-chain settings`);
-        logger.info(`   • Register pools with the token admin registry`);
-      } else {
-        logger.warn(
-          "Administrator role acceptance succeeded but registry not found during verification"
-        );
-        logger.info(
-          "This may be due to network delays - the role transfer should be recorded shortly"
-        );
-      }
     } catch (error) {
-      logger.warn(
-        `Administrator role acceptance succeeded but verification failed: ${error}`
-      );
-      logger.debug("Verification error details:", error);
-      logger.info(
-        "This may be due to network delays - the role transfer should be recorded shortly"
-      );
+      this.logger.error("");
+      this.logger.error("❌ FAILED TO ACCEPT ADMINISTRATOR ROLE");
+      this.logger.error("======================================================");
+      
+      if (error instanceof Error) {
+        this.logger.error(`Error: ${error.message}`);
+        
+        // Provide specific guidance for common errors
+        if (error.message.includes("unauthorized")) {
+          this.logger.error("");
+          this.logger.error("💡 TROUBLESHOOTING:");
+          this.logger.error("• Ensure you are the pending administrator");
+          this.logger.error("• Check that the admin role was properly proposed first");
+          this.logger.error("• Verify your wallet keypair is correct");
+        } else if (error.message.includes("insufficient")) {
+          this.logger.error("");
+          this.logger.error("💡 TROUBLESHOOTING:");
+          this.logger.error("• Ensure you have enough SOL for transaction fees");
+          this.logger.error("• Try with a higher gas fee");
+        }
+      } else {
+        this.logger.error(`Unexpected error: ${String(error)}`);
+      }
+      
+      throw error;
     }
-  } catch (error) {
-    logger.error("Administrator role acceptance failed:", error);
-    process.exit(1);
   }
 }
 
-function printUsage() {
-  console.log(`
-✅ CCIP Token Admin Registry Role Acceptor
-
-Usage: yarn svm:admin:accept-admin-role [options]
-
-Required Options:
-  --token-mint <address>           Token mint address
-
-Optional Options:
-  --keypair <path>                 Path to wallet keypair file
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight                 Skip transaction preflight checks
-  --help, -h                       Show this help message
-
-Examples:
-  # Accept administrator role (you must be the pending administrator)
-  yarn svm:admin:accept-admin-role \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
-
-  # With debug logging
-  yarn svm:admin:accept-admin-role \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --log-level DEBUG
-
-Notes:
-  • Only the pending administrator can accept the admin role
-  • This is step 2 of a 2-step process - the admin must be proposed first
-  • Router program ID is automatically loaded from CCIP configuration
-  • Role acceptance requires SOL for transaction fees
-  • Use 'yarn svm:admin:propose-administrator' for step 1 of the process
-  • Once accepted, you become the administrator and can manage the token's CCIP settings
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new AcceptAdminRoleCommand();
+command.run().catch((error) => {
+  // Error handling is already done in the framework
   process.exit(1);
 });

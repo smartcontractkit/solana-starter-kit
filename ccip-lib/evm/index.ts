@@ -1,5 +1,9 @@
 // Core components
-export { CCIPMessenger } from "./core/client/index";
+export { CCIPMessenger, CCIPClientBuilder } from "./core/client/index";
+export { CCIPMessageFactory } from "./core/message-factory";
+export type { CCIPMessageOptions } from "./core/message-factory";
+export { CCIPTokenValidator } from "./core/validation";
+export type { TokenDetails, TokenAmountSpec, TokenValidationResult } from "./core/validation";
 export type {
   CCIPEVMContext,
   CCIPEVMConfig,
@@ -16,14 +20,7 @@ export type {
 // Export MessageStatus enum
 export { MessageStatus } from "./core/models";
 
-// Export factory functions
-export {
-  createRouterClient,
-  createTokenAdminRegistryClient,
-  createTokenPoolClient,
-  createERC20Client,
-  createBurnMintERC677HelperClient,
-} from "./core/client/index";
+// Export factory functions removed - use direct class instantiation instead
 
 // Export specialized contract clients
 export {
@@ -87,6 +84,10 @@ export {
   logLevelToString,
   parseLogLevel,
   LogLevel,
+} from "./utils/logger";
+
+export type {
+  Logger,
 } from "./utils/logger";
 
 // Export SDK version

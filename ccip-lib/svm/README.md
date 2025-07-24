@@ -50,6 +50,7 @@ The SDK follows a modular architecture with clear separation of concerns:
 
 ### Utilities
 
+- **SolanaAccountManager**: Utilities for managing Solana account write permissions and bitmap calculations
 - **PDAs**: Comprehensive utilities for deriving all program-derived addresses
 - **Logger**: Structured logging with configurable log levels
 - **Conversion**: Helper functions for data type conversions
@@ -483,6 +484,109 @@ logger.error("Operation failed", { error });
 
 // Change log level at runtime
 logger.setLevel(LogLevel.WARN);
+```
+
+### Using the Solana Account Manager
+
+The `SolanaAccountManager` provides utilities for managing Solana account write permissions and bitmap calculations used in CCIP messages:
+
+```typescript
+import { 
+  SolanaAccountManager, 
+  AccountSpec 
+} from "../path/to/ccip-lib/svm";
+
+// Define account specifications for a CCIP message
+const accounts: AccountSpec[] = [
+  {
+    publicKey: "11111111111111111111111111111111", // State PDA
+    isWritable: false // Read-only
+  },
+  {
+    publicKey: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", // Messages storage PDA
+    isWritable: true // Writable
+  },
+  {
+    publicKey: "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", // Token mint
+    isWritable: true // Writable
+  }
+];
+
+// Calculate the writable bitmap from account specifications
+const bitmap = SolanaAccountManager.calculateWritableBitmap(accounts);
+console.log(`Writable bitmap: ${bitmap} (binary: ${bitmap.toString(2)})`);
+// Output: Writable bitmap: 6 (binary: 110)
+
+// Create bitmap from boolean flags (alternative approach)
+const writableFlags = [false, true, true]; // [readonly, writable, writable]
+const bitmapFromFlags = SolanaAccountManager.createBitmapFromFlags(writableFlags);
+console.log(`Bitmap from flags: ${bitmapFromFlags}`); // Output: 6
+
+// Get human-readable explanation of a bitmap
+const explanation = SolanaAccountManager.explainBitmap(BigInt(46), 7);
+console.log("Bitmap explanation:", explanation);
+/* Output:
+{
+  binary: "0101110",
+  decimal: 46,
+  accounts: [
+    { index: 0, writable: false },
+    { index: 1, writable: true },
+    { index: 2, writable: true },
+    { index: 3, writable: true },
+    { index: 4, writable: false },
+    { index: 5, writable: true },
+    { index: 6, writable: false }
+  ]
+}
+*/
+
+// Validate that a bitmap is appropriate for the number of accounts
+try {
+  SolanaAccountManager.validateBitmap(BigInt(46), 7); // Valid
+  console.log("Bitmap is valid for 7 accounts");
+} catch (error) {
+  console.error(`Invalid bitmap: ${error.message}`);
+}
+
+// Example: Invalid bitmap for account count
+try {
+  SolanaAccountManager.validateBitmap(BigInt(255), 3); // Invalid - bitmap too large
+} catch (error) {
+  console.error(`Invalid bitmap: ${error.message}`);
+  // Output: Invalid bitmap: Invalid bitmap 255 for 3 accounts. Maximum valid bitmap is 7 (binary: 111)
+}
+```
+
+#### Common CCIP Bitmap Patterns
+
+The SDK makes it easy to work with common CCIP bitmap patterns:
+
+```typescript
+// For arbitrary messaging (2 accounts: state, message_storage)
+const messagingAccounts: AccountSpec[] = [
+  { publicKey: "state_pda_address", isWritable: false },      // bit 0 = 0
+  { publicKey: "message_storage_pda", isWritable: true }      // bit 1 = 1
+];
+const messagingBitmap = SolanaAccountManager.calculateWritableBitmap(messagingAccounts);
+// Result: 2 (binary: 10)
+
+// For data and tokens (7 accounts with specific write permissions)
+const dataTokensAccounts: AccountSpec[] = [
+  { publicKey: "state_pda", isWritable: false },              // bit 0 = 0
+  { publicKey: "message_storage_pda", isWritable: true },     // bit 1 = 1
+  { publicKey: "token_mint", isWritable: true },              // bit 2 = 1
+  { publicKey: "source_token_account", isWritable: true },    // bit 3 = 1
+  { publicKey: "token_admin_pda", isWritable: false },        // bit 4 = 0
+  { publicKey: "recipient_token_account", isWritable: true }, // bit 5 = 1
+  { publicKey: "token_program", isWritable: false }           // bit 6 = 0
+];
+const dataTokensBitmap = SolanaAccountManager.calculateWritableBitmap(dataTokensAccounts);
+// Result: 46 (binary: 0101110)
+
+// Verify the calculation
+const verification = SolanaAccountManager.explainBitmap(dataTokensBitmap, 7);
+console.log("Data and tokens bitmap breakdown:", verification.accounts);
 ```
 
 ## Token Administration

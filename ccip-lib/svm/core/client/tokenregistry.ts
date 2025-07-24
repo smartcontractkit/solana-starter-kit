@@ -2,8 +2,10 @@ import {
   PublicKey,
   SystemProgram,
   AddressLookupTableProgram,
+  Connection,
+  Keypair,
 } from "@solana/web3.js";
-import { CCIPContext } from "../models";
+import { CCIPContext, CCIPProvider, CCIPCoreConfig } from "../models";
 import { createLogger, Logger, LogLevel } from "../../utils/logger";
 import { createErrorEnhancer } from "../../utils/errors";
 import {
@@ -32,6 +34,7 @@ import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import { loadKeypair } from "../../utils/keypair";
 
 // Import from bindings for ccip-router
 import {
@@ -145,6 +148,90 @@ export class TokenRegistryClient {
     this.logger.debug(
       `TokenRegistryClient initialized: routerProgramId=${this.routerProgramId.toString()}`
     );
+  }
+
+  /**
+   * Creates a new TokenRegistryClient from simplified configuration
+   * @param connection Solana connection
+   * @param wallet Keypair for signing
+   * @param routerProgramId CCIP Router program ID
+   * @param config Additional configuration
+   * @param options Optional client options
+   * @returns A new TokenRegistryClient instance
+   */
+  static create(
+    connection: Connection,
+    wallet: Keypair,
+    routerProgramId: string,
+    config?: {
+      feeQuoterProgramId?: string;
+      rmnRemoteProgramId?: string;
+      linkTokenMint?: string;
+      receiverProgramId?: string;
+    },
+    options?: { logLevel?: LogLevel }
+  ): TokenRegistryClient {
+    // Create provider
+    const provider: CCIPProvider = {
+      connection,
+      wallet,
+      getAddress: () => wallet.publicKey,
+      signTransaction: async (tx) => {
+        if ('version' in tx) {
+          tx.sign([wallet]);
+        } else {
+          tx.partialSign(wallet);
+        }
+        return tx;
+      },
+    };
+
+    // Build core config with defaults
+    const coreConfig: CCIPCoreConfig = {
+      ccipRouterProgramId: new PublicKey(routerProgramId),
+      feeQuoterProgramId: new PublicKey(config?.feeQuoterProgramId || "FeeQPGkKDeRV1MgoYfMH6L8o3KeuYjwUZrgn4LRKfjHi"),
+      rmnRemoteProgramId: new PublicKey(config?.rmnRemoteProgramId || "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7"),
+      linkTokenMint: new PublicKey(config?.linkTokenMint || "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"),
+      tokenMint: PublicKey.default,
+      nativeSol: PublicKey.default,
+      systemProgramId: new PublicKey("11111111111111111111111111111111"),
+      programId: new PublicKey(config?.receiverProgramId || "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"),
+    };
+
+    // Create context
+    const context: CCIPContext = {
+      provider,
+      config: coreConfig,
+      logger: createLogger("token-registry-client", { level: options?.logLevel ?? LogLevel.INFO }),
+    };
+
+    return new TokenRegistryClient(context, new PublicKey(routerProgramId));
+  }
+
+  /**
+   * Creates a new TokenRegistryClient from keypair file
+   * @param keypairPath Path to keypair file
+   * @param endpoint RPC endpoint
+   * @param routerProgramId CCIP Router program ID
+   * @param config Additional configuration
+   * @param options Optional client options
+   * @returns A new TokenRegistryClient instance
+   */
+  static createFromKeypair(
+    keypairPath: string,
+    endpoint: string,
+    routerProgramId: string,
+    config?: {
+      feeQuoterProgramId?: string;
+      rmnRemoteProgramId?: string;
+      linkTokenMint?: string;
+      receiverProgramId?: string;
+    },
+    options?: { logLevel?: LogLevel; commitment?: string }
+  ): TokenRegistryClient {
+    const wallet = loadKeypair(keypairPath);
+    const connection = new Connection(endpoint, options?.commitment as any || "confirmed");
+    return TokenRegistryClient.create(connection, wallet, routerProgramId, config, options);
   }
 
   /**

@@ -1,5 +1,5 @@
-import { PublicKey } from "@solana/web3.js";
-import { CCIPContext } from "../models";
+import { PublicKey, Connection, Keypair } from "@solana/web3.js";
+import { CCIPContext, CCIPProvider, CCIPCoreConfig } from "../models";
 import { createLogger, Logger, LogLevel } from "../../utils/logger";
 import { TokenPoolClient } from "../../tokenpools/abstract";
 import {
@@ -8,6 +8,7 @@ import {
 } from "../../tokenpools/factory";
 import { TokenPoolType } from "../../tokenpools";
 import { TokenRegistryClient } from "./tokenregistry";
+import { loadKeypair } from "../../utils/keypair";
 
 /**
  * Manages token pool operations for CCIP
@@ -33,6 +34,92 @@ export class TokenPoolManager {
       context.config.ccipRouterProgramId
     );
     this.logger.debug("TokenPoolManager initialized");
+  }
+
+  /**
+   * Creates a new TokenPoolManager from simplified configuration
+   * @param connection Solana connection
+   * @param wallet Keypair for signing
+   * @param programIds Pool program IDs
+   * @param config Partial configuration
+   * @param options Optional manager options
+   * @returns A new TokenPoolManager instance
+   */
+  static create(
+    connection: Connection,
+    wallet: Keypair,
+    programIds: TokenPoolProgramIds,
+    config: {
+      ccipRouterProgramId: string;
+      feeQuoterProgramId: string;
+      rmnRemoteProgramId: string;
+      linkTokenMint?: string;
+      receiverProgramId?: string;
+    },
+    options?: { logLevel?: LogLevel }
+  ): TokenPoolManager {
+    // Create provider
+    const provider: CCIPProvider = {
+      connection,
+      wallet,
+      getAddress: () => wallet.publicKey,
+      signTransaction: async (tx) => {
+        if ('version' in tx) {
+          tx.sign([wallet]);
+        } else {
+          tx.partialSign(wallet);
+        }
+        return tx;
+      },
+    };
+
+    // Build core config
+    const coreConfig: CCIPCoreConfig = {
+      ccipRouterProgramId: new PublicKey(config.ccipRouterProgramId),
+      feeQuoterProgramId: new PublicKey(config.feeQuoterProgramId),
+      rmnRemoteProgramId: new PublicKey(config.rmnRemoteProgramId),
+      linkTokenMint: new PublicKey(config.linkTokenMint || "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"),
+      tokenMint: PublicKey.default,
+      nativeSol: PublicKey.default,
+      systemProgramId: new PublicKey("11111111111111111111111111111111"),
+      programId: new PublicKey(config.receiverProgramId || "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"),
+    };
+
+    // Create context
+    const context: CCIPContext = {
+      provider,
+      config: coreConfig,
+      logger: createLogger("token-pool-manager", { level: options?.logLevel ?? LogLevel.INFO }),
+    };
+
+    return new TokenPoolManager(context, programIds);
+  }
+
+  /**
+   * Creates a new TokenPoolManager from keypair file
+   * @param keypairPath Path to keypair file
+   * @param endpoint RPC endpoint
+   * @param programIds Pool program IDs
+   * @param config Configuration
+   * @param options Optional manager options
+   * @returns A new TokenPoolManager instance
+   */
+  static createFromKeypair(
+    keypairPath: string,
+    endpoint: string,
+    programIds: TokenPoolProgramIds,
+    config: {
+      ccipRouterProgramId: string;
+      feeQuoterProgramId: string;
+      rmnRemoteProgramId: string;
+      linkTokenMint?: string;
+      receiverProgramId?: string;
+    },
+    options?: { logLevel?: LogLevel; commitment?: string }
+  ): TokenPoolManager {
+    const wallet = loadKeypair(keypairPath);
+    const connection = new Connection(endpoint, options?.commitment as any || "confirmed");
+    return TokenPoolManager.create(connection, wallet, programIds, config, options);
   }
 
   /**

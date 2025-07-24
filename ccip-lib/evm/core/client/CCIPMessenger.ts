@@ -26,6 +26,28 @@ import {
 import { OnRamp__factory } from "../../types/contracts/factories/OnRamp__factory";
 import { Client } from "../../types/contracts/Router";
 
+// Types for enhanced static factory methods
+interface CCIPClientOptions {
+  logLevel?: LogLevel;
+}
+
+interface CCIPEVMConfiguration {
+  name: string;
+  rpcUrl: string;
+  routerAddress: string;
+  tokenAdminRegistryAddress: string;
+  confirmations: number;
+}
+
+interface CCIPConfigurationSource {
+  id: string;
+  routerAddress: string;
+  tokenAdminRegistryAddress: string;
+  rpcUrl: string;
+  confirmations?: number;
+  name: string;
+}
+
 /**
  * Client for sending cross-chain messages via CCIP on EVM chains
  * Uses specialized contract clients internally
@@ -68,6 +90,111 @@ export class CCIPMessenger {
       tokenAddress: (this.context.config as any).tokenAddress || "Not configured",
       confirmations: (this.context.config as any).confirmations || "Default"
     });
+  }
+
+  /**
+   * Enhanced static factory method for creating CCIPMessenger from configuration
+   * Replaces the need for client-factory.ts pattern
+   * 
+   * @param config Network configuration object
+   * @param privateKey Private key for signing transactions
+   * @param options Optional client configuration
+   * @returns Promise resolving to CCIPMessenger instance
+   */
+  static async createFromConfig(
+    config: CCIPConfigurationSource,
+    privateKey: string,
+    options?: CCIPClientOptions
+  ): Promise<CCIPMessenger> {
+    // Validate configuration
+    CCIPMessenger.validateConfiguration(config, privateKey);
+
+    try {
+      // Create logger
+      const logger = createLogger("ccip-messenger", {
+        level: options?.logLevel ?? LogLevel.INFO,
+      });
+
+      logger.info(`Creating client for chain: ${config.name} (${config.id})`);
+
+      // Create provider with enhanced error handling
+      const provider = CCIPMessenger.createProvider(privateKey, config.rpcUrl);
+
+      // Create context
+      const context: CCIPEVMContext = {
+        provider,
+        config: {
+          routerAddress: config.routerAddress,
+          tokenAdminRegistryAddress: config.tokenAdminRegistryAddress,
+        },
+        logger,
+      };
+
+      // Create client
+      return new CCIPMessenger(context);
+    } catch (error) {
+      const enhancedError = new Error(`Failed to create CCIP client: ${error instanceof Error ? error.message : String(error)}`);
+      (enhancedError as any).context = {
+        configId: config.id,
+        configName: config.name,
+        rpcUrl: config.rpcUrl,
+        originalError: error
+      };
+      throw enhancedError;
+    }
+  }
+
+  /**
+   * Validates configuration for client creation
+   * @private
+   */
+  private static validateConfiguration(config: CCIPConfigurationSource, privateKey: string): void {
+    if (!privateKey) {
+      throw new Error("Private key is required. Set EVM_PRIVATE_KEY in .env file.");
+    }
+
+    if (!config.rpcUrl) {
+      throw new Error("RPC URL is required in configuration");
+    }
+
+    if (!config.routerAddress) {
+      throw new Error("Router address is required in configuration");
+    }
+
+    if (!config.tokenAdminRegistryAddress) {
+      throw new Error("Token admin registry address is required in configuration");
+    }
+  }
+
+  /**
+   * Creates a provider for EVM operations with enhanced error handling
+   * @private
+   */
+  private static createProvider(privateKey: string, rpcUrl: string): CCIPEVMWriteProvider {
+    if (!privateKey) {
+      throw new Error("Private key is required");
+    }
+
+    if (!rpcUrl) {
+      throw new Error("RPC URL is required");
+    }
+
+    try {
+      // Create provider and signer
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const signer = new ethers.Wallet(privateKey, provider);
+
+      // Return provider interface
+      return {
+        provider,
+        signer,
+        getAddress: async (): Promise<string> => {
+          return signer.address;
+        },
+      };
+    } catch (error) {
+      throw new Error(`Failed to create provider: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**

@@ -1,44 +1,26 @@
+/**
+ * Token Approval Checker (CLI Framework Version)
+ *
+ * This script checks token approvals for various tokens and their delegation
+ * status for CCIP operations. All tokens used in ccip_send transactions
+ * MUST be delegated to the appropriate signer PDA.
+ */
+
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   getAccount,
   getAssociatedTokenAddressSync,
   NATIVE_MINT,
 } from "@solana/spl-token";
-import {
-  loadKeypair,
-  parseCommonArgs,
-  printUsage,
-  getKeypairPath,
-} from "../utils";
 import { detectTokenProgram } from "../../../ccip-lib/svm";
 import {
   findFeeBillingSignerPDA,
   findExternalTokenPoolsSignerPDA,
   findDynamicTokenPoolsSignerPDA,
 } from "../../../ccip-lib/svm/utils/pdas";
-import { ChainId, getCCIPSVMConfig } from "../../config";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
-
-/**
- * IMPORTANT NOTE: All tokens that will be used in ccip_send transactions
- * MUST be delegated to the "fee-billing" signer PDA. This includes any tokens
- * that will be transferred across chains (not just fee tokens).
- * 
- * This is because the ccip-router program's implementation always uses the
- * fee_billing_signer PDA to move tokens from the user's account to the token pool,
- * regardless of the token type or purpose.
- * 
- * Though BnM is primarily used for cross-chain transfers, it still needs the
- * "fee-billing" delegation type for ccip_send compatibility.
- */
-
-// Get configuration - we only support Solana Devnet for now
-const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-
-// =================================================================
-// TOKEN APPROVAL CONFIGURATION
-// Core parameters for token approval checks
-// =================================================================
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
+import { loadKeypair, getKeypairPath } from "../utils";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
  * Delegation type determines which PDA will be expected for delegation
@@ -55,13 +37,12 @@ interface TokenApprovalConfig {
 }
 
 /**
- * Extended options for token approval operations
+ * Options specific to the check-token-approval command
  */
-interface TokenApprovalOptions extends ReturnType<typeof parseCommonArgs> {
-  // For custom token checking
+interface CheckTokenApprovalOptions extends BaseCommandOptions {
   tokenMint?: string;
   delegationType?: DelegationType;
-  customDelegate?: string | PublicKey;
+  customDelegate?: string;
 }
 
 /**
@@ -79,439 +60,351 @@ interface TokenApprovalStatus {
   matchesExpectedDelegate: boolean;
 }
 
-const TOKEN_APPROVAL_CONFIG = {
-  // Tokens to check
-  tokensToCheck: [
-    {
-      // Wrapped SOL (wSOL)
-      tokenMint: NATIVE_MINT,
-      description: "Wrapped SOL (wSOL)",
-      delegationType: "fee-billing" as DelegationType,
-    },
-    {
-      // BnM token - using config value directly
-      tokenMint: config.bnmTokenMint,
-      description: "BnM Token",
-      delegationType: "fee-billing" as DelegationType, // Must use fee-billing for ccip_send compatibility
-    },
-    {
-      // LINK token - using config value directly
-      tokenMint: config.linkTokenMint,
-      description: "LINK Token",
-      delegationType: "fee-billing" as DelegationType,
-    },
-  ],
-};
-
-// =================================================================
-// SCRIPT CONFIGURATION
-// Parameters specific to this script
-// =================================================================
-const SCRIPT_CONFIG = {
-  computeUnits: 400_000, // Compute units for token approval checks
-  minSolRequired: 0.001, // Minimum SOL needed for transaction fees
-};
-// =================================================================
-
 /**
- * Parse command line arguments for token approval operations
+ * Token Approval Checker Command
  */
-function parseTokenApprovalArgs(): TokenApprovalOptions {
-  const commonOptions = parseCommonArgs();
-  const args = process.argv.slice(2);
-  const options: TokenApprovalOptions = {
-    ...commonOptions,
-  };
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--token-mint" && i + 1 < args.length) {
-      options.tokenMint = args[i + 1];
-      i++;
-    } else if (args[i] === "--delegation-type" && i + 1 < args.length) {
-      const delegationType = args[i + 1].toLowerCase();
-      if (
-        delegationType === "fee-billing" ||
-        delegationType === "token-pool" ||
-        delegationType === "custom"
-      ) {
-        options.delegationType = delegationType as DelegationType;
-      } else {
-        console.warn(
-          `Unknown delegation type: ${delegationType}, using fee-billing`
-        );
-        options.delegationType = "fee-billing";
-      }
-      i++;
-    } else if (args[i] === "--custom-delegate" && i + 1 < args.length) {
-      options.customDelegate = args[i + 1];
-      i++;
-    }
+class CheckTokenApprovalCommand extends CCIPCommand<CheckTokenApprovalOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "check-token-approval",
+      description: "🔍 CCIP Token Approval Checker\n\nChecks token approvals and delegation status for CCIP operations. All tokens used in ccip_send transactions MUST be delegated to the appropriate signer PDA.",
+      examples: [
+        "# Check default tokens (wSOL, BnM, LINK)",
+        "yarn svm:token:check-token-approval",
+        "",
+        "# Check specific token",
+        "yarn svm:token:check-token-approval --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        "",
+        "# Check multiple tokens (comma-separated)",
+        "yarn svm:token:check-token-approval --token-mint \"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU,So11111111111111111111111111111111111111112\"",
+        "",
+        "# Check with custom delegation type",
+        "yarn svm:token:check-token-approval --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --delegation-type token-pool",
+        "",
+        "# Check with custom delegate address",
+        "yarn svm:token:check-token-approval --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --delegation-type custom --custom-delegate 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T"
+      ],
+      notes: [
+        "All tokens for ccip_send MUST be delegated to 'fee-billing' signer PDA",
+        "BnM tokens require 'fee-billing' delegation for cross-chain transfers",
+        "Multiple token mints can be checked using comma-separated values",
+        "Router program ID is automatically loaded from CCIP configuration",
+        "Delegation types: fee-billing (default), token-pool, custom",
+        "Custom delegation type requires --custom-delegate parameter"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  return options;
-}
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "token-mint",
+        required: false,
+        type: "string",
+        description: "Token mint address(es) to check (comma-separated for multiple). If not provided, checks default tokens (wSOL, BnM, LINK)",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+      },
+      {
+        name: "delegation-type",
+        required: false,
+        type: "string",
+        description: "Expected delegation type: fee-billing (default), token-pool, or custom",
+        example: "fee-billing"
+      },
+      {
+        name: "custom-delegate",
+        required: false,
+        type: "string",
+        description: "Custom delegate address (required when delegation-type is 'custom')",
+        example: "8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T"
+      }
+    ];
+  }
 
-/**
- * Resolve a delegate address based on delegation type and token mint
- *
- * @param delegationType Type of delegation (fee-billing, token-pool, custom)
- * @param routerProgramId Router program ID
- * @param tokenMint Token mint address
- * @param customDelegate Custom delegate address (optional)
- * @param connection Solana connection
- * @returns Resolved delegate public key
- */
-async function resolveDelegateAddress(
-  delegationType: DelegationType,
-  routerProgramId: PublicKey,
-  tokenMint: PublicKey,
-  customDelegate?: PublicKey | string,
-  connection?: any
-): Promise<PublicKey> {
-  switch (delegationType) {
-    case "fee-billing": {
-      const [feeBillingSignerPDA] = findFeeBillingSignerPDA(routerProgramId);
-      return feeBillingSignerPDA;
-    }
-    case "token-pool": {
-      try {
-        if (!connection) {
-          throw new Error("Connection required for token-pool delegation type");
+  /**
+   * Create token approval configuration based on network config
+   */
+  private createTokenApprovalConfig(config: any): { tokensToCheck: TokenApprovalConfig[] } {
+    return {
+      tokensToCheck: [
+        {
+          tokenMint: NATIVE_MINT,
+          description: "Wrapped SOL (wSOL)",
+          delegationType: "fee-billing" as DelegationType,
+        },
+        {
+          tokenMint: config.bnmTokenMint,
+          description: "BnM Token",
+          delegationType: "fee-billing" as DelegationType,
+        },
+        {
+          tokenMint: config.linkTokenMint,
+          description: "LINK Token",
+          delegationType: "fee-billing" as DelegationType,
+        },
+      ],
+    };
+  }
+
+  /**
+   * Resolve delegate address based on delegation type
+   */
+  private async resolveDelegateAddress(
+    delegationType: DelegationType,
+    routerProgramId: PublicKey,
+    tokenMint: PublicKey,
+    customDelegate?: string,
+    connection?: any
+  ): Promise<PublicKey> {
+    switch (delegationType) {
+      case "fee-billing": {
+        const [feeBillingSignerPDA] = findFeeBillingSignerPDA(routerProgramId);
+        return feeBillingSignerPDA;
+      }
+      case "token-pool": {
+        try {
+          if (!connection) {
+            throw new Error("Connection required for token-pool delegation type");
+          }
+          const [tokenPoolSignerPDA] = await findDynamicTokenPoolsSignerPDA(
+            tokenMint,
+            routerProgramId,
+            connection
+          );
+          return tokenPoolSignerPDA;
+        } catch (error) {
+          const [tokenPoolsSignerPDA] = findExternalTokenPoolsSignerPDA(routerProgramId);
+          return tokenPoolsSignerPDA;
         }
-        // Try to find dynamic token pool signer PDA
-        const [tokenPoolSignerPDA] = await findDynamicTokenPoolsSignerPDA(
-          tokenMint,
-          routerProgramId,
-          connection
-        );
-        return tokenPoolSignerPDA;
-      } catch (error) {
-        // Fall back to static token pool signer PDA if dynamic lookup fails
-        const [tokenPoolsSignerPDA] =
-          findExternalTokenPoolsSignerPDA(routerProgramId);
-        return tokenPoolsSignerPDA;
       }
-    }
-    case "custom": {
-      if (!customDelegate) {
-        throw new Error(
-          "Custom delegate address required for custom delegation type"
-        );
+      case "custom": {
+        if (!customDelegate) {
+          throw new Error("Custom delegate address required for custom delegation type");
+        }
+        return new PublicKey(customDelegate);
       }
-      return customDelegate instanceof PublicKey
-        ? customDelegate
-        : new PublicKey(customDelegate);
+      default:
+        throw new Error(`Unknown delegation type: ${delegationType}`);
     }
-    default:
-      throw new Error(`Unknown delegation type: ${delegationType}`);
   }
-}
 
-/**
- * Check token approvals for a list of token mints
- *
- * @param mints List of token mints to check with their configuration
- * @param options Command line options
- * @param logger Structured logger instance
- * @returns List of token approval statuses
- */
-async function checkTokenApprovals(
-  mints: TokenApprovalConfig[],
-  options: TokenApprovalOptions,
-  logger: any,
-  connection: any,
-  walletPublicKey: PublicKey,
-  routerProgramId: PublicKey
-): Promise<TokenApprovalStatus[]> {
-  const results: TokenApprovalStatus[] = [];
+  /**
+   * Check token approvals for a list of token mints
+   */
+  private async checkTokenApprovals(
+    mints: TokenApprovalConfig[],
+    connection: any,
+    walletPublicKey: PublicKey,
+    routerProgramId: PublicKey
+  ): Promise<TokenApprovalStatus[]> {
+    const results: TokenApprovalStatus[] = [];
 
-  // Process each mint
-  for (let i = 0; i < mints.length; i++) {
-    const tokenConfig = mints[i];
+    for (let i = 0; i < mints.length; i++) {
+      const tokenConfig = mints[i];
 
-    try {
-      // Convert tokenMint to PublicKey
-      if (!tokenConfig.tokenMint) {
-        logger.warn(`Skipping token with null mint in position ${i}`);
-        continue;
-      }
+      try {
+        if (!tokenConfig.tokenMint) {
+          this.logger.warn(`Skipping token with null mint in position ${i}`);
+          continue;
+        }
 
-      const tokenMint =
-        tokenConfig.tokenMint instanceof PublicKey
+        const tokenMint = tokenConfig.tokenMint instanceof PublicKey
           ? tokenConfig.tokenMint
           : new PublicKey(tokenConfig.tokenMint.toString());
 
-      logger.info(
-        `\n[${i + 1}/${mints.length}] Processing token: ${
-          tokenConfig.description
-        }`
-      );
-      logger.info(`Mint: ${tokenMint.toString()}`);
+        this.logger.info(`\n[${i + 1}/${mints.length}] Processing token: ${tokenConfig.description}`);
+        this.logger.info(`Mint: ${tokenMint.toString()}`);
 
-      // Determine token program dynamically
-      const tokenProgramId = await detectTokenProgram(
-        tokenMint,
-        connection,
-        logger
-      );
+        const tokenProgramId = await detectTokenProgram(tokenMint, connection, this.logger);
+        this.logger.info(`Token Program ID: ${tokenProgramId.toString()}`);
 
-      logger.info(`Token Program ID: ${tokenProgramId.toString()}`);
-
-      // Get the Associated Token Account (ATA) for this wallet and mint
-      const tokenAccount = getAssociatedTokenAddressSync(
-        tokenMint,
-        walletPublicKey,
-        false,
-        tokenProgramId
-      );
-
-      logger.info(`Token Account: ${tokenAccount.toString()}`);
-
-      // Resolve the expected delegate based on delegation type
-      const expectedDelegate = await resolveDelegateAddress(
-        tokenConfig.delegationType,
-        routerProgramId,
-        tokenMint,
-        options.customDelegate,
-        connection
-      );
-
-      logger.info(
-        `Expected Delegate (${
-          tokenConfig.delegationType
-        }): ${expectedDelegate.toString()}`
-      );
-
-      try {
-        // Fetch the token account data using the specific token program
-        const tokenAccountInfo = await getAccount(
-          connection,
-          tokenAccount,
-          connection.commitment,
+        const tokenAccount = getAssociatedTokenAddressSync(
+          tokenMint,
+          walletPublicKey,
+          false,
           tokenProgramId
         );
+        this.logger.info(`Token Account: ${tokenAccount.toString()}`);
 
-        // Extract relevant information
-        const delegateAddress = tokenAccountInfo.delegate;
-        const delegatedAmount = tokenAccountInfo.delegatedAmount;
-        const balance = tokenAccountInfo.amount;
+        const expectedDelegate = await this.resolveDelegateAddress(
+          tokenConfig.delegationType,
+          routerProgramId,
+          tokenMint,
+          this.options.customDelegate,
+          connection
+        );
 
-        // Check if the delegate matches the expected one
-        const matchesExpectedDelegate =
-          delegateAddress !== null &&
-          expectedDelegate !== null &&
-          delegateAddress.equals(expectedDelegate);
+        this.logger.info(`Expected Delegate (${tokenConfig.delegationType}): ${expectedDelegate.toString()}`);
 
-        // Log info
-        logger.info(`Balance: ${balance.toString()}`);
-
-        if (delegateAddress !== null) {
-          logger.info(`Actual Delegate: ${delegateAddress.toString()}`);
-          logger.info(`Delegated Amount: ${delegatedAmount.toString()}`);
-          logger.info(
-            `Matches Expected Delegate: ${
-              matchesExpectedDelegate ? "✓ Yes" : "✗ No"
-            }`
+        try {
+          const tokenAccountInfo = await getAccount(
+            connection,
+            tokenAccount,
+            connection.commitment,
+            tokenProgramId
           );
-        } else {
-          logger.info("No delegate set for this token account");
-        }
 
-        // Store result
-        results.push({
-          mint: tokenMint,
-          tokenAccount,
-          description: tokenConfig.description,
-          balance: balance.toString(),
-          delegate: delegateAddress,
-          delegatedAmount: delegatedAmount.toString(),
-          hasDelegate: delegateAddress !== null,
-          expectedDelegate,
-          matchesExpectedDelegate:
-            delegateAddress !== null ? matchesExpectedDelegate : false,
-        });
+          const delegateAddress = tokenAccountInfo.delegate;
+          const delegatedAmount = tokenAccountInfo.delegatedAmount;
+          const balance = tokenAccountInfo.amount;
+
+          const matchesExpectedDelegate = delegateAddress !== null && 
+            expectedDelegate !== null && 
+            delegateAddress.equals(expectedDelegate);
+
+          this.logger.info(`Balance: ${balance.toString()}`);
+
+          if (delegateAddress !== null) {
+            this.logger.info(`Actual Delegate: ${delegateAddress.toString()}`);
+            this.logger.info(`Delegated Amount: ${delegatedAmount.toString()}`);
+            this.logger.info(`Matches Expected Delegate: ${matchesExpectedDelegate ? "✓ Yes" : "✗ No"}`);
+          } else {
+            this.logger.info("No delegate set for this token account");
+          }
+
+          results.push({
+            mint: tokenMint,
+            tokenAccount,
+            description: tokenConfig.description,
+            balance: balance.toString(),
+            delegate: delegateAddress,
+            delegatedAmount: delegatedAmount.toString(),
+            hasDelegate: delegateAddress !== null,
+            expectedDelegate,
+            matchesExpectedDelegate: delegateAddress !== null ? matchesExpectedDelegate : false,
+          });
+        } catch (error) {
+          this.logger.warn(`Error fetching token account: Account may not exist`);
+          if (error instanceof Error) {
+            this.logger.debug(`Error details: ${error.message}`);
+          }
+
+          results.push({
+            mint: tokenMint,
+            tokenAccount,
+            description: tokenConfig.description,
+            balance: "0",
+            delegate: null,
+            delegatedAmount: "0",
+            hasDelegate: false,
+            expectedDelegate,
+            matchesExpectedDelegate: false,
+          });
+        }
       } catch (error) {
-        logger.warn(`Error fetching token account: Account may not exist`);
-
-        if (error instanceof Error) {
-          logger.debug(`Error details: ${error.message}`);
-        }
-
-        // Store result for non-existent accounts
-        results.push({
-          mint: tokenMint,
-          tokenAccount,
-          description: tokenConfig.description,
-          balance: "0",
-          delegate: null,
-          delegatedAmount: "0",
-          hasDelegate: false,
-          expectedDelegate,
-          matchesExpectedDelegate: false,
-        });
-      }
-    } catch (error) {
-      logger.error(
-        `❌ Error processing token ${tokenConfig.description}:`,
-        error instanceof Error ? error.message : String(error)
-      );
-
-      if (error instanceof Error && error.stack) {
-        logger.debug("Error stack:");
-        logger.debug(error.stack);
+        this.logger.error(
+          `❌ Error processing token ${tokenConfig.description}:`,
+          error instanceof Error ? error.message : String(error)
+        );
       }
     }
+
+    return results;
   }
 
-  return results;
-}
+  protected async execute(): Promise<void> {
+    this.logger.info("CCIP Token Approval Checker");
+    this.logger.info("=========================================");
 
-/**
- * Main entry point for the token approval checker
- */
-async function checkTokenApprovalEntrypoint(): Promise<void> {
-  try {
-    // Parse command line arguments
-    const cmdOptions = parseTokenApprovalArgs();
-
-    // Create logger with appropriate level
-    const logger = createLogger("token-approval", {
-      level: cmdOptions.logLevel ?? LogLevel.INFO,
-    });
-
-    // Display environment information
-    logger.info("\n==== Environment Information ====");
-    logger.info(`Solana Cluster: ${cmdOptions.network || "devnet"}`);
-
-    // Get appropriate keypair path
-    const keypairPath = getKeypairPath(cmdOptions);
-    logger.info(`Keypair Path: ${keypairPath}`);
-
-    // Load wallet keypair
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet
+    const keypairPath = getKeypairPath(this.options);
     const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Router Program: ${config.routerProgramId.toString()}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
 
-    // Config is already defined at the top of the file
-    const routerProgramId = config.routerProgramId;
-    logger.info(`Router Program ID: ${routerProgramId.toString()}`);
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("=========================================");
+    const balance = await config.connection.getBalance(walletKeypair.publicKey);
+    this.logger.info(`SOL Balance: ${balance / LAMPORTS_PER_SOL} SOL (${balance} lamports)`);
 
-    // Check wallet SOL balance
-    logger.info("\n==== Wallet Balance Information ====");
-    const connection = config.connection;
-    const balance = await connection.getBalance(walletKeypair.publicKey);
-    logger.info(`SOL Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
-    logger.info(`Lamports Balance: ${balance} lamports`);
-
-    // Process token approvals
-    logger.info("\n==== Processing Token Approvals ====");
+    this.logger.info("");
+    this.logger.info("🔍 PROCESSING TOKEN APPROVALS");
+    this.logger.info("=========================================");
 
     let tokensToCheck: TokenApprovalConfig[] = [];
 
-    // If custom token mints are provided, use them instead of defaults
-    if (cmdOptions.tokenMint) {
-      // Support comma-separated token mints
-      const tokenMints = cmdOptions.tokenMint.split(',').map(mint => mint.trim());
-      
-      logger.info(`Custom token mints provided: ${tokenMints.join(', ')}`);
-      logger.info("Using custom tokens instead of defaults");
+    if (this.options.tokenMint) {
+      // Handle custom token mints
+      const tokenMints = this.options.tokenMint.split(',').map(mint => mint.trim());
+      this.logger.info(`Custom token mints provided: ${tokenMints.join(', ')}`);
 
-      let effectiveDelegationType: DelegationType = "fee-billing"; // Default for ccip_send compatibility
-      let customDelegateAddress: PublicKey | string | undefined = undefined;
+      let effectiveDelegationType: DelegationType = "fee-billing";
       
-      if (cmdOptions.delegationType === "custom") {
-        if (!cmdOptions.customDelegate) {
-          logger.error("Error: --delegation-type 'custom' requires --custom-delegate to be set.");
-          throw new Error("Custom delegate not provided for custom delegation type.");
+      if (this.options.delegationType === "custom") {
+        if (!this.options.customDelegate) {
+          throw new Error("Custom delegate address required when delegation-type is 'custom'");
         }
         effectiveDelegationType = "custom";
-        customDelegateAddress = cmdOptions.customDelegate;
-        logger.info(`Using custom delegation type for all provided tokens.`);
-      } else if (cmdOptions.delegationType === "token-pool") {
-        // If user explicitly asks for token-pool, warn them about ccip_send compatibility
-        logger.warn(
-          `Warning: Delegation type 'token-pool' specified. ` +
-          `For ccip_send compatibility, checking against 'fee-billing' signer PDA. ` +
-          `If delegation to a pool-specific PDA is also needed, handle it separately.`
+        this.logger.info("Using custom delegation type for all provided tokens");
+      } else if (this.options.delegationType === "token-pool") {
+        this.logger.warn(
+          "Warning: Delegation type 'token-pool' specified. " +
+          "For ccip_send compatibility, checking against 'fee-billing' signer PDA."
         );
         effectiveDelegationType = "fee-billing";
       } else {
-        // Default case (no delegationType specified or fee-billing)
-        logger.info(`Using 'fee-billing' delegation type for all tokens for ccip_send compatibility.`);
+        this.logger.info("Using 'fee-billing' delegation type for ccip_send compatibility");
       }
 
-      // Create approval config for each provided token mint
+      // Create config for each token mint
       for (const tokenMint of tokenMints) {
-        const customTokenConfig: TokenApprovalConfig = {
+        tokensToCheck.push({
           tokenMint: tokenMint,
           description: `Custom Token (${tokenMint.slice(0, 8)}...)`,
           delegationType: effectiveDelegationType,
-        };
-
-        tokensToCheck.push(customTokenConfig);
-        logger.info(`Added custom token check for: ${tokenMint}`);
+        });
+        this.logger.info(`Added custom token check for: ${tokenMint}`);
       }
     } else {
-      // No custom tokens provided, use default configuration
-      logger.info("No custom tokens provided, using default token configuration");
-      tokensToCheck = [...TOKEN_APPROVAL_CONFIG.tokensToCheck];
+      // Use default tokens
+      this.logger.info("No custom tokens provided, using default token configuration");
+      const tokenApprovalConfig = this.createTokenApprovalConfig(config);
+      tokensToCheck = [...tokenApprovalConfig.tokensToCheck];
     }
 
-    const results = await checkTokenApprovals(
+    const results = await this.checkTokenApprovals(
       tokensToCheck,
-      cmdOptions,
-      logger,
-      connection,
+      config.connection,
       walletKeypair.publicKey,
-      routerProgramId
+      config.routerProgramId
     );
 
-    // Display results in tabular format
-    logger.info("\n==== Token Approval Summary ====");
-    logger.info(
-      "Token | Description | Balance | Delegate | Delegated Amount | Status"
-    );
-    logger.info(
-      "------|-------------|---------|----------|-----------------|-------"
-    );
+    // Display results
+    this.logger.info("");
+    this.logger.info("📋 TOKEN APPROVAL SUMMARY");
+    this.logger.info("=========================================");
+    this.logger.info("Token | Description | Balance | Delegate | Delegated Amount | Status");
+    this.logger.info("------|-------------|---------|----------|-----------------|-------");
 
     for (const result of results) {
-      logger.info(
+      this.logger.info(
         `${result.mint.toString().slice(0, 8)}... | ` +
-          `${result.description} | ` +
-          `${result.balance} | ` +
-          `${
-            result.delegate
-              ? result.delegate.toString().slice(0, 8) + "..."
-              : "None"
-          } | ` +
-          `${result.delegatedAmount} | ` +
-          `${
-            result.hasDelegate
-              ? result.matchesExpectedDelegate
-                ? "✓ Correct"
-                : "✗ Wrong"
-              : "No Delegate"
-          }`
+        `${result.description} | ` +
+        `${result.balance} | ` +
+        `${result.delegate ? result.delegate.toString().slice(0, 8) + "..." : "None"} | ` +
+        `${result.delegatedAmount} | ` +
+        `${result.hasDelegate ? 
+          (result.matchesExpectedDelegate ? "✓ Correct" : "✗ Wrong") : 
+          "No Delegate"}`
       );
     }
 
-    logger.info("\nToken approval check completed successfully");
-  } catch (error) {
-    console.error("Failed to check token approvals:", error);
-    printUsage("token:check");
+    this.logger.info("");
+    this.logger.info("✅ Token approval check completed successfully");
   }
 }
 
-// Check if help is requested
-if (process.argv.includes("--help") || process.argv.includes("-h")) {
-  printUsage("token:check");
-  process.exit(0);
-}
-
-// Run the script if it's executed directly
-if (require.main === module) {
-  checkTokenApprovalEntrypoint().catch((error) => {
-    console.error("Unhandled error:", error);
-    process.exit(1);
-  });
-}
+// Create and run the command
+const command = new CheckTokenApprovalCommand();
+command.run().catch((error) => {
+  process.exit(1);
+});

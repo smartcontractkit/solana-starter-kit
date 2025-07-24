@@ -1,104 +1,232 @@
-import { PublicKey, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+/**
+ * CCIP Basic Receiver Program Deployment Script (CLI Framework Version)
+ *
+ * This script deploys the CCIP Basic Receiver program to Solana devnet.
+ * It checks balance requirements and executes the deployment command.
+ */
+
+import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
-import { createLogger, LogLevel } from "../../../ccip-lib/svm";
-import { getCCIPSVMConfig, ChainId } from "../../config";
-import { loadKeypair } from "../utils";
-import { KEYPAIR_PATHS } from "../utils/config-parser";
+import { LogLevel, createLogger } from "../../../ccip-lib/svm";
+import { resolveNetworkConfig } from "../../config";
+import { getKeypairPath, loadKeypair } from "../utils";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Deploys the CCIP Basic Receiver program to Solana devnet.
- * Checks balance and executes the deployment command directly.
+ * Configuration for deployment operations
  */
-async function main() {
-  // Create logger
-  const logger = createLogger("ccip-receiver-deploy", { level: LogLevel.INFO });
-  logger.info("CCIP Basic Receiver Deployment");
+const DEPLOY_CONFIG = {
+  programName: "ccip-basic-receiver",
+  idlFileName: "ccip_basic_receiver.json",
+  minSolRequired: 0.5,
+  defaultLogLevel: LogLevel.INFO,
+};
 
-  // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-  const connection = config.connection;
+/**
+ * Options specific to the deploy command
+ */
+interface DeployOptions extends BaseCommandOptions {
+  // No additional options needed for deployment
+}
 
-  // Find the local IDL file
-  const idlPath = path.join(
-    __dirname,
-    "../../../target/idl/ccip_basic_receiver.json"
-  );
-
-  if (!fs.existsSync(idlPath)) {
-    logger.error(`IDL file not found at ${idlPath}`);
-    logger.error("Please build the program first with 'anchor build'");
-    process.exit(1);
+/**
+ * CCIP Basic Receiver Deployment Command
+ */
+class DeployCommand extends CCIPCommand<DeployOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "deploy",
+      description: "🚀 CCIP Basic Receiver Deployment\\\\n\\\\nDeploys the CCIP Basic Receiver program to Solana devnet. Checks balance requirements and executes the deployment command using Anchor.",
+      examples: [
+        "# Deploy the CCIP Basic Receiver program",
+        "yarn svm:receiver:deploy",
+        "",
+        "# Deploy with debug logging",
+        "yarn svm:receiver:deploy --log-level DEBUG",
+        "",
+        "# Deploy with custom keypair",
+        "yarn svm:receiver:deploy --keypair ~/.config/solana/my-keypair.json"
+      ],
+      notes: [
+        `Program name: ${DEPLOY_CONFIG.programName}`,
+        `Minimum ${DEPLOY_CONFIG.minSolRequired} SOL required for deployment`,
+        "Program must be built first with 'anchor build'",
+        "IDL file must exist in target/idl/ directory",
+        "Deployment uses Anchor CLI under the hood",
+        "After deployment, initialize the program with 'yarn svm:receiver:initialize'",
+        "Use 'solana airdrop' command if balance is insufficient"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Read the IDL file
-  const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
-
-  // Get program ID from IDL - checking both locations
-  if (!idl.address && (!idl.metadata || !idl.metadata.address)) {
-    logger.error("Program ID not found in IDL");
-    logger.error("Please build the program first with 'anchor build'");
-    process.exit(1);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      // No specific arguments needed for deployment
+    ];
   }
 
-  // Use the address directly if available, otherwise use metadata.address
-  const programId = new PublicKey(idl.address || idl.metadata.address);
+  /**
+   * Find and validate IDL file
+   */
+  private findIdlFile(): { idlPath: string; idl: any; programId: PublicKey } {
+    const idlPath = path.join(
+      __dirname,
+      `../../../target/idl/${DEPLOY_CONFIG.idlFileName}`
+    );
 
-  logger.info(`Program ID from IDL: ${programId.toString()}`);
-  logger.info(`Program Name: ${idl.metadata.name}`);
-
-  // Default keypair path
-  const keypairPath = process.env.KEYPAIR_PATH || KEYPAIR_PATHS.DEFAULT;
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  // Load the wallet keypair from file
-  try {
-    const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
-
-    // Check account balance
-    const balance = await connection.getBalance(walletKeypair.publicKey);
-    logger.info(`Wallet balance: ${balance / LAMPORTS_PER_SOL} SOL`);
-
-    if (balance < 0.5 * LAMPORTS_PER_SOL) {
-      logger.warn("Warning: Low balance. Might not be enough for deployment.");
-      logger.warn(
-        "Request airdrop from Solana devnet faucet before proceeding."
+    if (!fs.existsSync(idlPath)) {
+      throw new Error(
+        `IDL file not found at ${idlPath}\\n` +
+        `Please build the program first with 'anchor build'`
       );
-      logger.info("You can request an airdrop with:");
-      logger.info(
-        `solana airdrop 1 ${walletKeypair.publicKey.toString()} --url devnet`
-      );
-      process.exit(1);
     }
 
-    // Deploy the program
-    logger.info(`Deploying ${idl.name} program to devnet...`);
+    // Read and parse the IDL file
+    let idl: any;
+    try {
+      idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
+    } catch (error) {
+      throw new Error(
+        `Failed to parse IDL file: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    // Get program ID from IDL
+    if (!idl.address && (!idl.metadata || !idl.metadata.address)) {
+      throw new Error(
+        "Program ID not found in IDL\\n" +
+        "Please build the program first with 'anchor build'"
+      );
+    }
+
+    const programId = new PublicKey(idl.address || idl.metadata.address);
+
+    return { idlPath, idl, programId };
+  }
+
+  /**
+   * Check wallet balance for deployment
+   */
+  private async checkBalance(walletPublicKey: PublicKey, config: any): Promise<number> {
+    const balance = await config.connection.getBalance(walletPublicKey);
+    const solBalance = balance / LAMPORTS_PER_SOL;
+
+    this.logger.info(`Wallet balance: ${balance} lamports (${solBalance.toFixed(9)} SOL)`);
+
+    if (solBalance < DEPLOY_CONFIG.minSolRequired) {
+      throw new Error(
+        `Insufficient balance for deployment\\n` +
+        `Required: ${DEPLOY_CONFIG.minSolRequired} SOL\\n` +
+        `Current: ${solBalance.toFixed(9)} SOL\\n\\n` +
+        `Request airdrop with:\\n` +
+        `solana airdrop 1 ${walletPublicKey.toString()} --url devnet`
+      );
+    }
+
+    return solBalance;
+  }
+
+  /**
+   * Execute the deployment command
+   */
+  private deployProgram(keypairPath: string): string {
+    const deployCommand = `anchor deploy --program-name ${DEPLOY_CONFIG.programName} --provider.cluster devnet --provider.wallet ${keypairPath}`;
+    
+    this.logger.info(`Executing deployment command:`);
+    this.logger.info(`${deployCommand}`);
 
     try {
-      const deployCommand = `anchor deploy --program-name ccip-basic-receiver --provider.cluster devnet --provider.wallet ${keypairPath}`;
-      logger.info(`Running: ${deployCommand}`);
-
-      const output = execSync(deployCommand).toString();
-      logger.info(output);
-      logger.info("Program deployed successfully!");
-
-      // Next steps
-      logger.info("\n======== NEXT STEPS ========");
-      logger.info("Initialize the program with:");
-      logger.info("npx ts-node ccip-scripts/svm/receiver/initialize.ts");
+      const output = execSync(deployCommand, { 
+        encoding: 'utf-8',
+        maxBuffer: 1024 * 1024 // 1MB buffer for large outputs
+      });
+      return output;
     } catch (error) {
-      logger.error("Deployment failed:", error);
-      process.exit(1);
+      throw new Error(
+        `Deployment failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
-  } catch (error) {
-    logger.error("Error loading keypair:", error);
-    process.exit(1);
+  }
+
+  protected async execute(): Promise<void> {
+    this.logger.info("🚀 CCIP Basic Receiver Deployment");
+    this.logger.info("==========================================");
+
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet
+    const keypairPath = getKeypairPath(this.options);
+    const walletKeypair = loadKeypair(keypairPath);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
+    this.logger.info(`Keypair path: ${keypairPath}`);
+
+    // Find and validate IDL file
+    this.logger.info("");
+    this.logger.info("📋 PROGRAM INFORMATION");
+    this.logger.info("==========================================");
+    const { idlPath, idl, programId } = this.findIdlFile();
+    
+    this.logger.info(`IDL file: ${idlPath}`);
+    this.logger.info(`Program ID: ${programId.toString()}`);
+    this.logger.info(`Program name: ${idl.metadata?.name || idl.name || 'Unknown'}`);
+
+    // Check wallet balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE CHECK");
+    this.logger.info("==========================================");
+    const solBalance = await this.checkBalance(walletKeypair.publicKey, config);
+
+    // Execute deployment
+    this.logger.info("");
+    this.logger.info("🔧 DEPLOYING PROGRAM");
+    this.logger.info("==========================================");
+    this.logger.info(`Deploying ${DEPLOY_CONFIG.programName} to devnet...`);
+    
+    const deployOutput = this.deployProgram(keypairPath);
+    
+    // Display deployment results
+    this.logger.info("");
+    this.logger.info("📄 DEPLOYMENT OUTPUT");
+    this.logger.info("==========================================");
+    this.logger.info(deployOutput);
+
+    // Success message and next steps
+    this.logger.info("");
+    this.logger.info("✅ DEPLOYMENT SUCCESSFUL");
+    this.logger.info("==========================================");
+    this.logger.info(`Program: ${DEPLOY_CONFIG.programName}`);
+    this.logger.info(`Program ID: ${programId.toString()}`);
+    this.logger.info(`Deployed to: devnet`);
+    this.logger.info(`Used balance: ~${(solBalance - (await config.connection.getBalance(walletKeypair.publicKey)) / LAMPORTS_PER_SOL).toFixed(6)} SOL`);
+
+    this.logger.info("");
+    this.logger.info("📋 NEXT STEPS");
+    this.logger.info("==========================================");
+    this.logger.info("1. Initialize the deployed program:");
+    this.logger.info("   yarn svm:receiver:initialize");
+    this.logger.info("");
+    this.logger.info("2. Test message reception:");
+    this.logger.info("   yarn svm:receiver:get-latest-message");
+    this.logger.info("");
+    this.logger.info("3. When done, optionally close storage:");
+    this.logger.info("   yarn svm:receiver:close-storage");
+
+    this.logger.info("");
+    this.logger.info("🎉 Deployment Complete!");
+    this.logger.info(`✅ Program deployed successfully to devnet`);
+    this.logger.info(`✅ Program ID: ${programId.toString()}`);
   }
 }
 
-main().catch((error) => {
-  console.error("Deployment failed:", error);
+// Create and run the command
+const command = new DeployCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

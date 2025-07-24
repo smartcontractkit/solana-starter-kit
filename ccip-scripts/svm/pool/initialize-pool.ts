@@ -1,209 +1,165 @@
 /**
- * Token Pool Initialization Script
+ * Token Pool Initialization Script (CLI Framework Version)
  *
  * This script initializes a burn-mint token pool for CCIP cross-chain token transfers.
  * It creates a State PDA (Program Derived Address) that stores the pool configuration.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
- * 2. Provide the token mint and burn-mint pool program ID
- * 3. Run the script with: yarn svm:pool:initialize
- *
- * Required arguments:
- * --token-mint              : Token mint address to create pool for
- * --burn-mint-pool-program  : Burn-mint token pool program ID
- *
- * Optional arguments:
- * --keypair                 : Path to your keypair file
- * --log-level               : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight          : Skip transaction preflight checks
- *
- * Example usage:
- * yarn svm:pool:initialize --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
-import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
-import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
+import { TokenPoolManager, TokenPoolType, LogLevel, createLogger } from "../../../ccip-lib/svm";
+import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
+import { loadKeypair, getKeypairPath } from "../utils";
 import { findBurnMintPoolConfigPDA } from "../../../ccip-lib/svm/utils/pdas/tokenpool";
-
-// ========== CONFIGURATION ==========
-// Customize these values if needed for your specific use case
-const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
-// ========== END CONFIGURATION ==========
+import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Parse command line arguments specific to pool initialization
+ * Configuration for pool initialization operations
  */
-function parsePoolArgs() {
-  const commonArgs = parseCommonArgs();
-  const args = process.argv.slice(2);
+const POOL_INIT_CONFIG = {
+  minSolRequired: 0.01,
+  defaultLogLevel: LogLevel.INFO,
+};
 
-  let tokenMint: string | undefined;
-  let burnMintPoolProgram: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--token-mint":
-        if (i + 1 < args.length) {
-          tokenMint = args[i + 1];
-          i++;
-        }
-        break;
-      case "--burn-mint-pool-program":
-        if (i + 1 < args.length) {
-          burnMintPoolProgram = args[i + 1];
-          i++;
-        }
-        break;
-    }
-  }
-
-  return {
-    ...commonArgs,
-    tokenMint,
-    burnMintPoolProgram,
-  };
+/**
+ * Options specific to the initialize-pool command
+ */
+interface InitializePoolOptions extends BaseCommandOptions {
+  tokenMint: string;
+  burnMintPoolProgram: string;
 }
 
-async function main() {
-  // Parse arguments
-  const options = parsePoolArgs();
-
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+/**
+ * Token Pool Initialization Command
+ */
+class InitializePoolCommand extends CCIPCommand<InitializePoolOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "initialize-pool",
+      description: "🏊 CCIP Token Pool Initializer\\n\\nInitializes a burn-mint token pool for CCIP cross-chain token transfers. Creates a State PDA that stores the pool configuration.",
+      examples: [
+        "# Initialize a token pool",
+        "yarn svm:pool:initialize --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh",
+        "",
+        "# With debug logging",
+        "yarn svm:pool:initialize --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --log-level DEBUG"
+      ],
+      notes: [
+        "The wallet will become the pool administrator",
+        "Router and RMN Remote program IDs are retrieved from configuration",
+        "Pool initialization requires SOL for transaction fees",
+        "Creates a State PDA account that represents the pool configuration",
+        `Minimum ${POOL_INIT_CONFIG.minSolRequired} SOL required for transaction fees`,
+        "Pool must be initialized before other operations like registration or transfers"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Validate required arguments
-  if (!options.tokenMint) {
-    console.error("Error: --token-mint is required");
-    printUsage();
-    process.exit(1);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "token-mint",
+        required: true,
+        type: "string",
+        description: "Token mint address to create pool for",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+      },
+      {
+        name: "burn-mint-pool-program",
+        required: true,
+        type: "string",
+        description: "Burn-mint token pool program ID",
+        example: "2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh"
+      }
+    ];
   }
 
-  if (!options.burnMintPoolProgram) {
-    console.error("Error: --burn-mint-pool-program is required");
-    printUsage();
-    process.exit(1);
-  }
+  /**
+   * Validate pool initialization configuration
+   */
+  private validateConfig(): { tokenMint: PublicKey; burnMintPoolProgramId: PublicKey } {
+    const errors: string[] = [];
 
-  // Create logger
-  const logger = createLogger("pool-initialize", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
-
-  logger.info("CCIP Token Pool Initialization");
-
-  // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-
-  // Get keypair path and load wallet
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  try {
-    const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
-
-    // Check balance
-    const balance = await config.connection.getBalance(walletKeypair.publicKey);
-    const solBalance = balance / LAMPORTS_PER_SOL;
-    logger.info(`Wallet balance: ${solBalance} SOL`);
-
-    if (solBalance < MIN_SOL_REQUIRED) {
-      logger.error(
-        `Insufficient balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees.`
-      );
-      logger.info(
-        "Request airdrop from Solana devnet faucet before proceeding."
-      );
-      logger.info(
-        `solana airdrop 1 ${walletKeypair.publicKey.toString()} --url devnet`
-      );
-      process.exit(1);
+    // Validate token mint address
+    let tokenMint: PublicKey;
+    try {
+      tokenMint = new PublicKey(this.options.tokenMint);
+    } catch {
+      errors.push("Invalid token mint address format");
+      throw new Error(`Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`);
     }
 
-    // Parse addresses
-    const tokenMint = new PublicKey(options.tokenMint);
-    const burnMintPoolProgramId = new PublicKey(options.burnMintPoolProgram);
+    // Validate burn-mint pool program ID
+    let burnMintPoolProgramId: PublicKey;
+    try {
+      burnMintPoolProgramId = new PublicKey(this.options.burnMintPoolProgram);
+    } catch {
+      errors.push("Invalid burn-mint pool program ID format");
+      throw new Error(`Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`);
+    }
 
-    logger.info(`Token Mint: ${tokenMint.toString()}`);
-    logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
-    logger.info(`Router Program: ${config.routerProgramId.toString()}`);
-    logger.info(`RMN Remote Program: ${config.rmnRemoteProgramId.toString()}`);
+    if (errors.length > 0) {
+      throw new Error(
+        `Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`
+      );
+    }
 
-    logger.debug(`Configuration details:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Commitment level: ${config.connection.commitment}`);
-    logger.debug(`  Skip preflight: ${options.skipPreflight}`);
-    logger.debug(`  Log level: ${options.logLevel}`);
+    return { tokenMint, burnMintPoolProgramId };
+  }
 
-    // Create token pool client
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel:
-        options.logLevel !== undefined ? options.logLevel : LogLevel.INFO, // Use INFO as default
-      skipPreflight: options.skipPreflight,
-    };
-
-    const tokenPoolClient = await createTokenPoolClient(
-      burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
-    );
-
-    // Check if pool already exists by checking the State PDA directly
-    // This avoids SDK error logging when the account doesn't exist yet
-    logger.info("Checking if pool already exists...");
+  /**
+   * Check if pool already exists
+   */
+  private async checkPoolExistence(
+    tokenMint: PublicKey,
+    burnMintPoolProgramId: PublicKey,
+    config: any
+  ): Promise<{ exists: boolean; statePDA: PublicKey; stateBump: number }> {
+    this.logger.info("Checking if pool already exists...");
+    
     const [statePDA, stateBump] = findBurnMintPoolConfigPDA(
       tokenMint,
       burnMintPoolProgramId
     );
-    logger.debug(`State PDA: ${statePDA.toString()} (bump: ${stateBump})`);
+    this.logger.debug(`State PDA: ${statePDA.toString()} (bump: ${stateBump})`);
 
     const stateAccountInfo = await config.connection.getAccountInfo(statePDA);
     const poolExists = stateAccountInfo !== null;
-    logger.debug(`Pool exists: ${poolExists}`);
+    this.logger.debug(`Pool exists: ${poolExists}`);
 
     if (poolExists) {
-      logger.warn("Pool already exists for this token mint");
-      logger.info(`Existing pool State PDA: ${statePDA.toString()}`);
-      logger.info("Use 'yarn svm:pool:get-info' to view pool details");
-      logger.debug(
+      this.logger.warn("Pool already exists for this token mint");
+      this.logger.info(`Existing pool State PDA: ${statePDA.toString()}`);
+      this.logger.info("Use 'yarn svm:pool:get-info' to view pool details");
+      this.logger.debug(
         `To view details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
       );
-      return;
     }
 
-    // Initialize the pool
-    logger.info("Initializing token pool...");
-    logger.debug(`Creating State PDA at: ${statePDA.toString()}`);
-    const signature = await tokenPoolClient.initializePool({
-      mint: tokenMint,
-      txOptions: {
-        skipPreflight: options.skipPreflight,
-      },
-    });
+    return { exists: poolExists, statePDA, stateBump };
+  }
 
-    logger.info(`Pool initialized successfully! 🎉`);
-    logger.info(`Transaction signature: ${signature}`);
-    logger.info(`Solana Explorer: ${getExplorerUrl(config.id, signature)}`);
-    logger.info(`📍 Pool State PDA: ${statePDA.toString()}`);
-    logger.debug(`State PDA bump: ${stateBump}`);
-
-    // Verify initialization
-    logger.info("Verifying pool initialization...");
-    logger.debug("Attempting to fetch pool info to verify initialization...");
+  /**
+   * Verify pool initialization was successful
+   */
+  private async verifyPoolInitialization(
+    tokenMint: PublicKey,
+    burnMintPoolProgramId: PublicKey,
+    statePDA: PublicKey,
+    stateBump: number,
+    tokenPoolClient: any
+  ): Promise<void> {
+    this.logger.info("Verifying pool initialization...");
+    this.logger.debug("Attempting to fetch pool info to verify initialization...");
+    
     try {
-      const poolInfo = await tokenPoolClient.getPoolInfo();
-      logger.info("✅ Pool initialization verified successfully!");
-      logger.info(`✅ State PDA confirmed active: ${statePDA.toString()}`);
-      logger.debug("Pool verification details:", {
+      const poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+      this.logger.info("✅ Pool initialization verified successfully!");
+      this.logger.info(`✅ State PDA confirmed active: ${statePDA.toString()}`);
+      
+      this.logger.debug("Pool verification details:", {
         statePDA: statePDA.toString(),
         stateBump: stateBump,
         poolType: poolInfo.poolType,
@@ -212,75 +168,162 @@ async function main() {
         decimals: poolInfo.config.config.decimals,
         router: poolInfo.config.config.router.toString(),
       });
-      logger.trace("Complete verification info:", poolInfo);
+      this.logger.trace("Complete verification info:", poolInfo);
 
-      logger.info("");
-      logger.info("🎯 Pool Creation Summary:");
-      logger.info(`   Token Mint: ${tokenMint.toString()}`);
-      logger.info(`   State PDA: ${statePDA.toString()}`);
-      logger.info(`   Owner: ${poolInfo.config.config.owner.toString()}`);
-      logger.info(`   Program: ${burnMintPoolProgramId.toString()}`);
-      logger.info("");
-      logger.info(
-        `💡 View details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
-      );
+      this.logger.info("");
+      this.logger.info("🎯 POOL CREATION SUMMARY");
+      this.logger.info("===============================================");
+      this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+      this.logger.info(`State PDA: ${statePDA.toString()}`);
+      this.logger.info(`Owner: ${poolInfo.config.config.owner.toString()}`);
+      this.logger.info(`Program: ${burnMintPoolProgramId.toString()}`);
+
+      this.logger.info("");
+      this.logger.info("💡 NEXT STEPS");
+      this.logger.info("===============================================");
+      this.logger.info(`View details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`);
+      
     } catch (error) {
-      logger.warn(
-        `Pool transaction succeeded but verification failed: ${error}`
+      this.logger.warn(
+        `Pool transaction succeeded but verification failed: ${error instanceof Error ? error.message : String(error)}`
       );
-      logger.debug("Verification error details:", error);
-      logger.info("");
-      logger.info("🎯 Pool Creation Summary (Unverified):");
-      logger.info(`   Token Mint: ${tokenMint.toString()}`);
-      logger.info(`   State PDA: ${statePDA.toString()}`);
-      logger.info(`   Program: ${burnMintPoolProgramId.toString()}`);
-      logger.info("");
-      logger.info(
-        "This may be due to network delays - the pool should exist shortly"
+      this.logger.debug("Verification error details:", error);
+      
+      this.logger.info("");
+      this.logger.info("🎯 POOL CREATION SUMMARY (UNVERIFIED)");
+      this.logger.info("===============================================");
+      this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+      this.logger.info(`State PDA: ${statePDA.toString()}`);
+      this.logger.info(`Program: ${burnMintPoolProgramId.toString()}`);
+      this.logger.info("");
+      this.logger.info("This may be due to network delays - the pool should exist shortly");
+    }
+  }
+
+  protected async execute(): Promise<void> {
+    this.logger.info("CCIP Token Pool Initialization");
+    this.logger.info("===========================================");
+
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet
+    const keypairPath = getKeypairPath(this.options);
+    const walletKeypair = loadKeypair(keypairPath);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
+
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("===========================================");
+    const balance = await config.connection.getBalance(walletKeypair.publicKey);
+    const solBalanceDisplay = balance / LAMPORTS_PER_SOL;
+    this.logger.info(`SOL Balance: ${balance} lamports (${solBalanceDisplay.toFixed(9)} SOL)`);
+
+    if (solBalanceDisplay < POOL_INIT_CONFIG.minSolRequired) {
+      throw new Error(
+        `Insufficient SOL balance. Need at least ${POOL_INIT_CONFIG.minSolRequired} SOL for transaction fees. ` +
+        `Current balance: ${solBalanceDisplay.toFixed(9)} SOL`
       );
     }
-  } catch (error) {
-    logger.error("Pool initialization failed:", error);
-    process.exit(1);
+
+    // Validate configuration and parse parameters
+    const { tokenMint, burnMintPoolProgramId } = this.validateConfig();
+
+    this.logger.info("");
+    this.logger.info("⚙️  POOL CONFIGURATION");
+    this.logger.info("===========================================");
+    this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+    this.logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
+    this.logger.info(`Router Program: ${config.routerProgramId.toString()}`);
+    this.logger.info(`RMN Remote Program: ${config.rmnRemoteProgramId.toString()}`);
+
+    this.logger.debug("");
+    this.logger.debug("🔍 CONFIGURATION DETAILS");
+    this.logger.debug("===========================================");
+    this.logger.debug(`Network: ${config.id}`);
+    this.logger.debug(`Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(`Commitment level: ${config.connection.commitment}`);
+    this.logger.debug(`Skip preflight: ${this.options.skipPreflight}`);
+    this.logger.debug(`Log level: ${this.options.logLevel}`);
+
+    // Create token pool manager using SDK
+    const programIds = { burnMint: burnMintPoolProgramId };
+    const tokenPoolManager = TokenPoolManager.create(
+      config.connection,
+      walletKeypair,
+      programIds,
+      {
+        ccipRouterProgramId: config.routerProgramId.toString(),
+        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+        linkTokenMint: config.linkTokenMint.toString(),
+        receiverProgramId: config.receiverProgramId.toString(),
+      },
+      { logLevel: this.options.logLevel ?? POOL_INIT_CONFIG.defaultLogLevel }
+    );
+
+    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+    // Check if pool already exists
+    this.logger.info("");
+    this.logger.info("🔍 POOL EXISTENCE CHECK");
+    this.logger.info("===========================================");
+    const { exists: poolExists, statePDA, stateBump } = await this.checkPoolExistence(
+      tokenMint,
+      burnMintPoolProgramId,
+      config
+    );
+
+    if (poolExists) {
+      return;
+    }
+
+    // Initialize the pool
+    this.logger.info("");
+    this.logger.info("🏗️  INITIALIZING POOL");
+    this.logger.info("===========================================");
+    this.logger.info("Initializing token pool...");
+    this.logger.debug(`Creating State PDA at: ${statePDA.toString()}`);
+    
+    const signature = await tokenPoolClient.initializePool(tokenMint, {
+      txOptions: {
+        skipPreflight: this.options.skipPreflight,
+      },
+    });
+
+    // Display results
+    this.logger.info("");
+    this.logger.info("✅ POOL INITIALIZED SUCCESSFULLY");
+    this.logger.info("===========================================");
+    this.logger.info(`Transaction Signature: ${signature}`);
+    this.logger.info(`📍 Pool State PDA: ${statePDA.toString()}`);
+    this.logger.debug(`State PDA bump: ${stateBump}`);
+
+    // Display explorer URL
+    this.logger.info("");
+    this.logger.info("🔍 EXPLORER URLS");
+    this.logger.info("===========================================");
+    this.logger.info(`Transaction: ${getExplorerUrl(config.id, signature)}`);
+
+    // Verify initialization
+    this.logger.info("");
+    this.logger.info("🔍 VERIFICATION");
+    this.logger.info("===========================================");
+    await this.verifyPoolInitialization(
+      tokenMint,
+      burnMintPoolProgramId,
+      statePDA,
+      stateBump,
+      tokenPoolClient
+    );
   }
 }
 
-function printUsage() {
-  console.log(`
-🏊 CCIP Token Pool Initializer
-
-Usage: yarn svm:pool:initialize [options]
-
-Required Options:
-  --token-mint <address>           Token mint address to create pool for
-  --burn-mint-pool-program <id>    Burn-mint token pool program ID
-
-Optional Options:
-  --keypair <path>                 Path to wallet keypair file
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight                 Skip transaction preflight checks
-  --help, -h                       Show this help message
-
-Examples:
-  yarn svm:pool:initialize \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
-
-  yarn svm:pool:initialize \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --log-level DEBUG
-
-Notes:
-  • The wallet will become the pool administrator
-  • Router and RMN Remote program IDs are retrieved from configuration
-  • Pool initialization requires SOL for transaction fees
-  • Creates a State PDA account that represents the pool configuration
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new InitializePoolCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

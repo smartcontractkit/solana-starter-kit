@@ -32,6 +32,8 @@ The SDK follows a modular architecture with clear separation of concerns:
 ### Core Components
 
 - **CCIPMessenger**: Main entry point for SDK functionality (fee calculation, message sending)
+- **CCIPMessageFactory**: Factory for creating CCIP message requests with proper validation and formatting
+- **CCIPTokenValidator**: Utilities for validating token amounts against wallet balances
 - **Contract Clients**: Specialized clients for interacting with specific CCIP contracts
 - **Models**: Type definitions shared across all components
 
@@ -45,6 +47,8 @@ The SDK follows a modular architecture with clear separation of concerns:
 
 ### Utilities
 
+- **Message Factory**: Factory for creating and validating CCIP message requests
+- **Token Validation**: Utilities for validating token amounts and checking balances
 - **Solana Utils**: Tools for encoding Solana addresses and creating Solana-specific extraArgs
 - **CCIP Utils**: Helpers for message extraction and status monitoring
 - **Transaction Utils**: Batch transaction execution and gas usage reporting
@@ -129,6 +133,85 @@ console.log(`Message sent! Transaction: ${result.transactionHash}`);
 console.log(`Message ID: ${result.messageId}`);
 console.log(`Destination Chain Selector: ${result.destinationChainSelector}`);
 console.log(`Sequence Number: ${result.sequenceNumber}`);
+```
+
+### Using the Message Factory
+
+The `CCIPMessageFactory` provides a streamlined way to create CCIP message requests with proper validation:
+
+```typescript
+import { 
+  CCIPMessageFactory, 
+  CCIPMessageOptions,
+  CCIPEVMContext 
+} from "../path/to/ccip-lib/evm";
+
+// Create a message for Solana with token transfer
+const messageOptions: CCIPMessageOptions = {
+  destinationChainSelector: BigInt("16015286601757825753"), // Solana devnet
+  receiver: "8UJgxaiQx9LHvAYV3nFecLy83dLECKSTt9Y82MuJFSWH", // Solana address
+  tokenAmounts: [
+    {
+      token: "0x779877A7B0D9E8603169DdbD7836e478b4624789", // LINK token
+      amount: "10000000000000000" // 0.01 LINK with 18 decimals
+    }
+  ],
+  feeToken: "0x779877A7B0D9E8603169DdbD7836e478b4624789", // LINK for fees
+  data: "Hello Solana!", // Optional message data
+  solanaParams: {
+    computeUnits: 200000,
+    allowOutOfOrderExecution: true,
+    accountIsWritableBitmap: BigInt(2), // For message processing
+    accounts: ["9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"] // Additional accounts
+  }
+};
+
+// Create the message request using the factory
+const messageRequest = CCIPMessageFactory.createSolanaMessage(messageOptions, logger);
+
+// Use the created request with the messenger
+const result = await messenger.sendCCIPMessage(messageRequest);
+```
+
+### Using the Token Validator
+
+The `CCIPTokenValidator` helps validate token amounts before sending messages:
+
+```typescript
+import { 
+  CCIPTokenValidator, 
+  TokenAmountSpec,
+  CCIPEVMContext 
+} from "../path/to/ccip-lib/evm";
+
+// Define tokens to validate
+const tokenAmounts: TokenAmountSpec[] = [
+  {
+    token: "0x779877A7B0D9E8603169DdbD7836e478b4624789", // LINK token
+    amount: "10000000000000000" // 0.01 LINK
+  },
+  {
+    token: "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", // BnM token
+    amount: "5000000000000000000" // 5 BnM
+  }
+];
+
+// Validate token amounts and balances
+const signerAddress = await signer.getAddress();
+const validationResult = await CCIPTokenValidator.validateTokenAmounts(
+  context, 
+  signerAddress, 
+  tokenAmounts
+);
+
+// Access validated amounts and token details
+console.log("Validated amounts:", validationResult.validatedAmounts);
+console.log("Token details:", validationResult.tokenDetails);
+
+// Use the token details to display information to users
+for (const tokenDetail of validationResult.tokenDetails) {
+  console.log(`${tokenDetail.tokenSymbol}: ${ethers.formatUnits(tokenDetail.tokenBalance, tokenDetail.tokenDecimals)}`);
+}
 ```
 
 ### Factory Functions

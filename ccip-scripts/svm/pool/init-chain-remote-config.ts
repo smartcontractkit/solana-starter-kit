@@ -1,259 +1,293 @@
 /**
- * Chain Remote Configuration Initialization Script
+ * Chain Remote Configuration Initialization Script (CLI Framework Version)
  *
  * This script initializes a chain remote configuration for a burn-mint token pool,
  * enabling cross-chain token transfers to a specific remote chain.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
- * 2. The token pool must already exist for the specified mint
- * 3. Provide the required chain configuration details
- * 4. Run the script with: yarn svm:pool:init-chain-remote-config
- *
- * Required arguments:
- * --token-mint              : Token mint address of existing pool
- * --burn-mint-pool-program  : Burn-mint token pool program ID
- * --remote-chain            : Remote chain to configure (chain-id)
- * --token-address           : Token address on remote chain (hex)
- * --decimals                : Token decimals on remote chain
- *
- * Optional arguments:
- * --keypair                 : Path to your keypair file
- * --log-level               : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight          : Skip transaction preflight checks
- *
- * Example usage:
- * yarn svm:pool:init-chain-remote-config \
- *   --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
- *   --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
- *   --remote-chain ethereum-sepolia \
- *   --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \
- *   --decimals 6
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createTokenPoolClient, TokenPoolClientOptions } from "./client";
-import { ChainId, getCCIPSVMConfig, getExplorerUrl } from "../../config";
-import { loadKeypair, getKeypairPath } from "../utils";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
-import { parseArgs, displayAvailableRemoteChains } from "../utils/args-parser";
+import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
+import { TokenPoolType, LogLevel, createLogger } from "../../../ccip-lib/svm";
+import { ChainId, CHAIN_SELECTORS, resolveNetworkConfig, getExplorerUrl } from "../../config";
+import { getKeypairPath, loadKeypair } from "../utils";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
-// ========== CONFIGURATION ==========
-// Customize these values if needed for your specific use case
-const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
-// ========== END CONFIGURATION ==========
+/**
+ * Configuration for init chain remote config operations
+ */
+const INIT_CHAIN_CONFIG = {
+  minSolRequired: 0.01,
+  defaultLogLevel: LogLevel.INFO,
+};
 
-const SCRIPT_ARGS = [
-  {
-    name: "token-mint",
-    description: "Token mint address of existing pool",
-    required: true,
-    type: "string" as const,
-  },
-  {
-    name: "burn-mint-pool-program",
-    description: "Burn-mint token pool program ID",
-    required: true,
-    type: "string" as const,
-  },
-  {
-    name: "remote-chain",
-    description: "Remote chain to configure (chain-id)",
-    required: true,
-    type: "remote-chain" as const,
-  },
-  {
-    name: "token-address",
-    description: "Token address on remote chain (hex)",
-    required: true,
-    type: "string" as const,
-  },
-  {
-    name: "decimals",
-    description: "Token decimals on remote chain",
-    required: true,
-    type: "number" as const,
-  },
+/**
+ * Options specific to the init-chain-remote-config command
+ */
+interface InitChainRemoteConfigOptions extends BaseCommandOptions {
+  tokenMint: string;
+  burnMintPoolProgram: string;
+  remoteChain: string;
+  tokenAddress: string;
+  decimals: number;
+}
 
-  {
-    name: "keypair",
-    description: "Path to wallet keypair file",
-    required: false,
-    type: "string" as const,
-  },
-  {
-    name: "log-level",
-    description: "Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)",
-    required: false,
-    type: "string" as const,
-  },
-  {
-    name: "skip-preflight",
-    description: "Skip transaction preflight checks",
-    required: false,
-    type: "boolean" as const,
-    default: false,
-  },
-];
-
-async function main() {
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+/**
+ * Init Chain Remote Configuration Command
+ */
+class InitChainRemoteConfigCommand extends CCIPCommand<InitChainRemoteConfigOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "init-chain-remote-config",
+      description: "🔗 Chain Remote Configuration Initializer\n\nInitializes a chain remote configuration for a burn-mint token pool, enabling cross-chain token transfers to a specific remote chain.",
+      examples: [
+        "# Initialize chain config for Ethereum Sepolia",
+        "yarn svm:pool:init-chain-remote-config --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --remote-chain ethereum-sepolia --token-address \"0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c\" --decimals 6",
+        "",
+        "# Initialize chain config for Base Sepolia",
+        "yarn svm:pool:init-chain-remote-config --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --remote-chain base-sepolia --token-address \"0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c\" --decimals 6"
+      ],
+      notes: [
+        `Minimum ${INIT_CHAIN_CONFIG.minSolRequired} SOL required for transaction fees`,
+        "The token pool must already exist before configuring chains",
+        "Wallet must be the pool administrator",
+        "Addresses should be provided as hex strings with '0x' prefix",
+        "Pool addresses are NOT provided during initialization (required by Rust program)",
+        "Use 'yarn svm:pool:edit-chain-remote-config' to add pool addresses after initialization",
+        "Remote chains: ethereum-sepolia, avalanche-fuji, base-sepolia, etc.",
+        "Chain configuration initialization requires SOL for transaction fees"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Parse arguments
-  const options = parseArgs(SCRIPT_ARGS);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "token-mint",
+        required: true,
+        type: "string",
+        description: "Token mint address of existing pool",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+      },
+      {
+        name: "burn-mint-pool-program",
+        required: true,
+        type: "string",
+        description: "Burn-mint token pool program ID",
+        example: "2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh"
+      },
+      {
+        name: "remote-chain",
+        required: true,
+        type: "string",
+        description: "Remote chain to configure (chain-id)",
+        example: "ethereum-sepolia"
+      },
+      {
+        name: "token-address",
+        required: true,
+        type: "string",
+        description: "Token address on remote chain (hex)",
+        example: "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c"
+      },
+      {
+        name: "decimals",
+        required: true,
+        type: "number",
+        description: "Token decimals on remote chain",
+        example: "6"
+      }
+    ];
+  }
 
-  // Create logger
-  const logger = createLogger("init-chain-remote-config", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
+  /**
+   * Resolve remote chain selector from chain ID
+   */
+  private resolveRemoteChainSelector(remoteChain: string): bigint {
+    const chainSelector = CHAIN_SELECTORS[remoteChain as ChainId];
+    if (!chainSelector) {
+      throw new Error(
+        `Unknown remote chain: ${remoteChain}\n` +
+        `Available chains: ${Object.keys(CHAIN_SELECTORS).join(", ")}`
+      );
+    }
+    return chainSelector;
+  }
 
-  logger.info("CCIP Chain Remote Configuration Initialization");
+  /**
+   * Display available remote chains
+   */
+  private displayAvailableChains(): void {
+    this.logger.info("");
+    this.logger.info("📋 AVAILABLE REMOTE CHAINS");
+    this.logger.info("==========================================");
+    Object.entries(CHAIN_SELECTORS).forEach(([chainId, selector]) => {
+      this.logger.info(`  ${chainId}: ${selector.toString()}`);
+    });
+  }
 
-  // Load configuration
-  const config = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
+  protected async execute(): Promise<void> {
+    this.logger.info("🔗 CCIP Chain Remote Configuration Initialization");
+    this.logger.info("==========================================");
 
-  // Get keypair path and load wallet
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  try {
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet
+    const keypairPath = getKeypairPath(this.options);
     const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
 
-    // Check balance
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("==========================================");
     const balance = await config.connection.getBalance(walletKeypair.publicKey);
     const solBalance = balance / LAMPORTS_PER_SOL;
-    logger.info(`Wallet balance: ${solBalance} SOL`);
+    this.logger.info(`SOL Balance: ${balance} lamports (${solBalance.toFixed(9)} SOL)`);
 
-    if (solBalance < MIN_SOL_REQUIRED) {
-      logger.error(
-        `Insufficient balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees.`
-      );
-      logger.info(
-        "Request airdrop from Solana devnet faucet before proceeding."
-      );
-      logger.info(
+    if (solBalance < INIT_CHAIN_CONFIG.minSolRequired) {
+      throw new Error(
+        `Insufficient balance. Need at least ${INIT_CHAIN_CONFIG.minSolRequired} SOL for transaction fees.\n` +
+        `Current balance: ${solBalance.toFixed(9)} SOL\n\n` +
+        `Request airdrop with:\n` +
         `solana airdrop 1 ${walletKeypair.publicKey.toString()} --url devnet`
       );
-      process.exit(1);
     }
 
-    // Parse addresses
-    const tokenMint = new PublicKey(options["token-mint"]);
-    const burnMintPoolProgramId = new PublicKey(
-      options["burn-mint-pool-program"]
-    );
-    const remoteChainSelector = options["remote-chain"] as bigint;
+    // Parse and validate addresses
+    let tokenMint: PublicKey;
+    let burnMintPoolProgramId: PublicKey;
+    
+    try {
+      tokenMint = new PublicKey(this.options.tokenMint);
+    } catch {
+      throw new Error(`Invalid token mint address: ${this.options.tokenMint}`);
+    }
+    
+    try {
+      burnMintPoolProgramId = new PublicKey(this.options.burnMintPoolProgram);
+    } catch {
+      throw new Error(`Invalid burn-mint pool program ID: ${this.options.burnMintPoolProgram}`);
+    }
 
-    const tokenAddress = options["token-address"] as string;
-    const decimals = options.decimals as number;
+    // Resolve remote chain selector
+    let remoteChainSelector: bigint;
+    try {
+      remoteChainSelector = this.resolveRemoteChainSelector(this.options.remoteChain);
+    } catch (error) {
+      this.displayAvailableChains();
+      throw error;
+    }
 
-    logger.info(`Token Mint: ${tokenMint.toString()}`);
-    logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
-    logger.info(`Remote Chain Selector: ${remoteChainSelector.toString()}`);
-    logger.info(`Token Address: ${tokenAddress}`);
-    logger.info(`Decimals: ${decimals}`);
+    const tokenAddress = this.options.tokenAddress;
+    const decimals = this.options.decimals;
 
-    logger.debug(`Configuration details:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Commitment level: ${config.connection.commitment}`);
-    logger.debug(`  Skip preflight: ${options["skip-preflight"]}`);
-    logger.debug(`  Log level: ${options["log-level"]}`);
+    // Validate hex address
+    const hexRegex = /^0x[a-fA-F0-9]+$/;
+    if (!hexRegex.test(tokenAddress)) {
+      throw new Error(`Invalid hex token address format: ${tokenAddress}. Must start with '0x' and contain only hex characters.`);
+    }
 
-    // Create token pool client
-    const clientOptions: TokenPoolClientOptions = {
-      connection: config.connection,
-      logLevel: (options["log-level"] as LogLevel) || LogLevel.INFO,
-      skipPreflight: options["skip-preflight"],
-    };
+    // Display configuration
+    this.logger.info("");
+    this.logger.info("📋 INITIALIZATION CONFIGURATION");
+    this.logger.info("==========================================");
+    this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+    this.logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
+    this.logger.info(`Remote Chain: ${this.options.remoteChain}`);
+    this.logger.info(`Remote Chain Selector: ${remoteChainSelector.toString()}`);
+    this.logger.info(`Token Address: ${tokenAddress}`);
+    this.logger.info(`Decimals: ${decimals}`);
 
-    const tokenPoolClient = await createTokenPoolClient(
-      burnMintPoolProgramId,
-      tokenMint,
-      clientOptions
-    );
+    this.logger.debug("Configuration details:");
+    this.logger.debug(`  Network: ${config.id}`);
+    this.logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(`  Commitment level: ${config.connection.commitment}`);
+    this.logger.debug(`  Skip preflight: ${this.options.skipPreflight}`);
 
-    // Initialize the chain remote config (pool addresses must be empty for initialization)
-    logger.info("Initializing chain remote configuration...");
-    const signature = await tokenPoolClient.initChainRemoteConfig({
-      mint: tokenMint,
-      remoteChainSelector,
-      tokenAddress,
-      decimals,
-    });
+    try {
+      // Create token pool manager using SDK
+      const tokenPoolManager = TokenPoolManager.create(
+        config.connection,
+        walletKeypair,
+        {
+          burnMint: burnMintPoolProgramId,
+        },
+        {
+          ccipRouterProgramId: config.routerProgramId.toString(),
+          feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+          rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+          linkTokenMint: config.linkTokenMint.toString(),
+          receiverProgramId: config.receiverProgramId.toString(),
+        },
+        { logLevel: this.options.logLevel ?? LogLevel.INFO }
+      );
 
-    logger.info(`Chain remote configuration initialized successfully!`);
-    logger.info(`Transaction signature: ${signature}`);
-    logger.info(`Solana Explorer: ${getExplorerUrl(config.id, signature)}`);
-    logger.info(
-      `💡 View details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
-    );
-    logger.info(
-      `🔗 Next step: Add pool addresses with 'yarn svm:pool:edit-chain-remote-config' to enable cross-chain transfers`
-    );
-  } catch (error) {
-    logger.error("Chain remote configuration initialization failed:", error);
-    process.exit(1);
+      const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+      // Initialize the chain remote config (pool addresses must be empty for initialization)
+      this.logger.info("");
+      this.logger.info("🔧 INITIALIZING CHAIN REMOTE CONFIG");
+      this.logger.info("==========================================");
+      this.logger.info("Creating chain remote configuration...");
+      this.logger.info("Note: Pool addresses will be empty initially");
+
+      const result = await tokenPoolClient.initChainRemoteConfig(tokenMint, remoteChainSelector, {
+        tokenAddress,
+        decimals,
+        txOptions: {
+          skipPreflight: this.options.skipPreflight,
+        },
+      });
+
+      // Display results
+      this.logger.info("");
+      this.logger.info("✅ CHAIN CONFIG INITIALIZED SUCCESSFULLY");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction Signature: ${result.signature}`);
+
+      // Display explorer URL
+      this.logger.info("");
+      this.logger.info("🔍 EXPLORER URLS");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction: ${getExplorerUrl(config.id, result.signature)}`);
+
+      this.logger.info("");
+      this.logger.info("📋 NEXT STEPS");
+      this.logger.info("==========================================");
+      this.logger.info("1. View configuration details:");
+      this.logger.info(`   yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`);
+      this.logger.info("");
+      this.logger.info("2. Add pool addresses to enable cross-chain transfers:");
+      this.logger.info(`   yarn svm:pool:edit-chain-remote-config --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()} --remote-chain ${this.options.remoteChain} --pool-addresses "0x..." --token-address "${tokenAddress}" --decimals ${decimals}`);
+
+      this.logger.info("");
+      this.logger.info("🎉 Chain Configuration Initialization Complete!");
+      this.logger.info(`✅ Remote chain ${this.options.remoteChain} configuration created`);
+      this.logger.info(`✅ Token address and decimals configured`);
+      this.logger.info(`⚠️  Pool addresses must be added before transfers can occur`);
+      
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to initialize chain remote configuration: ${error instanceof Error ? error.message : String(error)}`
+      );
+
+      if (error instanceof Error && error.stack) {
+        this.logger.debug("\nError stack:");
+        this.logger.debug(error.stack);
+      }
+
+      throw error;
+    }
   }
 }
 
-function printUsage() {
-  console.log(`
-🔗 CCIP Chain Remote Configuration Initializer
-
-Usage: yarn svm:pool:init-chain-remote-config [options]
-
-Required Options:
-  --token-mint <address>           Token mint address of existing pool
-  --burn-mint-pool-program <id>    Burn-mint token pool program ID
-  --remote-chain <chain-id>        Remote chain (chain-id)
-  --token-address <address>        Token address on remote chain (hex)
-  --decimals <number>              Token decimals on remote chain
-
-Optional Options:
-  --keypair <path>                 Path to wallet keypair file
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight                 Skip transaction preflight checks
-  --help, -h                       Show this help message
-
-Examples:
-  yarn svm:pool:init-chain-remote-config \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --remote-chain ethereum-sepolia \\
-    --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \\
-    --decimals 6
-
-  yarn svm:pool:init-chain-remote-config \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --remote-chain base-sepolia \\
-    --token-address "0xA0b86991c431e59b4b59dac67ba9b82c31a30d15c" \\
-    --decimals 6
-
-Remote Chain Options:
-`);
-
-  displayAvailableRemoteChains();
-
-  console.log(`
-Notes:
-  • The token pool must already exist before configuring chains
-  • Wallet must be the pool administrator
-  • Addresses should be provided as hex strings with '0x' prefix
-  • Pool addresses are NOT provided during initialization (required by Rust program)
-  • Use 'yarn svm:pool:edit-chain-remote-config' to add pool addresses after initialization
-  • Chain configuration initialization requires SOL for transaction fees
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new InitChainRemoteConfigCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

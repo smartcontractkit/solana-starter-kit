@@ -26,6 +26,8 @@ export * from "./utils/errors";
 export * from "./utils/conversion";
 export * from "./utils/keypair";
 export * from "./utils/token";
+export { SolanaAccountManager } from "./utils/accounts";
+export type { AccountSpec } from "./utils/accounts";
 
 // Bindings exports
 export * from "./bindings/types";

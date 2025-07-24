@@ -22,6 +22,8 @@ import {
 } from "../utils/message-utils";
 import { PublicKey } from "@solana/web3.js";
 import { ChainId, FeeTokenType, getCCIPSVMConfig, getEVMConfig } from "../../config";
+// Import to ensure environment variables are loaded
+import "../utils/config-parser";
 
 /**
  * Utility function to derive PDAs for CCIP Receiver accounts

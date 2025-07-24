@@ -3,23 +3,17 @@ import {
   createLogger,
   LogLevel,
   CCIPMessenger,
-  ERC20Client,
   CCIPEVMWriteProvider,
+  CCIPTokenValidator,
+  TokenDetails,
+  TokenAmountSpec,
 } from "../../../ccip-lib/evm";
 import { CCIPScriptOptions } from "./message-utils";
 import { getEVMConfig, EVMChainConfig } from "../../config";
 import { checkAndWarnBalance } from "./wallet-utils";
 
-/**
- * Token details with balance information
- */
-export interface TokenDetails {
-  tokenClient: ERC20Client;
-  tokenAddress: string;
-  tokenSymbol: string;
-  tokenDecimals: number;
-  tokenBalance: bigint;
-}
+// Re-export TokenDetails from SDK
+export type { TokenDetails } from "../../../ccip-lib/evm";
 
 /**
  * Client context with all necessary components
@@ -134,7 +128,7 @@ export async function getTokenDetails(
   context: ClientContext,
   tokenAmounts: Array<{ token: string; amount: string }>
 ): Promise<TokenDetails[]> {
-  const { client, logger, signerAddress } = context;
+  const { client, signerAddress } = context;
 
   if (tokenAmounts.length === 0) {
     throw new Error(
@@ -142,106 +136,47 @@ export async function getTokenDetails(
     );
   }
 
-  const results: TokenDetails[] = [];
+  // Extract token addresses
+  const tokenAddresses = tokenAmounts.map(ta => ta.token);
 
-  for (const { token: tokenAddress } of tokenAmounts) {
-    // Create a proper ERC20 client for the token
-    const tokenClient = new ERC20Client(
-      {
-        provider: client.provider,
-        config: client.config,
-        logger: logger,
-      },
-      tokenAddress
-    );
+  // Use SDK validation utility
+  const ccipContext = {
+    provider: client.provider,
+    config: client.config,
+    logger: context.logger,
+  };
 
-    // Get token details
-    const tokenSymbol = await tokenClient.getSymbol();
-    const tokenDecimals = await tokenClient.getDecimals();
-    const tokenBalance = await tokenClient.getBalance(signerAddress);
-
-    logger.info(`Token: ${tokenSymbol} (${tokenAddress})`);
-    logger.info(
-      `Token Balance: ${ethers.formatUnits(
-        tokenBalance,
-        tokenDecimals
-      )} ${tokenSymbol}`
-    );
-
-    results.push({
-      tokenClient,
-      tokenAddress,
-      tokenSymbol,
-      tokenDecimals,
-      tokenBalance,
-    });
-  }
-
-  return results;
+  return CCIPTokenValidator.getTokenDetails(ccipContext, signerAddress, tokenAddresses);
 }
 
 /**
  * Validate that there's enough token balance for all transfers
  * @param context Client context
- * @param tokenDetailsList List of token details
+ * @param tokenDetailsList List of token details (optional, will be fetched if not provided)
  * @returns Map of token addresses to validated amounts
  */
-export function validateTokenAmounts(
+export async function validateTokenAmounts(
   context: ClientContext,
-  tokenDetailsList: TokenDetails[]
-): Map<string, bigint> {
-  const { logger, options } = context;
+  tokenDetailsList?: TokenDetails[]
+): Promise<Map<string, bigint>> {
+  const { client, logger, options, signerAddress } = context;
 
   if (!options.tokenAmounts || options.tokenAmounts.length === 0) {
     throw new Error("No token amounts provided for validation");
   }
 
-  const validatedAmounts = new Map<string, bigint>();
+  // Use SDK validation utility
+  const ccipContext = {
+    provider: client.provider,
+    config: client.config,
+    logger: logger,
+  };
 
-  for (const { token, amount } of options.tokenAmounts) {
-    // Find matching token details
-    const tokenDetails = tokenDetailsList.find(
-      (td) => td.tokenAddress.toLowerCase() === token.toLowerCase()
-    );
+  const validationResult = await CCIPTokenValidator.validateTokenAmounts(
+    ccipContext,
+    signerAddress,
+    options.tokenAmounts
+  );
 
-    if (!tokenDetails) {
-      throw new Error(`Token details not found for ${token}`);
-    }
-
-    // Parse amount - all amounts are treated as raw values
-    let parsedAmount: bigint;
-    try {
-      parsedAmount = BigInt(amount);
-    } catch (error) {
-      throw new Error(
-        `Invalid amount format for ${tokenDetails.tokenSymbol}: ${amount}. Expected raw token amount (with all decimals).`
-      );
-    }
-
-    // Check if balance is sufficient
-    if (tokenDetails.tokenBalance < parsedAmount) {
-      const formattedBalance = ethers.formatUnits(
-        tokenDetails.tokenBalance,
-        tokenDetails.tokenDecimals
-      );
-      const formattedAmount = ethers.formatUnits(
-        parsedAmount,
-        tokenDetails.tokenDecimals
-      );
-
-      throw new Error(
-        `Insufficient ${tokenDetails.tokenSymbol} balance. Have ${formattedBalance}, need ${formattedAmount}`
-      );
-    }
-
-    logger.info(
-      `Transfer Amount: ${ethers.formatUnits(
-        parsedAmount,
-        tokenDetails.tokenDecimals
-      )} ${tokenDetails.tokenSymbol}`
-    );
-    validatedAmounts.set(token, parsedAmount);
-  }
-
-  return validatedAmounts;
+  return validationResult.validatedAmounts;
 }

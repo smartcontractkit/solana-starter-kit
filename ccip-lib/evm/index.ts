@@ -1,5 +1,9 @@
 // Core components
 export { CCIPMessenger, CCIPClientBuilder } from "./core/client/index";
+export { CCIPMessageFactory } from "./core/message-factory";
+export type { CCIPMessageOptions } from "./core/message-factory";
+export { CCIPTokenValidator } from "./core/validation";
+export type { TokenDetails, TokenAmountSpec, TokenValidationResult } from "./core/validation";
 export type {
   CCIPEVMContext,
   CCIPEVMConfig,

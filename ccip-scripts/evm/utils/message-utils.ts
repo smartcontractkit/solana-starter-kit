@@ -1,10 +1,9 @@
 import { ethers } from "ethers";
 import {
-  createSolanaExtraArgs,
-  SolanaExtraArgsOptions,
   CCIPMessageResult,
   CCIPMessageRequest,
-  encodeSolanaAddressToBytes32,
+  CCIPMessageFactory,
+  CCIPMessageOptions,
 } from "../../../ccip-lib/evm";
 import { parseCommonArgs } from "./config-parser";
 import { getCCIPExplorerUrl } from "./ccip";
@@ -53,13 +52,6 @@ export function createCCIPMessageRequest(
   options: CCIPScriptOptions,
   logger: Logger
 ): CCIPMessageRequest {
-  logger.info("Creating CCIP message request");
-
-  // Validate required fields
-  if (!options.receiver) {
-    throw new Error("Receiver address is required");
-  }
-
   // Determine fee token - default to LINK
   const feeToken = getEVMFeeTokenAddress(config, options.feeToken);
   logger.info(
@@ -68,49 +60,24 @@ export function createCCIPMessageRequest(
     }`
   );
 
-  // Create Solana extra args with sensible defaults
-  const extraArgsOptions: SolanaExtraArgsOptions = {
-    computeUnits: options.computeUnits, // Default compute units
-    accountIsWritableBitmap: BigInt(options.accountIsWritableBitmap),
-    allowOutOfOrderExecution: options.allowOutOfOrderExecution,
-    tokenReceiver: options.tokenReceiver,
-    accounts: options.accounts,
-  };
-
-  // Log accounts list before encoding for better visibility
-  if (options.accounts && options.accounts.length > 0) {
-    logger.info(`Solana accounts to include: [${options.accounts.join(", ")}]`);
-  } else {
-    logger.debug("No additional Solana accounts specified");
-  }
-
-  // Use SDK's utility to create properly formatted extra args
-  const extraArgs = createSolanaExtraArgs(extraArgsOptions, logger);
-
-  // Create token amounts
-  const tokenAmounts = [];
-
-  // Handle tokenAmounts array if provided
-  if (options.tokenAmounts && options.tokenAmounts.length > 0) {
-    for (const tokenAmount of options.tokenAmounts) {
-      if (tokenAmount.amount && tokenAmount.amount !== "0") {
-        tokenAmounts.push({
-          token: tokenAmount.token,
-          amount: BigInt(tokenAmount.amount),
-        });
-      }
-    }
-  }
-
-  // Create the CCIP message request
-  return {
+  // Convert script options to SDK message options
+  const messageOptions: CCIPMessageOptions = {
     destinationChainSelector: CHAIN_SELECTORS[ChainId.SOLANA_DEVNET] || BigInt("16423721717087811551"),
-    receiver: encodeSolanaAddressToBytes32(options.receiver),
-    tokenAmounts: tokenAmounts,
+    receiver: options.receiver!,
+    tokenAmounts: options.tokenAmounts,
     feeToken: feeToken,
     data: options.data,
-    extraArgs: extraArgs,
+    solanaParams: {
+      computeUnits: options.computeUnits,
+      accountIsWritableBitmap: BigInt(options.accountIsWritableBitmap || 0),
+      allowOutOfOrderExecution: options.allowOutOfOrderExecution,
+      tokenReceiver: options.tokenReceiver,
+      accounts: options.accounts,
+    },
   };
+
+  // Use SDK factory to create the message
+  return CCIPMessageFactory.createSolanaMessage(messageOptions, logger);
 }
 
 /**

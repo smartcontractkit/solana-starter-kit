@@ -27,6 +27,8 @@ import {
 import { PublicKey } from "@solana/web3.js";
 import { FeeTokenType, getEVMConfig, getCCIPSVMConfig, ChainId } from "../../config";
 import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+// Import to ensure environment variables are loaded
+import "../utils/config-parser";
 import { detectTokenProgram } from "../../../ccip-lib/svm";
 
 /**
@@ -399,7 +401,7 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
 
       // Get token details and validate balances
       const tokenDetails = await getTokenDetails(context, tokenAmounts);
-      const validatedAmounts = validateTokenAmounts(context, tokenDetails);
+      const validatedAmounts = await validateTokenAmounts(context, tokenDetails);
 
       this.logger.info("✅ Token validation successful");
 

@@ -26,6 +26,8 @@ import {
 } from "../utils/message-utils";
 import { PublicKey } from "@solana/web3.js";
 import { FeeTokenType, getEVMConfig, ChainId } from "../../config";
+// Import to ensure environment variables are loaded
+import "../utils/config-parser";
 
 /**
  * Options specific to the token transfer command
@@ -219,7 +221,7 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
 
       // Get token details and validate balances
       const tokenDetails = await getTokenDetails(context, tokenAmounts);
-      const validatedAmounts = validateTokenAmounts(context, tokenDetails);
+      const validatedAmounts = await validateTokenAmounts(context, tokenDetails);
 
       this.logger.info("✅ Token validation successful");
 

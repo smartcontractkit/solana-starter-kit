@@ -1,28 +1,22 @@
-import { createProviderFromPath } from "./provider";
+import { loadKeypair } from "./provider";
 import * as anchor from "@coral-xyz/anchor";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import fs from "fs";
 import path from "path";
 
-// All deprecated factory functions have been REMOVED.
-// Use direct SDK static methods instead:
-// - CCIPClient.create() for CCIP clients  
-// - TokenPoolManager.create() for token pool managers
-// - TokenRegistryClient.create() for token registry clients
-
 /**
  * Loads the CCIP Basic Receiver IDL and creates an Anchor Program instance
- * 
+ *
  * This function sets up an Anchor program interface for interacting with the CCIP Basic Receiver.
  * It reads the IDL from the local build artifacts and creates a program instance that can be used
  * to call instructions and fetch account data from the receiver program.
- * 
+ *
  * @param keypairPath Path to the keypair file for signing transactions
  * @param connection Web3 connection to use for RPC calls
  * @param programId Program ID of the receiver (optional, will use the one from IDL if not provided)
  * @returns Object containing the Anchor Program instance and the loaded IDL
  * @throws Error if IDL file is not found or program ID cannot be determined
- * 
+ *
  * @example
  * ```typescript
  * const { program, idl } = loadReceiverProgram(
@@ -38,10 +32,10 @@ export function loadReceiverProgram(
   programId?: PublicKey
 ): { program: anchor.Program; idl: any } {
   // Set up Anchor provider
-  const provider = createProviderFromPath(keypairPath, connection);
+  const keypair = loadKeypair(keypairPath);
   const anchorProvider = new anchor.AnchorProvider(
     connection,
-    new anchor.Wallet(provider.wallet as Keypair),
+    new anchor.Wallet(keypair),
     { commitment: "confirmed" }
   );
   anchor.setProvider(anchorProvider);

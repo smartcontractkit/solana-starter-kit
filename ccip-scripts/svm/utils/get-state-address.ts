@@ -6,8 +6,18 @@
  */
 
 import { deriveStatePda } from "../../../ccip-lib/svm";
-import { ChainId, getCCIPSVMConfig, resolveNetworkToChainId, resolveNetworkConfig } from "../../config";
-import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "./cli-framework";
+import {
+  ChainId,
+  getCCIPSVMConfig,
+  resolveNetworkToChainId,
+  resolveNetworkConfig,
+} from "../../config";
+import {
+  CCIPCommand,
+  ArgumentDefinition,
+  CommandMetadata,
+  BaseCommandOptions,
+} from "./cli-framework";
 
 /**
  * Options specific to the get-state-address command
@@ -23,7 +33,8 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
   constructor() {
     const metadata: CommandMetadata = {
       name: "get-state-address",
-      description: "🏗️ CCIP State Address Utility\n\nDerives and displays router program ID and state PDA addresses for the specified network. Helps developers understand the state structure and derive important addresses.",
+      description:
+        "🏗️ CCIP State Address Utility\n\nDerives and displays router program ID and state PDA addresses for the specified network. Helps developers understand the state structure and derive important addresses.",
       examples: [
         "# Get state address for default network",
         "yarn svm:utils:get-state-address",
@@ -32,7 +43,7 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
         "yarn svm:utils:get-state-address --network devnet",
         "",
         "# With debug logging",
-        "yarn svm:utils:get-state-address --network devnet --log-level DEBUG"
+        "yarn svm:utils:get-state-address --network devnet --log-level DEBUG",
       ],
       notes: [
         "This is a utility script for address derivation",
@@ -40,10 +51,10 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
         "Useful for understanding CCIP state structure",
         "Helps verify program deployment addresses",
         "Returns router program ID and corresponding state PDA",
-        "State PDA is derived deterministically from router program ID"
-      ]
+        "State PDA is derived deterministically from router program ID",
+      ],
     };
-    
+
     super(metadata);
   }
 
@@ -60,7 +71,7 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
     try {
       const config = this.getConfigPDA(network);
       const statePDA = deriveStatePda(config.routerProgramId);
-      
+
       return {
         routerProgramId: config.routerProgramId.toString(),
         statePDA: statePDA.toString(),
@@ -95,7 +106,9 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
     this.logger.info(`Chain ID: ${config.id}`);
 
     this.logger.debug("Configuration details:");
-    this.logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(
+      `  Connection endpoint: ${config.connection.rpcEndpoint}`
+    );
     this.logger.debug(`  Commitment level: ${config.connection.commitment}`);
 
     try {
@@ -107,7 +120,10 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
 
       const addresses = this.getStateAddress(networkName);
 
-      if (addresses.routerProgramId === "Error" || addresses.statePDA === "Error") {
+      if (
+        addresses.routerProgramId === "Error" ||
+        addresses.statePDA === "Error"
+      ) {
         throw new Error("Failed to derive state addresses");
       }
 
@@ -122,7 +138,7 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
       this.logger.info("");
       this.logger.info("🔧 CONFIGURATION VERIFICATION");
       this.logger.info("=========================================");
-      
+
       if (addresses.routerProgramId === config.routerProgramId.toString()) {
         this.logger.info("✅ Router program ID matches configuration");
       } else {
@@ -138,24 +154,33 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
       this.logger.info(`Network Name: ${networkName}`);
       this.logger.info(`RPC Endpoint: ${config.connection.rpcEndpoint}`);
       this.logger.info(`Router Program: ${config.routerProgramId.toString()}`);
-      this.logger.info(`Fee Quoter Program: ${config.feeQuoterProgramId.toString()}`);
-      this.logger.info(`RMN Remote Program: ${config.rmnRemoteProgramId.toString()}`);
+      this.logger.info(
+        `Fee Quoter Program: ${config.feeQuoterProgramId.toString()}`
+      );
+      this.logger.info(
+        `RMN Remote Program: ${config.rmnRemoteProgramId.toString()}`
+      );
 
       this.logger.info("");
       this.logger.info("📝 USAGE NOTES");
       this.logger.info("=========================================");
       this.logger.info("• Router Program ID: The main CCIP router program");
       this.logger.info("• State PDA: Program-derived address for router state");
-      this.logger.info("• State PDA is derived deterministically from router program");
-      this.logger.info("• Use these addresses for program interactions and debugging");
+      this.logger.info(
+        "• State PDA is derived deterministically from router program"
+      );
+      this.logger.info(
+        "• Use these addresses for program interactions and debugging"
+      );
 
       this.logger.info("");
       this.logger.info("🎉 State Address Derivation Complete!");
       this.logger.info("✅ Addresses calculated successfully");
-
     } catch (error) {
       this.logger.error(
-        `❌ Failed to get state addresses: ${error instanceof Error ? error.message : String(error)}`
+        `❌ Failed to get state addresses: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
 
       if (error instanceof Error && error.stack) {
@@ -166,31 +191,6 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
       throw error;
     }
   }
-}
-
-// Export the functionality as functions for programmatic use
-export function getStateAddress(network: "devnet" | "mainnet" = "devnet") {
-  try {
-    const config = getConfigPDA(network);
-    const statePDA = deriveStatePda(config.routerProgramId);
-    
-    return {
-      routerProgramId: config.routerProgramId.toString(),
-      statePDA: statePDA.toString(),
-    };
-  } catch (error) {
-    console.error("Error getting state address:", error);
-    return {
-      routerProgramId: "Error",
-      statePDA: "Error",
-    };
-  }
-}
-
-export function getConfigPDA(network: "devnet" | "mainnet" = "devnet") {
-  const chainId = resolveNetworkToChainId(network);
-  const config = getCCIPSVMConfig(chainId);
-  return config;
 }
 
 // Create and run the command when executed directly

@@ -29,6 +29,62 @@ export enum ChainId {
 }
 
 /**
+ * Type-safe network identifiers with autocompletion support
+ * Use these for network parameters to get IntelliSense suggestions
+ */
+export type NetworkId = ChainId;
+
+/**
+ * Solana-specific network identifiers for better type safety
+ */
+export type SolanaNetworkId = ChainId.SOLANA_DEVNET | ChainId.SOLANA_MAINNET;
+
+/**
+ * EVM-specific network identifiers for better type safety  
+ */
+export type EVMNetworkId = Exclude<ChainId, SolanaNetworkId>;
+
+/**
+ * Commonly used network constants for easy import and better DX
+ * These provide autocompletion while avoiding the need to import ChainId enum
+ */
+export const Networks = {
+  // Solana networks
+  SOLANA_DEVNET: ChainId.SOLANA_DEVNET,
+  SOLANA_MAINNET: ChainId.SOLANA_MAINNET,
+  
+  // EVM networks
+  ETHEREUM_SEPOLIA: ChainId.ETHEREUM_SEPOLIA,
+  BASE_SEPOLIA: ChainId.BASE_SEPOLIA,
+  OPTIMISM_SEPOLIA: ChainId.OPTIMISM_SEPOLIA,
+  BSC_TESTNET: ChainId.BSC_TESTNET,
+  ARBITRUM_SEPOLIA: ChainId.ARBITRUM_SEPOLIA,
+  SONIC_BLAZE: ChainId.SONIC_BLAZE,
+} as const;
+
+/**
+ * Type-safe network validation helper
+ * Use this to validate network IDs at runtime with full type safety
+ */
+export function isValidNetworkId(networkId: string): networkId is NetworkId {
+  return Object.values(ChainId).includes(networkId as ChainId);
+}
+
+/**
+ * Type guard for Solana networks
+ */
+export function isSolanaNetwork(networkId: NetworkId): networkId is SolanaNetworkId {
+  return networkId === ChainId.SOLANA_DEVNET || networkId === ChainId.SOLANA_MAINNET;
+}
+
+/**
+ * Type guard for EVM networks
+ */
+export function isEVMNetwork(networkId: NetworkId): networkId is EVMNetworkId {
+  return !isSolanaNetwork(networkId);
+}
+
+/**
  * Chain selectors used to identify chains in CCIP
  */
 export const CHAIN_SELECTORS: Record<ChainId, bigint> = {
@@ -378,14 +434,25 @@ export function getEVMConfig(chainId: ChainId): EVMChainConfig {
 }
 
 /**
- * Get Solana chain configuration by chain ID
+ * Get Solana chain configuration by network ID
+ * 
+ * @param networkId - Network identifier (ChainId enum or string)
+ * @returns Solana chain configuration
  */
-export function getCCIPSVMConfig(chainId: ChainId): SVMChainConfig {
-  if (chainId !== ChainId.SOLANA_DEVNET && chainId !== ChainId.SOLANA_MAINNET) {
-    throw new Error(`Unsupported SVM chain ID: ${chainId}. Supported: ${ChainId.SOLANA_DEVNET}, ${ChainId.SOLANA_MAINNET}`);
+export function getCCIPSVMConfig(networkId: SolanaNetworkId | string): SVMChainConfig {
+  // If string provided, resolve to ChainId enum
+  let resolvedChainId: ChainId;
+  if (typeof networkId === 'string') {
+    resolvedChainId = resolveNetworkToChainId(networkId);
+  } else {
+    resolvedChainId = networkId;
   }
 
-  return SVM_CONFIGS[chainId];
+  if (resolvedChainId !== ChainId.SOLANA_DEVNET && resolvedChainId !== ChainId.SOLANA_MAINNET) {
+    throw new Error(`Unsupported SVM chain ID: ${resolvedChainId}. Supported: ${ChainId.SOLANA_DEVNET}, ${ChainId.SOLANA_MAINNET}`);
+  }
+
+  return SVM_CONFIGS[resolvedChainId];
 }
 
 /**
@@ -405,14 +472,16 @@ export function resolveNetworkToChainId(network?: string): ChainId {
   switch (normalizedNetwork) {
     case "devnet":
     case "dev":
+    case "solana-devnet":
       return ChainId.SOLANA_DEVNET;
     case "mainnet":
     case "mainnet-beta":
     case "main":
+    case "solana-mainnet":
       return ChainId.SOLANA_MAINNET;
     default:
       throw new Error(
-        `Invalid network: ${network}. Supported networks: devnet, mainnet`
+        `Invalid network: ${network}. Supported networks: devnet, mainnet, solana-devnet, solana-mainnet`
       );
   }
 }

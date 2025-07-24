@@ -23,8 +23,8 @@ import { createCCIPMessageRequest, parseScriptArgs } from "../utils/message-util
 // Create initial logger
 const initialLogger = createLogger("check-fee", { level: LogLevel.INFO });
 
-// Define default values
-const DEFAULT_DESTINATION = ChainId.SOLANA_DEVNET;
+// Define default values with type safety
+const DEFAULT_DESTINATION = ChainId.SOLANA_DEVNET; // Type-safe with autocompletion
 const DEFAULT_AMOUNT = "1000000000000000000"; // 1 token with 18 decimals
 
 async function checkCCIPFee(): Promise<void> {

@@ -108,7 +108,7 @@ export function createCCIPMessageRequest(
 
   // Create the CCIP message request
   return {
-    destinationChainSelector: ChainId.SOLANA_DEVNET ? CHAIN_SELECTORS[ChainId.SOLANA_DEVNET] : BigInt("16423721717087811551"),
+    destinationChainSelector: CHAIN_SELECTORS[ChainId.SOLANA_DEVNET] || BigInt("16423721717087811551"),
     receiver: encodeSolanaAddressToBytes32(options.receiver),
     tokenAmounts: tokenAmounts,
     feeToken: feeToken,

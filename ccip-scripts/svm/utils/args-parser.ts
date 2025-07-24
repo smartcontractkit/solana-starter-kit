@@ -36,7 +36,7 @@ export function getAvailableRemoteChains(): Array<{
   selector: bigint;
 }> {
   return Object.values(ChainId)
-    .filter((chainId) => chainId !== ChainId.SOLANA_DEVNET)
+    .filter((chainId) => !chainId.startsWith('solana-'))
     .map((chainId) => ({
       id: chainId,
       name: chainIdToDisplayName(chainId),
@@ -69,7 +69,7 @@ export function parseRemoteChain(value: string): bigint {
   // Validate chain ID and ensure it's not Solana
   if (
     Object.values(ChainId).includes(value as ChainId) &&
-    value !== ChainId.SOLANA_DEVNET
+    !value.startsWith('solana-')
   ) {
     const chainId = value as ChainId;
     const selector = CHAIN_SELECTORS[chainId];

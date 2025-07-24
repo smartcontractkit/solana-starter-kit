@@ -89,7 +89,7 @@ class GetStateAddressCommand extends CCIPCommand<GetStateAddressOptions> {
 
     // Resolve network configuration
     const config = resolveNetworkConfig(this.options);
-    const networkName = config.id === ChainId.SOLANA_DEVNET ? "devnet" : "mainnet";
+    const networkName = config.id === "solana-devnet" ? "devnet" : "mainnet";
 
     this.logger.info(`Network: ${config.id}`);
     this.logger.info(`Chain ID: ${config.id}`);

@@ -40,17 +40,6 @@ export interface CCIPScriptOptions {
   chainId: ChainId;
 }
 
-/**
- * Parse command line arguments for CCIP scripts
- * @returns Parsed options
- */
-export function parseScriptArgs(): CCIPScriptOptions {
-  // Get options from the common parser
-  const baseOptions = parseCommonArgs();
-
-  // Return options directly since we're hardcoding defaults in each script
-  return baseOptions as CCIPScriptOptions;
-}
 
 /**
  * Create a CCIP message request with proper formatting

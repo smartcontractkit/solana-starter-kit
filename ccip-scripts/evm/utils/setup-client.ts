@@ -7,7 +7,7 @@ import {
   CCIPEVMWriteProvider,
 } from "../../../ccip-lib/evm";
 import { CCIPScriptOptions } from "./message-utils";
-import { ChainId, getEVMConfig, EVMChainConfig } from "../../config";
+import { getEVMConfig, EVMChainConfig } from "../../config";
 import { checkAndWarnBalance } from "./wallet-utils";
 
 /**
@@ -41,32 +41,32 @@ function isWriteProvider(provider: any): provider is CCIPEVMWriteProvider {
 
 /**
  * Setup the CCIP client and context for script execution
- * 
+ *
  * This is a high-level wrapper around CCIPMessenger.createFromConfig()
  * that adds script-friendly features like balance checking and logging.
- * 
+ *
  * **When to use this function:**
  * - Writing executable scripts that need user feedback
  * - Need automatic wallet balance validation
  * - Want consistent logging setup across scripts
  * - Require full context including signer address and config
- * 
+ *
  * **When to use CCIPMessenger.createFromConfig() directly:**
  * - Building libraries or SDK extensions
  * - Need minimal overhead without console output
  * - Want custom context handling
  * - Building middleware or service layers
- * 
+ *
  * @example
  * ```typescript
  * // For scripts - use setupClientContext
  * const context = await setupClientContext(options, "token-transfer");
  * context.logger.info(`Sending from: ${context.signerAddress}`);
- * 
+ *
  * // For libraries - use createFromConfig directly
  * const client = await CCIPMessenger.createFromConfig(config, privateKey);
  * ```
- * 
+ *
  * @param options Script options including privateKey, chainId, and logLevel
  * @param scriptName Name of the script for logging purposes
  * @returns Complete client context with client, logger, config, and signer address

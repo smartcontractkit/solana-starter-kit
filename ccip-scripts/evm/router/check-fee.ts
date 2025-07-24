@@ -18,6 +18,8 @@ import { ethers } from "ethers";
 import { createLogger, LogLevel, CCIPMessenger } from "../../../ccip-lib/evm";
 import { ChainId, getEVMConfig, CHAIN_SELECTORS } from "../../config";
 import { createCCIPMessageRequest } from "../utils/message-utils";
+// Import to ensure environment variables are loaded
+import "../utils/config-parser";
 import { PublicKey } from "@solana/web3.js";
 
 /**

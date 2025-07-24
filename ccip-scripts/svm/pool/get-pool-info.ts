@@ -1,23 +1,8 @@
 /**
- * Pool Information Script
+ * Pool Information Script (CLI Framework Version)
  *
  * This script retrieves and displays comprehensive information about a burn-mint token pool.
  * It shows all configuration details, ownership information, and status.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have the required token mint and program ID
- * 2. Run the script with: yarn svm:pool:get-info
- *
- * Required arguments:
- * --token-mint              : Token mint address to get info for
- * --burn-mint-pool-program  : Burn-mint token pool program ID
- *
- * Optional arguments:
- * --keypair                 : Path to your keypair file
- * --log-level               : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- *
- * Example usage:
- * yarn svm:pool:get-info --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
  */
 
 import { PublicKey } from "@solana/web3.js";
@@ -26,292 +11,296 @@ import {
   TokenPoolType,
   LogLevel,
   createLogger,
+  TokenPoolClient,
 } from "../../../ccip-lib/svm";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
 import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
-import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
+import { loadKeypair, getKeypairPath } from "../utils";
 import {
   findBurnMintPoolConfigPDA,
   findGlobalConfigPDA,
 } from "../../../ccip-lib/svm/utils/pdas/tokenpool";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Parse command line arguments specific to pool info
+ * Configuration for pool info operations
  */
-function parsePoolInfoArgs() {
-  const commonArgs = parseCommonArgs();
-  const args = process.argv.slice(2);
+const POOL_INFO_CONFIG = {
+  defaultLogLevel: LogLevel.INFO,
+  separatorLength: 80,
+  subSeparatorLength: 40,
+};
 
-  let tokenMint: string | undefined;
-  let burnMintPoolProgram: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--token-mint":
-        if (i + 1 < args.length) {
-          tokenMint = args[i + 1];
-          i++;
-        }
-        break;
-      case "--burn-mint-pool-program":
-        if (i + 1 < args.length) {
-          burnMintPoolProgram = args[i + 1];
-          i++;
-        }
-        break;
-    }
-  }
-
-  return {
-    ...commonArgs,
-    tokenMint,
-    burnMintPoolProgram,
-  };
+/**
+ * Options specific to the get-pool-info command
+ */
+interface GetPoolInfoOptions extends BaseCommandOptions {
+  tokenMint: string;
+  burnMintPoolProgram: string;
 }
 
 /**
- * Format a PublicKey for display, showing if it's a default/empty key
+ * Pool Information Command
  */
-function formatPublicKey(key: PublicKey, label?: string): string {
-  const keyStr = key.toString();
-  const isDefault = key.equals(PublicKey.default);
-  const suffix = isDefault ? " (default/unset)" : "";
-  return label ? `${label}: ${keyStr}${suffix}` : `${keyStr}${suffix}`;
-}
-
-/**
- * Format boolean values with visual indicators
- */
-function formatBoolean(value: boolean): string {
-  return value ? "✅ Enabled" : "❌ Disabled";
-}
-
-async function main() {
-  // Parse arguments
-  const options = parsePoolInfoArgs();
-
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+class GetPoolInfoCommand extends CCIPCommand<GetPoolInfoOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "get-pool-info",
+      description: "🏊 CCIP Pool Information Viewer\\n\\nRetrieves and displays comprehensive information about a burn-mint token pool. Shows all configuration details, ownership information, and status.",
+      examples: [
+        "# Get pool info for a token",
+        "yarn svm:pool:get-info --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh",
+        "",
+        "# With debug logging",
+        "yarn svm:pool:get-info --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --log-level DEBUG"
+      ],
+      notes: [
+        "This script provides comprehensive information about an existing pool",
+        "All addresses and configuration details are displayed",
+        "Suggestions for next steps are provided",
+        "Pool must be initialized before running this script",
+        "Wallet is used for querying purposes only (no transactions)",
+        "Shows global configuration and pool-specific settings"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Validate required arguments
-  if (!options.tokenMint) {
-    console.error("Error: --token-mint is required");
-    printUsage();
-    process.exit(1);
-  }
-
-  if (!options.burnMintPoolProgram) {
-    console.error("Error: --burn-mint-pool-program is required");
-    printUsage();
-    process.exit(1);
-  }
-
-  // Create logger
-  const logger = createLogger("pool-info", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
-
-  logger.info("🏊 CCIP Token Pool Information");
-
-  // Load configuration
-  // Resolve network configuration based on options
-  const config = resolveNetworkConfig(options);
-
-  // Get keypair path and load wallet (for logging purposes)
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Using keypair from ${keypairPath}...`);
-
-  try {
-    const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Querying as: ${walletKeypair.publicKey.toString()}`);
-
-    // Parse addresses
-    const tokenMint = new PublicKey(options.tokenMint);
-    const burnMintPoolProgramId = new PublicKey(options.burnMintPoolProgram);
-
-    logger.info(`Token Mint: ${tokenMint.toString()}`);
-    logger.info(`Program ID: ${burnMintPoolProgramId.toString()}`);
-
-    logger.debug(`Query configuration:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Log level: ${options.logLevel}`);
-    logger.debug(`  Wallet: ${walletKeypair.publicKey.toString()}`);
-
-    // Create token pool manager directly using SDK
-    const programIds = { burnMint: burnMintPoolProgramId };
-    const tokenPoolManager = TokenPoolManager.create(
-      config.connection,
-      walletKeypair,
-      programIds,
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
       {
-        ccipRouterProgramId: config.routerProgramId.toString(),
-        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
-        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
-        linkTokenMint: config.linkTokenMint.toString(),
-        receiverProgramId: config.receiverProgramId.toString(),
+        name: "token-mint",
+        required: true,
+        type: "string",
+        description: "Token mint address to get info for",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
       },
-      { logLevel: options.logLevel ?? LogLevel.INFO }
-    );
+      {
+        name: "burn-mint-pool-program",
+        required: true,
+        type: "string",
+        description: "Burn-mint token pool program ID",
+        example: "2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh"
+      }
+    ];
+  }
 
-    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+  /**
+   * Validate pool info configuration
+   */
+  private validateConfig(): { tokenMint: PublicKey; burnMintPoolProgramId: PublicKey } {
+    const errors: string[] = [];
 
-    // Check if pool exists
-    logger.info("Checking if pool exists...");
-    logger.debug(`Checking pool existence for mint: ${tokenMint.toString()}`);
+    // Validate token mint address
+    let tokenMint: PublicKey;
+    try {
+      tokenMint = new PublicKey(this.options.tokenMint);
+    } catch {
+      errors.push("Invalid token mint address format");
+      throw new Error(`Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`);
+    }
+
+    // Validate burn-mint pool program ID
+    let burnMintPoolProgramId: PublicKey;
+    try {
+      burnMintPoolProgramId = new PublicKey(this.options.burnMintPoolProgram);
+    } catch {
+      errors.push("Invalid burn-mint pool program ID format");
+      throw new Error(`Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`);
+    }
+
+    if (errors.length > 0) {
+      throw new Error(
+        `Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`
+      );
+    }
+
+    return { tokenMint, burnMintPoolProgramId };
+  }
+
+  /**
+   * Format a PublicKey for display, showing if it's a default/empty key
+   */
+  private formatPublicKey(key: PublicKey, label?: string): string {
+    const keyStr = key.toString();
+    const isDefault = key.equals(PublicKey.default);
+    const suffix = isDefault ? " (default/unset)" : "";
+    return label ? `${label}: ${keyStr}${suffix}` : `${keyStr}${suffix}`;
+  }
+
+  /**
+   * Format boolean values with visual indicators
+   */
+  private formatBoolean(value: boolean): string {
+    return value ? "✅ Enabled" : "❌ Disabled";
+  }
+
+  /**
+   * Check if pool exists and get basic status
+   */
+  private async checkPoolExistence(
+    tokenMint: PublicKey,
+    burnMintPoolProgramId: PublicKey,
+    tokenPoolClient: TokenPoolClient
+  ): Promise<boolean> {
+    this.logger.info("Checking if pool exists...");
+    this.logger.debug(`Checking pool existence for mint: ${tokenMint.toString()}`);
+    
     const poolExists = await tokenPoolClient.hasPool(tokenMint);
-    logger.debug(`Pool exists: ${poolExists}`);
+    this.logger.debug(`Pool exists: ${poolExists}`);
 
     if (!poolExists) {
-      logger.info("\n❌ Pool does not exist for this token mint");
-      logger.info("\n💡 Run the initialization script first:");
-      logger.info(
+      this.logger.info("\\n❌ Pool does not exist for this token mint");
+      this.logger.info("\\n💡 Run the initialization script first:");
+      this.logger.info(
         `yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
       );
-      logger.debug("Pool not found - terminating script");
-      return;
+      this.logger.debug("Pool not found - terminating script");
+      return false;
     }
 
-    // Get pool information
-    logger.info("Fetching pool information...");
-    logger.debug("Retrieving complete pool configuration...");
-    const poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
-    logger.debug("Pool info retrieved:", {
-      poolType: poolInfo.poolType,
-      version: poolInfo.config.version,
-      owner: poolInfo.config.config.owner.toString(),
-      mint: poolInfo.config.config.mint.toString(),
-      decimals: poolInfo.config.config.decimals,
-    });
-    logger.trace("Complete pool info:", poolInfo);
+    return true;
+  }
 
-    // Get global config information
-    logger.debug("Fetching global configuration...");
-    let globalConfigInfo = null;
+  /**
+   * Get global configuration information
+   */
+  private async getGlobalConfigInfo(tokenPoolClient: TokenPoolClient): Promise<any> {
+    this.logger.debug("Fetching global configuration...");
+    
     try {
-      globalConfigInfo = await tokenPoolClient.getGlobalConfigInfo();
-      logger.debug("Global config retrieved:", {
+      const globalConfigInfo = await tokenPoolClient.getGlobalConfigInfo();
+      this.logger.debug("Global config retrieved:", {
         version: globalConfigInfo.config.version,
         selfServedAllowed: globalConfigInfo.config.self_served_allowed,
       });
-      logger.trace("Complete global config:", globalConfigInfo);
+      this.logger.trace("Complete global config:", globalConfigInfo);
+      return globalConfigInfo;
     } catch (error) {
-      logger.debug(`Failed to fetch global config: ${error}`);
-      globalConfigInfo = {
+      this.logger.debug(`Failed to fetch global config: ${error}`);
+      return {
         exists: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
 
-    // Display comprehensive pool information
-    logger.info("\n" + "=".repeat(80));
-    logger.info("🏊 BURN-MINT TOKEN POOL INFORMATION");
-    logger.info("=".repeat(80));
+  /**
+   * Display comprehensive pool information
+   */
+  private displayPoolInfo(
+    poolInfo: BurnMintTokenPoolInfo,
+    globalConfigInfo: any,
+    tokenMint: PublicKey,
+    burnMintPoolProgramId: PublicKey
+  ): void {
+    // Header
+    this.logger.info("\\n" + "=".repeat(POOL_INFO_CONFIG.separatorLength));
+    this.logger.info("🏊 BURN-MINT TOKEN POOL INFORMATION");
+    this.logger.info("=".repeat(POOL_INFO_CONFIG.separatorLength));
 
     // Global Configuration
-    logger.info("\n🌍 GLOBAL CONFIGURATION");
-    logger.info("-".repeat(40));
+    this.logger.info("\\n🌍 GLOBAL CONFIGURATION");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
     if (globalConfigInfo && globalConfigInfo.config) {
-      logger.info(`Program Version: ${globalConfigInfo.config.version}`);
-      logger.info(
-        `Self-Served Pools: ${formatBoolean(
+      this.logger.info(`Program Version: ${globalConfigInfo.config.version}`);
+      this.logger.info(
+        `Self-Served Pools: ${this.formatBoolean(
           globalConfigInfo.config.self_served_allowed
         )}`
       );
     } else {
-      logger.info("❌ Global config not found or not initialized");
-      logger.info("💡 Run: yarn svm:pool:init-global-config first");
+      this.logger.info("❌ Global config not found or not initialized");
+      this.logger.info("💡 Run: yarn svm:pool:init-global-config first");
     }
 
     // Basic Pool Info
-    logger.info("\n📋 BASIC INFORMATION");
-    logger.info("-".repeat(40));
-    logger.info(`Pool Type: ${poolInfo.poolType}`);
-    logger.info(`Version: ${poolInfo.config.version}`);
-    logger.info(formatPublicKey(poolInfo.config.config.mint, "Token Mint"));
-    logger.info(`Decimals: ${poolInfo.config.config.decimals}`);
+    this.logger.info("\\n📋 BASIC INFORMATION");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
+    this.logger.info(`Pool Type: ${poolInfo.poolType}`);
+    this.logger.info(`Version: ${poolInfo.config.version}`);
+    this.logger.info(this.formatPublicKey(poolInfo.config.config.mint, "Token Mint"));
+    this.logger.info(`Decimals: ${poolInfo.config.config.decimals}`);
 
     // Ownership & Permissions
-    logger.info("\n👥 OWNERSHIP & PERMISSIONS");
-    logger.info("-".repeat(40));
-    logger.info(formatPublicKey(poolInfo.config.config.owner, "Current Owner"));
-    logger.info(
-      formatPublicKey(poolInfo.config.config.proposedOwner, "Proposed Owner")
+    this.logger.info("\\n👥 OWNERSHIP & PERMISSIONS");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
+    this.logger.info(this.formatPublicKey(poolInfo.config.config.owner, "Current Owner"));
+    this.logger.info(
+      this.formatPublicKey(poolInfo.config.config.proposedOwner, "Proposed Owner")
     );
-    logger.info(
-      formatPublicKey(poolInfo.config.config.rateLimitAdmin, "Rate Limit Admin")
+    this.logger.info(
+      this.formatPublicKey(poolInfo.config.config.rateLimitAdmin, "Rate Limit Admin")
     );
 
     // Token Configuration
-    logger.info("\n🪙 TOKEN CONFIGURATION");
-    logger.info("-".repeat(40));
-    logger.info(
-      formatPublicKey(poolInfo.config.config.tokenProgram, "Token Program")
+    this.logger.info("\\n🪙 TOKEN CONFIGURATION");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
+    this.logger.info(
+      this.formatPublicKey(poolInfo.config.config.tokenProgram, "Token Program")
     );
-    logger.info(
-      formatPublicKey(poolInfo.config.config.poolSigner, "Pool Signer PDA")
+    this.logger.info(
+      this.formatPublicKey(poolInfo.config.config.poolSigner, "Pool Signer PDA")
     );
-    logger.info(
-      formatPublicKey(
+    this.logger.info(
+      this.formatPublicKey(
         poolInfo.config.config.poolTokenAccount,
         "Pool Token Account"
       )
     );
 
     // CCIP Integration
-    logger.info("\n🌉 CCIP INTEGRATION");
-    logger.info("-".repeat(40));
-    logger.info(formatPublicKey(poolInfo.config.config.router, "CCIP Router"));
-    logger.info(
-      formatPublicKey(
+    this.logger.info("\\n🌉 CCIP INTEGRATION");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
+    this.logger.info(this.formatPublicKey(poolInfo.config.config.router, "CCIP Router"));
+    this.logger.info(
+      this.formatPublicKey(
         poolInfo.config.config.routerOnrampAuthority,
         "Router Onramp Authority"
       )
     );
-    logger.info(
-      formatPublicKey(poolInfo.config.config.rmnRemote, "RMN Remote")
+    this.logger.info(
+      this.formatPublicKey(poolInfo.config.config.rmnRemote, "RMN Remote")
     );
 
     // Security & Controls
-    logger.info("\n🔒 SECURITY & CONTROLS");
-    logger.info("-".repeat(40));
-    logger.info(
-      `Allowlist: ${formatBoolean(poolInfo.config.config.listEnabled)}`
+    this.logger.info("\\n🔒 SECURITY & CONTROLS");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
+    this.logger.info(
+      `Allowlist: ${this.formatBoolean(poolInfo.config.config.listEnabled)}`
     );
     if (
       poolInfo.config.config.listEnabled &&
       poolInfo.config.config.allowList.length > 0
     ) {
-      logger.info(
+      this.logger.info(
         `Allowlist Entries (${poolInfo.config.config.allowList.length}):`
       );
       poolInfo.config.config.allowList.forEach((addr, index) => {
-        logger.info(`  ${index + 1}. ${addr.toString()}`);
+        this.logger.info(`  ${index + 1}. ${addr.toString()}`);
       });
     } else if (poolInfo.config.config.listEnabled) {
-      logger.info(
+      this.logger.info(
         "  ⚠️  Allowlist is enabled but empty - no addresses can transfer"
       );
     }
 
     // Rebalancing (for reference, not used in burn-mint pools)
-    logger.info("\n⚖️ REBALANCING (Lock/Release Only)");
-    logger.info("-".repeat(40));
-    logger.info(
-      formatPublicKey(poolInfo.config.config.rebalancer, "Rebalancer")
+    this.logger.info("\\n⚖️ REBALANCING (Lock/Release Only)");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
+    this.logger.info(
+      this.formatPublicKey(poolInfo.config.config.rebalancer, "Rebalancer")
     );
-    logger.info(
-      `Can Accept Liquidity: ${formatBoolean(
+    this.logger.info(
+      `Can Accept Liquidity: ${this.formatBoolean(
         poolInfo.config.config.canAcceptLiquidity
       )}`
     );
 
     // Address Summary
-    logger.info("\n📍 ADDRESS SUMMARY");
-    logger.info("-".repeat(40));
+    this.logger.info("\\n📍 ADDRESS SUMMARY");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
 
     // Derive important PDAs for the summary
     const [poolConfigPDA] = findBurnMintPoolConfigPDA(
@@ -320,87 +309,144 @@ async function main() {
     );
     const [globalConfigPDA] = findGlobalConfigPDA(burnMintPoolProgramId);
 
-    logger.info(`Token Mint:           ${tokenMint.toString()}`);
-    logger.info(`Pool Program:         ${burnMintPoolProgramId.toString()}`);
-    logger.info(
+    this.logger.info(`Token Mint:           ${tokenMint.toString()}`);
+    this.logger.info(`Pool Program:         ${burnMintPoolProgramId.toString()}`);
+    this.logger.info(
       `Pool Config PDA:      ${poolConfigPDA.toString()}  (Pool state account)`
     );
-    logger.info(
+    this.logger.info(
       `Global Config PDA:    ${globalConfigPDA.toString()}  (Program global config)`
     );
-    logger.info(
+    this.logger.info(
       `Pool Owner:           ${poolInfo.config.config.owner.toString()}`
     );
-    logger.info(
+    this.logger.info(
       `Pool Signer PDA:      ${poolInfo.config.config.poolSigner.toString()}  (Token authority)`
     );
 
-    logger.info("\n" + "=".repeat(80));
-    logger.info("✅ Pool information retrieved successfully!");
+    this.logger.info("\\n" + "=".repeat(POOL_INFO_CONFIG.separatorLength));
+    this.logger.info("✅ Pool information retrieved successfully!");
 
     // Next steps suggestions
-    logger.info("\n💡 NEXT STEPS");
-    logger.info("-".repeat(40));
-    logger.info("• Configure remote chains for cross-chain transfers");
-    logger.info("• Set up rate limits for security");
-    logger.info("• Configure allowlists if needed");
-    logger.info("• Transfer ownership if this is a temporary deployer");
-  } catch (error) {
-    logger.error("Failed to get pool info:", error);
+    this.logger.info("\\n💡 NEXT STEPS");
+    this.logger.info("-".repeat(POOL_INFO_CONFIG.subSeparatorLength));
+    this.logger.info("• Configure remote chains for cross-chain transfers");
+    this.logger.info("• Set up rate limits for security");
+    this.logger.info("• Configure allowlists if needed");
+    this.logger.info("• Transfer ownership if this is a temporary deployer");
+  }
 
-    if (error instanceof Error) {
-      if (error.message.includes("not found")) {
-        logger.info("\n❌ Pool not found");
-        logger.info(
-          "The pool may not be initialized yet or the addresses may be incorrect."
-        );
-      } else if (error.message.includes("Account is not owned")) {
-        logger.info("\n❌ Invalid program ID");
-        logger.info(
-          "The account exists but is not owned by the specified program."
-        );
+  protected async execute(): Promise<void> {
+    this.logger.info("🏊 CCIP Token Pool Information");
+    this.logger.info("===========================================");
+
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet (for querying purposes)
+    const keypairPath = getKeypairPath(this.options);
+    const walletKeypair = loadKeypair(keypairPath);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Querying as: ${walletKeypair.publicKey.toString()}`);
+
+    // Validate configuration and parse parameters
+    const { tokenMint, burnMintPoolProgramId } = this.validateConfig();
+
+    this.logger.info("");
+    this.logger.info("⚙️  QUERY CONFIGURATION");
+    this.logger.info("===========================================");
+    this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+    this.logger.info(`Program ID: ${burnMintPoolProgramId.toString()}`);
+
+    this.logger.debug("");
+    this.logger.debug("🔍 CONFIGURATION DETAILS");
+    this.logger.debug("===========================================");
+    this.logger.debug(`Network: ${config.id}`);
+    this.logger.debug(`Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(`Log level: ${this.options.logLevel}`);
+    this.logger.debug(`Wallet: ${walletKeypair.publicKey.toString()}`);
+
+    try {
+      // Create token pool manager using SDK
+      const programIds = { burnMint: burnMintPoolProgramId };
+      const tokenPoolManager = TokenPoolManager.create(
+        config.connection,
+        walletKeypair,
+        programIds,
+        {
+          ccipRouterProgramId: config.routerProgramId.toString(),
+          feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+          rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+          linkTokenMint: config.linkTokenMint.toString(),
+          receiverProgramId: config.receiverProgramId.toString(),
+        },
+        { logLevel: this.options.logLevel ?? POOL_INFO_CONFIG.defaultLogLevel }
+      );
+
+      const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+      // Check if pool exists
+      this.logger.info("");
+      this.logger.info("🔍 POOL EXISTENCE CHECK");
+      this.logger.info("===========================================");
+      const poolExists = await this.checkPoolExistence(
+        tokenMint,
+        burnMintPoolProgramId,
+        tokenPoolClient
+      );
+
+      if (!poolExists) {
+        return;
       }
-    }
 
-    process.exit(1);
+      // Get pool information
+      this.logger.info("");
+      this.logger.info("📊 FETCHING POOL DATA");
+      this.logger.info("===========================================");
+      this.logger.info("Fetching pool information...");
+      this.logger.debug("Retrieving complete pool configuration...");
+      
+      const poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+      this.logger.debug("Pool info retrieved:", {
+        poolType: poolInfo.poolType,
+        version: poolInfo.config.version,
+        owner: poolInfo.config.config.owner.toString(),
+        mint: poolInfo.config.config.mint.toString(),
+        decimals: poolInfo.config.config.decimals,
+      });
+      this.logger.trace("Complete pool info:", poolInfo);
+
+      // Get global config information
+      const globalConfigInfo = await this.getGlobalConfigInfo(tokenPoolClient);
+
+      // Display comprehensive pool information
+      this.displayPoolInfo(poolInfo, globalConfigInfo, tokenMint, burnMintPoolProgramId);
+
+    } catch (error) {
+      this.logger.error("Failed to get pool info:", error);
+
+      if (error instanceof Error) {
+        if (error.message.includes("not found")) {
+          this.logger.info("\\n❌ Pool not found");
+          this.logger.info(
+            "The pool may not be initialized yet or the addresses may be incorrect."
+          );
+        } else if (error.message.includes("Account is not owned")) {
+          this.logger.info("\\n❌ Invalid program ID");
+          this.logger.info(
+            "The account exists but is not owned by the specified program."
+          );
+        }
+      }
+
+      throw error;
+    }
   }
 }
 
-function printUsage() {
-  console.log(`
-🏊 CCIP Pool Information Viewer
-
-Usage: yarn svm:pool:get-info [options]
-
-Required Options:
-  --token-mint <address>           Token mint address to get info for
-  --burn-mint-pool-program <id>    Burn-mint token pool program ID
-
-Optional Options:
-  --keypair <path>                 Path to wallet keypair file
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --help, -h                       Show this help message
-
-Examples:
-  yarn svm:pool:get-info \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
-
-  yarn svm:pool:get-info \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --log-level DEBUG
-
-Notes:
-  • This script provides comprehensive information about an existing pool
-  • All addresses and configuration details are displayed
-  • Suggestions for next steps are provided
-  • Pool must be initialized before running this script
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new GetPoolInfoCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

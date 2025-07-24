@@ -1,251 +1,228 @@
 /**
- * Global Config Initialization Script
+ * Global Config Initialization Script (CLI Framework Version)
  *
  * This script initializes the global configuration for a burn-mint token pool program.
  * This MUST be run once per program deployment before any individual pools can be created.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have the program upgrade authority keypair
- * 2. Ensure you have SOL for transaction fees (at least 0.01 SOL)
- * 3. Provide the burn-mint pool program ID
- * 4. Run the script with: yarn svm:pool:init-global-config
- *
- * Required arguments:
- * --burn-mint-pool-program  : Burn-mint token pool program ID
- *
- * Optional arguments:
- * --keypair                 : Path to your keypair file (must be program upgrade authority)
- * --log-level               : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight          : Skip transaction preflight checks
- *
- * Example usage:
- * yarn svm:pool:init-global-config --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
- *
- * IMPORTANT:
- * - This script must be run by the program upgrade authority
- * - This only needs to be run ONCE per program deployment
- * - After this succeeds, individual pools can be initialized with initialize-pool.ts
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
-import { TokenPoolType } from "../../../ccip-lib/svm";
-import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
-import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
-
-// ========== CONFIGURATION ==========
-// Customize these values if needed for your specific use case
-const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
-// ========== END CONFIGURATION ==========
+import { TokenPoolType, LogLevel, createLogger } from "../../../ccip-lib/svm";
+import { resolveNetworkConfig, getExplorerUrl } from "../../config";
+import { getKeypairPath, loadKeypair } from "../utils";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Parse command line arguments specific to global config initialization
+ * Configuration for global config initialization
  */
-function parseGlobalConfigArgs() {
-  const commonArgs = parseCommonArgs();
-  const args = process.argv.slice(2);
+const GLOBAL_CONFIG_CONFIG = {
+  minSolRequired: 0.01,
+  defaultLogLevel: LogLevel.INFO,
+};
 
-  let burnMintPoolProgram: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--burn-mint-pool-program":
-        if (i + 1 < args.length) {
-          burnMintPoolProgram = args[i + 1];
-          i++;
-        }
-        break;
-    }
-  }
-
-  return {
-    ...commonArgs,
-    burnMintPoolProgram,
-  };
+/**
+ * Options specific to the initialize-global-config command
+ */
+interface InitializeGlobalConfigOptions extends BaseCommandOptions {
+  burnMintPoolProgram: string;
 }
 
-async function main() {
-  // Parse arguments
-  const options = parseGlobalConfigArgs();
-
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+/**
+ * Global Config Initialization Command
+ */
+class InitializeGlobalConfigCommand extends CCIPCommand<InitializeGlobalConfigOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "initialize-global-config",
+      description: "🌍 Global Config Initialization\n\nInitializes the global configuration for a burn-mint token pool program. This MUST be run once per program deployment before any individual pools can be created.",
+      examples: [
+        "# Initialize global config with burn-mint pool program",
+        "yarn svm:pool:init-global-config --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh",
+        "",
+        "# Initialize with debug logging",
+        "yarn svm:pool:init-global-config --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --log-level DEBUG"
+      ],
+      notes: [
+        "⚠️ This must be run by the program upgrade authority",
+        "This only needs to be run ONCE per program deployment",
+        `Minimum ${GLOBAL_CONFIG_CONFIG.minSolRequired} SOL required for transaction fees`,
+        "Creates the program-wide configuration PDA",
+        "After this succeeds, individual pools can be initialized with initialize-pool.ts",
+        "Global config initialization is a prerequisite for all pool operations",
+        "If already initialized, the script will fail with an appropriate message"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Validate required arguments
-  if (!options.burnMintPoolProgram) {
-    console.error("Error: --burn-mint-pool-program is required");
-    printUsage();
-    process.exit(1);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "burn-mint-pool-program",
+        required: true,
+        type: "string",
+        description: "Burn-mint token pool program ID",
+        example: "2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh"
+      }
+    ];
   }
 
-  // Create logger
-  const logger = createLogger("global-config-initialize", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
+  protected async execute(): Promise<void> {
+    this.logger.info("🌍 CCIP Token Pool Global Config Initialization");
+    this.logger.info("==========================================");
+    this.logger.warn("⚠️  This must be run by the program upgrade authority ONCE per deployment");
 
-  logger.info("CCIP Token Pool Global Config Initialization");
-  logger.warn(
-    "⚠️  This must be run by the program upgrade authority ONCE per deployment"
-  );
-
-  // Load configuration
-  // Resolve network configuration based on options
-  const config = resolveNetworkConfig(options);
-
-  // Get keypair path and load wallet
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  try {
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet (must be upgrade authority)
+    const keypairPath = getKeypairPath(this.options);
     const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
-    logger.warn(
-      "🔑 Ensure this wallet is the program upgrade authority for the token pool program"
-    );
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
+    this.logger.warn("🔑 Ensure this wallet is the program upgrade authority for the token pool program");
 
-    // Check balance
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("==========================================");
     const balance = await config.connection.getBalance(walletKeypair.publicKey);
     const solBalance = balance / LAMPORTS_PER_SOL;
-    logger.info(`Wallet balance: ${solBalance} SOL`);
+    this.logger.info(`SOL Balance: ${balance} lamports (${solBalance.toFixed(9)} SOL)`);
 
-    if (solBalance < MIN_SOL_REQUIRED) {
-      logger.error(
-        `Insufficient balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees.`
-      );
-      logger.info(
-        "Request airdrop from Solana devnet faucet before proceeding."
-      );
-      logger.info(
+    if (solBalance < GLOBAL_CONFIG_CONFIG.minSolRequired) {
+      throw new Error(
+        `Insufficient balance. Need at least ${GLOBAL_CONFIG_CONFIG.minSolRequired} SOL for transaction fees.\n` +
+        `Current balance: ${solBalance.toFixed(9)} SOL\n\n` +
+        `Request airdrop with:\n` +
         `solana airdrop 1 ${walletKeypair.publicKey.toString()} --url devnet`
       );
-      process.exit(1);
     }
 
-    // Parse addresses
-    const burnMintPoolProgramId = new PublicKey(options.burnMintPoolProgram);
+    // Parse and validate burn-mint pool program ID
+    let burnMintPoolProgramId: PublicKey;
+    try {
+      burnMintPoolProgramId = new PublicKey(this.options.burnMintPoolProgram);
+    } catch {
+      throw new Error(`Invalid burn-mint pool program ID: ${this.options.burnMintPoolProgram}`);
+    }
 
-    logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
-    logger.info(`Router Program: ${config.routerProgramId.toString()}`);
-    logger.info(`RMN Remote Program: ${config.rmnRemoteProgramId.toString()}`);
+    // Display program information
+    this.logger.info("");
+    this.logger.info("📋 PROGRAM INFORMATION");
+    this.logger.info("==========================================");
+    this.logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
+    this.logger.info(`Router Program: ${config.routerProgramId.toString()}`);
+    this.logger.info(`RMN Remote Program: ${config.rmnRemoteProgramId.toString()}`);
 
-    logger.debug(`Global config initialization details:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Commitment level: ${config.connection.commitment}`);
-    logger.debug(`  Authority: ${walletKeypair.publicKey.toString()}`);
-    logger.debug(`  Skip preflight: ${options.skipPreflight}`);
+    this.logger.debug("Global config initialization details:");
+    this.logger.debug(`  Network: ${config.id}`);
+    this.logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(`  Commitment level: ${config.connection.commitment}`);
+    this.logger.debug(`  Authority: ${walletKeypair.publicKey.toString()}`);
+    this.logger.debug(`  Skip preflight: ${this.options.skipPreflight}`);
 
-    // Create token pool manager using SDK
-    const tokenPoolManager = TokenPoolManager.create(
-      config.connection,
-      walletKeypair,
-      {
-        burnMint: burnMintPoolProgramId,
-         // Using same program for both
-      },
-      {
-        ccipRouterProgramId: config.routerProgramId.toString(),
-        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
-        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
-        linkTokenMint: config.linkTokenMint.toString(),
-        receiverProgramId: config.receiverProgramId.toString(),
-      },
-      { logLevel: options.logLevel !== undefined ? options.logLevel : LogLevel.INFO }
-    );
+    try {
+      // Create token pool manager using SDK
+      const tokenPoolManager = TokenPoolManager.create(
+        config.connection,
+        walletKeypair,
+        {
+          burnMint: burnMintPoolProgramId,
+        },
+        {
+          ccipRouterProgramId: config.routerProgramId.toString(),
+          feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+          rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+          linkTokenMint: config.linkTokenMint.toString(),
+          receiverProgramId: config.receiverProgramId.toString(),
+        },
+        { logLevel: this.options.logLevel ?? LogLevel.INFO }
+      );
 
-    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+      const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
-    // Initialize the global config
-    logger.info("Initializing global configuration...");
-    logger.info("📋 This creates the program-wide configuration PDA");
-    logger.debug("Calling SDK initializeGlobalConfig method...");
-    logger.debug(`Transaction options: skipPreflight=${options.skipPreflight}`);
+      // Initialize the global config
+      this.logger.info("");
+      this.logger.info("🔧 INITIALIZING GLOBAL CONFIG");
+      this.logger.info("==========================================");
+      this.logger.info("Creating the program-wide configuration PDA...");
+      
+      this.logger.debug("Calling SDK initializeGlobalConfig method...");
+      this.logger.debug(`Transaction options: skipPreflight=${this.options.skipPreflight}`);
 
-    const signature = await tokenPoolClient.initializeGlobalConfig({
-      txOptions: {
-        skipPreflight: options.skipPreflight,
-      },
-    });
+      const signature = await tokenPoolClient.initializeGlobalConfig({
+        txOptions: {
+          skipPreflight: this.options.skipPreflight,
+        },
+      });
 
-    logger.debug(`Transaction completed with signature: ${signature}`);
+      this.logger.debug(`Transaction completed with signature: ${signature}`);
 
-    logger.info(`Global config initialized successfully! 🎉`);
-    logger.info(`Transaction signature: ${signature}`);
-    logger.info(`Solana Explorer: ${getExplorerUrl(config.id, signature)}`);
+      // Display results
+      this.logger.info("");
+      this.logger.info("✅ GLOBAL CONFIG INITIALIZED SUCCESSFULLY");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction Signature: ${signature}`);
 
-    logger.info("");
-    logger.info("✅ Global configuration is now ready!");
-    logger.info(
-      "🏊 You can now initialize individual token pools using initialize-pool.ts"
-    );
-    logger.info("");
-    logger.info("Next steps:");
-    logger.info("1. Deploy your token mint (if not already done)");
-    logger.info(
-      "2. Run: yarn svm:pool:update-self-served-allowed --self-served-allowed true --burn-mint-pool-program <PROGRAM>"
-    );
-  } catch (error) {
-    logger.error("Global config initialization failed:", error);
+      // Display explorer URL
+      this.logger.info("");
+      this.logger.info("🔍 EXPLORER URLS");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction: ${getExplorerUrl(config.id, signature)}`);
 
-    // Provide helpful error context
-    if (error instanceof Error) {
-      if (error.message.includes("Unauthorized")) {
-        logger.error("");
-        logger.error("🚨 Authorization Error:");
-        logger.error(
-          "   The wallet is not the program upgrade authority for this program."
-        );
-        logger.error(
-          "   Only the program upgrade authority can initialize global config."
-        );
-      } else if (error.message.includes("already in use")) {
-        logger.warn("");
-        logger.warn("⚠️  Global config may already be initialized.");
-        logger.warn("   This script only needs to be run once per deployment.");
+      this.logger.info("");
+      this.logger.info("📋 NEXT STEPS");
+      this.logger.info("==========================================");
+      this.logger.info("1. Deploy your token mint (if not already done)");
+      this.logger.info("2. Enable self-served pools:");
+      this.logger.info("   yarn svm:pool:update-self-served-allowed --self-served-allowed true --burn-mint-pool-program <PROGRAM>");
+      this.logger.info("3. Initialize individual token pools:");
+      this.logger.info("   yarn svm:pool:initialize-pool");
+
+      this.logger.info("");
+      this.logger.info("🎉 Global Configuration Complete!");
+      this.logger.info("✅ Global configuration is now ready");
+      this.logger.info("✅ You can now initialize individual token pools");
+      
+    } catch (error) {
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message.includes("Unauthorized")) {
+          this.logger.error("");
+          this.logger.error("🚨 AUTHORIZATION ERROR");
+          this.logger.error("==========================================");
+          this.logger.error("The wallet is not the program upgrade authority for this program.");
+          this.logger.error("Only the program upgrade authority can initialize global config.");
+          throw error;
+        } else if (error.message.includes("already in use")) {
+          this.logger.warn("");
+          this.logger.warn("⚠️  ALREADY INITIALIZED");
+          this.logger.warn("==========================================");
+          this.logger.warn("Global config may already be initialized.");
+          this.logger.warn("This script only needs to be run once per deployment.");
+          throw error;
+        }
       }
-    }
 
-    process.exit(1);
+      this.logger.error(
+        `❌ Failed to initialize global config: ${error instanceof Error ? error.message : String(error)}`
+      );
+
+      if (error instanceof Error && error.stack) {
+        this.logger.debug("\nError stack:");
+        this.logger.debug(error.stack);
+      }
+
+      throw error;
+    }
   }
 }
 
-function printUsage() {
-  console.log(`
-🌍 CCIP Global Config Initializer
-
-Usage: yarn svm:pool:init-global-config [options]
-
-Required Options:
-  --burn-mint-pool-program <id>    Burn-mint token pool program ID
-
-Optional Options:
-  --keypair <path>                 Path to wallet keypair file (must be upgrade authority)
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight                 Skip transaction preflight checks
-  --help, -h                       Show this help message
-
-Examples:
-  yarn svm:pool:init-global-config \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
-
-  yarn svm:pool:init-global-config \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --log-level DEBUG
-
-IMPORTANT NOTES:
-  • This script MUST be run by the program upgrade authority
-  • This only needs to be run ONCE per program deployment
-  • After this succeeds, individual pools can be created with initialize-pool.ts
-  • Global config initialization is a prerequisite for all pool operations
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new InitializeGlobalConfigCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

@@ -1,198 +1,158 @@
 /**
- * CCIP Address Lookup Table (ALT) Extension Script
+ * CCIP Address Lookup Table (ALT) Extension Script (CLI Framework Version)
  *
  * This script extends an existing Address Lookup Table by appending new addresses.
  * This is useful when you need to add additional accounts to an ALT after it has
  * been created, allowing for more flexible transaction composition.
- *
- * IMPORTANT CONSIDERATIONS:
- * - ALTs can hold up to 256 addresses maximum
- * - Each extend operation can add approximately 20-30 addresses per transaction
- * - You can only extend ALTs where you are the authority
- * - Extended addresses will be appended to the end of the existing addresses
- * - The ALT must "warm up" for 1 slot before new addresses can be used
- *
- * PREREQUISITES:
- * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
- * 2. You must be the authority of the ALT you want to extend
- * 3. Know the existing ALT address you want to extend
- * 4. Have the list of new addresses you want to add
- * 5. Run the script with: yarn svm:admin:extend-alt
- *
- * Required arguments:
- * --lookup-table-address : Address of the existing ALT to extend
- * --addresses            : Comma-separated list of addresses to add to the ALT
- *
- * Optional arguments:
- * --keypair              : Path to your keypair file
- * --log-level            : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight       : Skip transaction preflight checks
- *
- * Example usage:
- * yarn svm:admin:extend-alt \
- *   --lookup-table-address Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M \
- *   --addresses "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU,BurnMintTokenPoolProgram111111111111111111,TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
-import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
+import { loadKeypair, getKeypairPath } from "../utils";
 import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { createErrorEnhancer } from "../../../ccip-lib/svm/utils/errors";
 import { TokenRegistryClient } from "../../../ccip-lib/svm/core/client/tokenregistry";
-
-// ========== CONFIGURATION ==========
-// Customize these values if needed for your specific use case
-const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
-const MAX_ADDRESSES_PER_TX = 30; // Maximum addresses per extend transaction
-// ========== END CONFIGURATION ==========
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Parse command line arguments specific to ALT extension
+ * Configuration for ALT extension operations
  */
-function parseExtendAltArgs() {
-  const commonArgs = parseCommonArgs();
-  const args = process.argv.slice(2);
+const ALT_EXTENSION_CONFIG = {
+  minSolRequired: 0.01,
+  maxAddressesPerTx: 30,
+  maxAltCapacity: 256,
+  batchDelayMs: 2000,
+  defaultLogLevel: LogLevel.INFO,
+};
 
-  let lookupTableAddress: string | undefined;
-  let addresses: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--lookup-table-address":
-        if (i + 1 < args.length) {
-          lookupTableAddress = args[i + 1];
-          i++;
-        }
-        break;
-      case "--addresses":
-        if (i + 1 < args.length) {
-          addresses = args[i + 1];
-          i++;
-        }
-        break;
-    }
-  }
-
-  return {
-    ...commonArgs,
-    lookupTableAddress,
-    addresses,
-  };
+/**
+ * Options specific to the extend-alt command
+ */
+interface ExtendAltOptions extends BaseCommandOptions {
+  lookupTableAddress: string;
+  addresses: string;
 }
 
-async function main() {
-  // Parse arguments
-  const options = parseExtendAltArgs();
-
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+/**
+ * CCIP Address Lookup Table Extension Command
+ */
+class ExtendAltCommand extends CCIPCommand<ExtendAltOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "extend-alt",
+      description: "🔧 CCIP Address Lookup Table Extender\\n\\nExtends an existing Address Lookup Table by appending new addresses. This allows for more flexible transaction composition after initial ALT creation.",
+      examples: [
+        "# Add single address to ALT",
+        "yarn svm:admin:extend-alt --lookup-table-address Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M --addresses \"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU\"",
+        "",
+        "# Add multiple addresses to ALT",
+        "yarn svm:admin:extend-alt --lookup-table-address Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M --addresses \"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU,TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA\"",
+        "",
+        "# With debug logging",
+        "yarn svm:admin:extend-alt --lookup-table-address Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M --addresses \"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU\" --log-level DEBUG"
+      ],
+      notes: [
+        "ALT extension requires SOL for transaction fees",
+        "You must be the authority of the ALT you want to extend",
+        `ALTs have a maximum capacity of ${ALT_EXTENSION_CONFIG.maxAltCapacity} addresses`,
+        `Large address lists are automatically batched (~${ALT_EXTENSION_CONFIG.maxAddressesPerTx} addresses per tx)`,
+        "Extended ALTs need 1 slot to \"warm up\" before new addresses can be used",
+        "New addresses are appended to the end of the existing address list",
+        "Use comma-separated format for multiple addresses (no spaces around commas)",
+        "ALT must not be frozen to allow extensions",
+        `Minimum ${ALT_EXTENSION_CONFIG.minSolRequired} SOL required for transaction fees`
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Validate required arguments
-  if (!options.lookupTableAddress) {
-    console.error("Error: --lookup-table-address is required");
-    printUsage();
-    process.exit(1);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "lookup-table-address",
+        required: true,
+        type: "string",
+        description: "Address of the existing ALT to extend",
+        example: "Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M"
+      },
+      {
+        name: "addresses",
+        required: true,
+        type: "string",
+        description: "Comma-separated list of addresses to add to the ALT",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU,TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+      }
+    ];
   }
 
-  if (!options.addresses) {
-    console.error("Error: --addresses is required");
-    printUsage();
-    process.exit(1);
-  }
+  /**
+   * Validate ALT extension configuration
+   */
+  private validateConfig(): { lookupTableAddress: PublicKey; addressList: PublicKey[] } {
+    const errors: string[] = [];
 
-  // Create logger
-  const logger = createLogger("admin-extend-alt", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
-
-  logger.info("CCIP Address Lookup Table Extension");
-
-  // Load configuration
-  // Resolve network configuration based on options
-  const config = resolveNetworkConfig(options);
-
-  // Get keypair path and load wallet
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  const errorContext = {
-    operation: "extendALT",
-    lookupTableAddress: options.lookupTableAddress,
-  };
-  const enhanceError = createErrorEnhancer(logger);
-
-  try {
-    // Load wallet keypair
-    const walletKeypair = loadKeypair(keypairPath);
-    const walletPublicKey = walletKeypair.publicKey;
-    logger.info(`Wallet public key: ${walletPublicKey.toString()}`);
-
-    // Check balance
-    const balance = await config.connection.getBalance(walletPublicKey);
-    const solBalance = balance / LAMPORTS_PER_SOL;
-    logger.info(`Wallet balance: ${solBalance} SOL`);
-
-    if (solBalance < MIN_SOL_REQUIRED) {
-      logger.error(
-        `Insufficient balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees.`
-      );
-      logger.info(
-        "Request airdrop from Solana devnet faucet before proceeding."
-      );
-      logger.info(
-        `solana airdrop 1 ${walletPublicKey.toString()} --url devnet`
-      );
-      process.exit(1);
+    // Validate lookup table address
+    let lookupTableAddress: PublicKey;
+    try {
+      lookupTableAddress = new PublicKey(this.options.lookupTableAddress);
+    } catch {
+      errors.push("Invalid lookup table address format");
+      throw new Error(`Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`);
     }
 
-    // Create token registry client
-    const tokenRegistryClient = TokenRegistryClient.create(
-      config.connection,
-      walletKeypair,
-      config.routerProgramId.toString(),
-      {},
-      { logLevel: options.logLevel }
-    );
+    // Parse and validate addresses
+    let addressList: PublicKey[] = [];
+    try {
+      const addressStrings = this.options.addresses
+        .split(",")
+        .map((addr) => addr.trim())
+        .filter((addr) => addr.length > 0);
 
-    // Parse addresses
-    const lookupTableAddress = new PublicKey(options.lookupTableAddress);
-    const addressList = options.addresses
-      .split(",")
-      .map((addr) => addr.trim())
-      .filter((addr) => addr.length > 0)
-      .map((addr) => new PublicKey(addr));
+      if (addressStrings.length === 0) {
+        errors.push("At least one address must be provided");
+      }
 
-    logger.info(`ALT Address: ${lookupTableAddress.toString()}`);
-    logger.info(`Adding ${addressList.length} addresses to ALT`);
+      addressList = addressStrings.map((addr) => {
+        try {
+          return new PublicKey(addr);
+        } catch {
+          errors.push(`Invalid address format: ${addr}`);
+          throw new Error("Invalid address format");
+        }
+      });
+    } catch {
+      errors.push("Failed to parse addresses");
+    }
 
-    logger.debug(`Configuration details:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Commitment level: ${config.connection.commitment}`);
-    logger.debug(`  Skip preflight: ${options.skipPreflight}`);
-    logger.debug(`  Log level: ${options.logLevel}`);
+    if (errors.length > 0) {
+      throw new Error(
+        `Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`
+      );
+    }
 
-    // Verify the ALT exists and we have authority
-    logger.info("Verifying ALT exists and checking authority...");
-    const altAccount = await config.connection.getAddressLookupTable(
-      lookupTableAddress
-    );
+    return { lookupTableAddress, addressList };
+  }
+
+  /**
+   * Verify ALT exists and check authority
+   */
+  private async verifyAltAccess(
+    lookupTableAddress: PublicKey,
+    walletPublicKey: PublicKey,
+    config: any
+  ): Promise<{ currentAddressCount: number; authority: PublicKey }> {
+    this.logger.info("Verifying ALT exists and checking authority...");
+    
+    const altAccount = await config.connection.getAddressLookupTable(lookupTableAddress);
 
     if (!altAccount.value) {
-      throw new Error(
-        `Address Lookup Table not found: ${lookupTableAddress.toString()}`
-      );
+      throw new Error(`Address Lookup Table not found: ${lookupTableAddress.toString()}`);
     }
 
     const currentAuthority = altAccount.value.state.authority;
     if (!currentAuthority) {
-      throw new Error(
-        `ALT has no authority (frozen): ${lookupTableAddress.toString()}`
-      );
+      throw new Error(`ALT has no authority (frozen): ${lookupTableAddress.toString()}`);
     }
 
     if (!currentAuthority.equals(walletPublicKey)) {
@@ -201,74 +161,80 @@ async function main() {
       );
     }
 
-    logger.info(
-      `✅ ALT verified. Current authority: ${currentAuthority.toString()}`
-    );
-    logger.info(
-      `✅ Current ALT contains ${altAccount.value.state.addresses.length} addresses`
-    );
-
-    // Check if ALT has space for new addresses
     const currentAddressCount = altAccount.value.state.addresses.length;
-    const newAddressCount = addressList.length;
+
+    this.logger.info(`✅ ALT verified. Current authority: ${currentAuthority.toString()}`);
+    this.logger.info(`✅ Current ALT contains ${currentAddressCount} addresses`);
+
+    return { currentAddressCount, authority: currentAuthority };
+  }
+
+  /**
+   * Check ALT capacity constraints
+   */
+  private checkCapacity(currentAddressCount: number, newAddressCount: number): void {
     const totalAfterExtend = currentAddressCount + newAddressCount;
 
-    if (totalAfterExtend > 256) {
+    if (totalAfterExtend > ALT_EXTENSION_CONFIG.maxAltCapacity) {
       throw new Error(
-        `ALT capacity exceeded. Current: ${currentAddressCount}, Adding: ${newAddressCount}, Total would be: ${totalAfterExtend}, Max: 256`
+        `ALT capacity exceeded. Current: ${currentAddressCount}, Adding: ${newAddressCount}, Total would be: ${totalAfterExtend}, Max: ${ALT_EXTENSION_CONFIG.maxAltCapacity}`
       );
     }
 
-    logger.info(
-      `ALT capacity check passed: ${currentAddressCount} + ${newAddressCount} = ${totalAfterExtend} / 256`
+    this.logger.info(
+      `ALT capacity check passed: ${currentAddressCount} + ${newAddressCount} = ${totalAfterExtend} / ${ALT_EXTENSION_CONFIG.maxAltCapacity}`
     );
+  }
 
-    // Log the addresses being added
-    logger.info("Addresses to add:");
-    addressList.forEach((addr, index) => {
-      logger.info(`  [${currentAddressCount + index}]: ${addr.toString()}`);
-    });
-
-    // Check if we need multiple transactions due to size limits
+  /**
+   * Process address batches for extension
+   */
+  private async processAddressBatches(
+    lookupTableAddress: PublicKey,
+    addressList: PublicKey[],
+    currentAddressCount: number,
+    tokenRegistryClient: any,
+    config: any
+  ): Promise<string[]> {
+    // Create batches
     const addressBatches: PublicKey[][] = [];
-    for (let i = 0; i < addressList.length; i += MAX_ADDRESSES_PER_TX) {
-      addressBatches.push(addressList.slice(i, i + MAX_ADDRESSES_PER_TX));
+    for (let i = 0; i < addressList.length; i += ALT_EXTENSION_CONFIG.maxAddressesPerTx) {
+      addressBatches.push(addressList.slice(i, i + ALT_EXTENSION_CONFIG.maxAddressesPerTx));
     }
 
-    logger.info(`Will process ${addressBatches.length} batch(es) of addresses`);
+    this.logger.info(`Will process ${addressBatches.length} batch(es) of addresses`);
 
-    // Process each batch using the client
+    // Process each batch
     const signatures: string[] = [];
+    const errorContext = {
+      operation: "extendALT",
+      lookupTableAddress: lookupTableAddress.toString(),
+    };
+    const enhanceError = createErrorEnhancer(this.logger);
+
     for (let batchIndex = 0; batchIndex < addressBatches.length; batchIndex++) {
       const batch = addressBatches[batchIndex];
-      logger.info(
-        `Processing batch ${batchIndex + 1}/${addressBatches.length} with ${
-          batch.length
-        } addresses...`
+      this.logger.info(
+        `Processing batch ${batchIndex + 1}/${addressBatches.length} with ${batch.length} addresses...`
       );
 
       try {
-        // Use the token registry client to extend the ALT
         const result = await tokenRegistryClient.extendTokenPoolLookupTable({
           lookupTableAddress,
           newAddresses: batch,
         });
 
         signatures.push(result.signature);
-        logger.info(
-          `Batch ${batchIndex + 1} completed successfully! Transaction: ${
-            result.signature
-          }`
-        );
-        logger.info(`Explorer: ${getExplorerUrl(config.id, result.signature)}`);
+        this.logger.info(`Batch ${batchIndex + 1} completed successfully! Transaction: ${result.signature}`);
+        this.logger.info(`Explorer: ${getExplorerUrl(config.id, result.signature)}`);
 
-        // Wait a bit between batches to avoid overwhelming the network
+        // Wait between batches to avoid overwhelming the network
         if (batchIndex < addressBatches.length - 1) {
-          logger.info("Waiting 2 seconds before next batch...");
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          this.logger.info(`Waiting ${ALT_EXTENSION_CONFIG.batchDelayMs / 1000} seconds before next batch...`);
+          await new Promise((resolve) => setTimeout(resolve, ALT_EXTENSION_CONFIG.batchDelayMs));
         }
       } catch (error) {
-        logger.error(`Batch ${batchIndex + 1} failed:`, error);
+        this.logger.error(`Batch ${batchIndex + 1} failed:`, error);
         throw enhanceError(error, {
           ...errorContext,
           batch: (batchIndex + 1).toString(),
@@ -277,90 +243,148 @@ async function main() {
       }
     }
 
-    // Final verification
-    logger.info("Verifying ALT extension...");
-    const updatedAltAccount = await config.connection.getAddressLookupTable(
-      lookupTableAddress
+    return signatures;
+  }
+
+  protected async execute(): Promise<void> {
+    this.logger.info("CCIP Address Lookup Table Extension");
+    this.logger.info("===============================================");
+
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet
+    const keypairPath = getKeypairPath(this.options);
+    const walletKeypair = loadKeypair(keypairPath);
+    const walletPublicKey = walletKeypair.publicKey;
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletPublicKey.toString()}`);
+
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("===============================================");
+    const balance = await config.connection.getBalance(walletPublicKey);
+    const solBalanceDisplay = balance / LAMPORTS_PER_SOL;
+    this.logger.info(`SOL Balance: ${balance} lamports (${solBalanceDisplay.toFixed(9)} SOL)`);
+
+    if (solBalanceDisplay < ALT_EXTENSION_CONFIG.minSolRequired) {
+      throw new Error(
+        `Insufficient SOL balance. Need at least ${ALT_EXTENSION_CONFIG.minSolRequired} SOL for transaction fees. ` +
+        `Current balance: ${solBalanceDisplay.toFixed(9)} SOL`
+      );
+    }
+
+    // Validate configuration and parse addresses
+    const { lookupTableAddress, addressList } = this.validateConfig();
+
+    this.logger.info("");
+    this.logger.info("⚙️  EXTENSION CONFIGURATION");
+    this.logger.info("===============================================");
+    this.logger.info(`ALT Address: ${lookupTableAddress.toString()}`);
+    this.logger.info(`Adding ${addressList.length} addresses to ALT`);
+
+    this.logger.debug("");
+    this.logger.debug("🔍 CONFIGURATION DETAILS");
+    this.logger.debug("===============================================");
+    this.logger.debug(`Network: ${config.id}`);
+    this.logger.debug(`Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(`Commitment level: ${config.connection.commitment}`);
+    this.logger.debug(`Skip preflight: ${this.options.skipPreflight}`);
+    this.logger.debug(`Log level: ${this.options.logLevel}`);
+
+    // Create token registry client
+    const tokenRegistryClient = TokenRegistryClient.create(
+      config.connection,
+      walletKeypair,
+      config.routerProgramId.toString(),
+      {},
+      { logLevel: this.options.logLevel }
     );
+
+    // Verify ALT access and get current state
+    this.logger.info("");
+    this.logger.info("🔍 ALT VERIFICATION");
+    this.logger.info("===============================================");
+    const { currentAddressCount } = await this.verifyAltAccess(
+      lookupTableAddress,
+      walletPublicKey,
+      config
+    );
+
+    // Check capacity constraints
+    this.checkCapacity(currentAddressCount, addressList.length);
+
+    // Log the addresses being added
+    this.logger.info("");
+    this.logger.info("📋 ADDRESSES TO ADD");
+    this.logger.info("===============================================");
+    addressList.forEach((addr, index) => {
+      this.logger.info(`[${currentAddressCount + index}]: ${addr.toString()}`);
+    });
+
+    // Process the extension in batches
+    this.logger.info("");
+    this.logger.info("🏗️  EXTENDING ADDRESS LOOKUP TABLE");
+    this.logger.info("===============================================");
+    const signatures = await this.processAddressBatches(
+      lookupTableAddress,
+      addressList,
+      currentAddressCount,
+      tokenRegistryClient,
+      config
+    );
+
+    // Final verification
+    this.logger.info("");
+    this.logger.info("🔍 FINAL VERIFICATION");
+    this.logger.info("===============================================");
+    const updatedAltAccount = await config.connection.getAddressLookupTable(lookupTableAddress);
+    const totalAfterExtend = currentAddressCount + addressList.length;
 
     if (updatedAltAccount.value) {
       const finalAddressCount = updatedAltAccount.value.state.addresses.length;
-      logger.info(
-        `✅ ALT extension verified! Final address count: ${finalAddressCount}`
-      );
+      this.logger.info(`✅ ALT extension verified! Final address count: ${finalAddressCount}`);
 
       if (finalAddressCount === totalAfterExtend) {
-        logger.info("✅ All addresses added successfully!");
+        this.logger.info("✅ All addresses added successfully!");
       } else {
-        logger.warn(
+        this.logger.warn(
           `⚠️  Address count mismatch. Expected: ${totalAfterExtend}, Actual: ${finalAddressCount}`
         );
       }
     }
 
-    logger.info("");
-    logger.info("🎉 ALT Extension Complete!");
-    logger.info(`   ✅ ALT Address: ${lookupTableAddress.toString()}`);
-    logger.info(`   ✅ Added ${addressList.length} new addresses`);
-    logger.info(`   ✅ Processed in ${addressBatches.length} transaction(s)`);
-    logger.info(`   ✅ Transaction signatures:`);
-    signatures.forEach((sig, index) => {
-      logger.info(`      Batch ${index + 1}: ${sig}`);
-    });
-  } catch (error) {
-    logger.error("ALT extension failed:", error);
+    // Display results
+    this.logger.info("");
+    this.logger.info("✅ ALT EXTENSION COMPLETED");
+    this.logger.info("===============================================");
+    this.logger.info(`ALT Address: ${lookupTableAddress.toString()}`);
+    this.logger.info(`Added ${addressList.length} new addresses`);
+    this.logger.info(`Processed in ${signatures.length} transaction(s)`);
 
-    process.exit(1);
+    // Display explorer URLs
+    this.logger.info("");
+    this.logger.info("🔍 EXPLORER URLS");
+    this.logger.info("===============================================");
+    signatures.forEach((sig, index) => {
+      this.logger.info(`Batch ${index + 1}: ${getExplorerUrl(config.id, sig)}`);
+    });
+
+    this.logger.info("");
+    this.logger.info("🎉 ALT Extension Complete!");
+    this.logger.info(`✅ ALT Address: ${lookupTableAddress.toString()}`);
+    this.logger.info(`✅ Added ${addressList.length} new addresses`);
+    this.logger.info(`✅ Processed in ${signatures.length} transaction(s)`);
+    
+    this.logger.info("");
+    this.logger.info("ℹ️  Note: Extended ALTs need 1 slot to \"warm up\" before new addresses can be used");
   }
 }
 
-function printUsage() {
-  console.log(`
-🔧 CCIP Address Lookup Table Extender
-
-Usage: yarn svm:admin:extend-alt [options]
-
-Required Options:
-  --lookup-table-address <address>     Address of the existing ALT to extend
-  --addresses <addr1,addr2,addr3>      Comma-separated list of addresses to add
-
-Optional Options:
-  --keypair <path>                     Path to wallet keypair file
-  --log-level <level>                  Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight                     Skip transaction preflight checks
-  --help, -h                           Show this help message
-
-Examples:
-  # Add single address to ALT
-  yarn svm:admin:extend-alt \\
-    --lookup-table-address Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M \\
-    --addresses "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
-
-  # Add multiple addresses to ALT
-  yarn svm:admin:extend-alt \\
-    --lookup-table-address Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M \\
-    --addresses "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU,BurnMintTokenPoolProgram111111111111111111,TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-
-  # With debug logging
-  yarn svm:admin:extend-alt \\
-    --lookup-table-address Cc46Wp1mtci3Jm9EcH35JcDQS3rLKBWzy9mV1Kkjjw7M \\
-    --addresses "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU,BurnMintTokenPoolProgram111111111111111111" \\
-    --log-level DEBUG
-
-Notes:
-  • ALT extension requires SOL for transaction fees
-  • You must be the authority of the ALT you want to extend
-  • ALTs have a maximum capacity of 256 addresses
-  • Large address lists are automatically batched into multiple transactions (~30 addresses per tx)
-  • Extended ALTs need 1 slot to "warm up" before new addresses can be used
-  • New addresses are appended to the end of the existing address list
-  • Use comma-separated format for multiple addresses (no spaces around commas)
-  • ALT must not be frozen to allow extensions
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new ExtendAltCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

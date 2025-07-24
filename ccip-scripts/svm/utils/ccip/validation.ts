@@ -1,9 +1,8 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync, getAccount } from "@solana/spl-token";
-import { Logger } from "../../../../ccip-lib/svm";
+import { Logger, detectTokenProgram, fetchTokenDecimals, formatTokenAmount } from "../../../../ccip-lib/svm";
 import { TokenTransfer } from "./config-types";
-import { detectTokenProgram, fetchTokenDecimals, formatTokenAmount } from "../../../../ccip-lib/svm";
 
 /**
  * Validates that a wallet has sufficient SOL balance

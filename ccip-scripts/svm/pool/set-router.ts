@@ -1,306 +1,294 @@
 /**
- * Token Pool Set Router Script
+ * Token Pool Set Router Script (CLI Framework Version)
  *
  * This script sets the configured CCIP router for an existing burn-mint token pool.
  * Only the pool owner can execute this operation.
- *
- * The router address is automatically loaded from the configuration, ensuring
- * consistency with other CCIP scripts and reducing configuration errors.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
- * 2. Ensure you are the owner of the token pool
- * 3. Provide the token mint and burn-mint pool program ID
- * 4. Run the script with: yarn svm:pool:set-router
- *
- * Required arguments:
- * --token-mint              : Token mint address of the pool
- * --burn-mint-pool-program  : Burn-mint token pool program ID
- *
- * Optional arguments:
- * --keypair                 : Path to your keypair file
- * --log-level               : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight          : Skip transaction preflight checks
- *
- * Example usage:
- * yarn svm:pool:set-router --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
  */
 
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
-import { TokenPoolType } from "../../../ccip-lib/svm";
+import { TokenPoolType, LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
-import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
-import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
-
-// ========== CONFIGURATION ==========
-// Customize these values if needed for your specific use case
-const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
-// ========== END CONFIGURATION ==========
+import { resolveNetworkConfig, getExplorerUrl } from "../../config";
+import { getKeypairPath, loadKeypair } from "../utils";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Parse command line arguments specific to setting router
+ * Configuration for set router operations
  */
-function parseSetRouterArgs() {
-  const commonArgs = parseCommonArgs();
-  const args = process.argv.slice(2);
+const SET_ROUTER_CONFIG = {
+  minSolRequired: 0.01,
+  defaultLogLevel: LogLevel.INFO,
+};
 
-  let tokenMint: string | undefined;
-  let burnMintPoolProgram: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--token-mint":
-        if (i + 1 < args.length) {
-          tokenMint = args[i + 1];
-          i++;
-        }
-        break;
-      case "--burn-mint-pool-program":
-        if (i + 1 < args.length) {
-          burnMintPoolProgram = args[i + 1];
-          i++;
-        }
-        break;
-    }
-  }
-
-  return {
-    ...commonArgs,
-    tokenMint,
-    burnMintPoolProgram,
-  };
+/**
+ * Options specific to the set-router command
+ */
+interface SetRouterOptions extends BaseCommandOptions {
+  tokenMint: string;
+  burnMintPoolProgram: string;
 }
 
-async function main() {
-  // Parse arguments
-  const options = parseSetRouterArgs();
-
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+/**
+ * Set Router Command
+ */
+class SetRouterCommand extends CCIPCommand<SetRouterOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "set-router",
+      description: "🔄 Token Pool Router Setter\n\nSets the configured CCIP router for an existing burn-mint token pool. Only the pool owner can execute this operation. The router address is automatically loaded from the configuration, ensuring consistency with other CCIP scripts.",
+      examples: [
+        "# Set router for token pool",
+        "yarn svm:pool:set-router --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh",
+        "",
+        "# Set router with debug logging",
+        "yarn svm:pool:set-router --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --log-level DEBUG"
+      ],
+      notes: [
+        "Only the pool owner can set a router",
+        `Minimum ${SET_ROUTER_CONFIG.minSolRequired} SOL required for transaction fees`,
+        "The pool must already exist before setting a router",
+        "Router address is automatically loaded from CCIP configuration",
+        "Router change requires SOL for transaction fees",
+        "Use 'yarn svm:pool:get-info' to view current pool configuration",
+        "Verifies the router update after transaction completion",
+        "No action needed if router is already set correctly"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Validate required arguments
-  if (!options.tokenMint) {
-    console.error("Error: --token-mint is required");
-    printUsage();
-    process.exit(1);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "token-mint",
+        required: true,
+        type: "string",
+        description: "Token mint address of the pool",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+      },
+      {
+        name: "burn-mint-pool-program",
+        required: true,
+        type: "string",
+        description: "Burn-mint token pool program ID",
+        example: "2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh"
+      }
+    ];
   }
 
-  if (!options.burnMintPoolProgram) {
-    console.error("Error: --burn-mint-pool-program is required");
-    printUsage();
-    process.exit(1);
-  }
+  protected async execute(): Promise<void> {
+    this.logger.info("🔄 CCIP Token Pool Set Router");
+    this.logger.info("==========================================");
 
-  // Create logger
-  const logger = createLogger("pool-set-router", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
-
-  logger.info("CCIP Token Pool Set Router");
-
-  // Load configuration
-  // Resolve network configuration based on options
-  const config = resolveNetworkConfig(options);
-
-  // Get keypair path and load wallet
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  try {
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet (must be pool owner)
+    const keypairPath = getKeypairPath(this.options);
     const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
 
-    // Check balance
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("==========================================");
     const balance = await config.connection.getBalance(walletKeypair.publicKey);
     const solBalance = balance / LAMPORTS_PER_SOL;
-    logger.info(`Wallet balance: ${solBalance} SOL`);
+    this.logger.info(`SOL Balance: ${balance} lamports (${solBalance.toFixed(9)} SOL)`);
 
-    if (solBalance < MIN_SOL_REQUIRED) {
-      logger.error(
-        `Insufficient balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees.`
-      );
-      logger.info(
-        "Request airdrop from Solana devnet faucet before proceeding."
-      );
-      logger.info(
+    if (solBalance < SET_ROUTER_CONFIG.minSolRequired) {
+      throw new Error(
+        `Insufficient balance. Need at least ${SET_ROUTER_CONFIG.minSolRequired} SOL for transaction fees.\n` +
+        `Current balance: ${solBalance.toFixed(9)} SOL\n\n` +
+        `Request airdrop with:\n` +
         `solana airdrop 1 ${walletKeypair.publicKey.toString()} --url devnet`
       );
-      process.exit(1);
     }
 
-    // Parse addresses
-    const tokenMint = new PublicKey(options.tokenMint);
-    const burnMintPoolProgramId = new PublicKey(options.burnMintPoolProgram);
+    // Parse and validate addresses
+    let tokenMint: PublicKey;
+    let burnMintPoolProgramId: PublicKey;
+    
+    try {
+      tokenMint = new PublicKey(this.options.tokenMint);
+    } catch {
+      throw new Error(`Invalid token mint address: ${this.options.tokenMint}`);
+    }
+    
+    try {
+      burnMintPoolProgramId = new PublicKey(this.options.burnMintPoolProgram);
+    } catch {
+      throw new Error(`Invalid burn-mint pool program ID: ${this.options.burnMintPoolProgram}`);
+    }
+
     const newRouter = config.routerProgramId; // Get router from config
 
-    logger.info(`Token Mint: ${tokenMint.toString()}`);
-    logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
-    logger.info(`CCIP Router (from config): ${newRouter.toString()}`);
+    // Display configuration
+    this.logger.info("");
+    this.logger.info("📋 ROUTER CONFIGURATION");
+    this.logger.info("==========================================");
+    this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+    this.logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
+    this.logger.info(`CCIP Router (from config): ${newRouter.toString()}`);
 
-    logger.debug(`Configuration details:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Commitment level: ${config.connection.commitment}`);
-    logger.debug(`  Skip preflight: ${options.skipPreflight}`);
-    logger.debug(`  Log level: ${options.logLevel}`);
+    this.logger.debug("Configuration details:");
+    this.logger.debug(`  Network: ${config.id}`);
+    this.logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(`  Commitment level: ${config.connection.commitment}`);
+    this.logger.debug(`  Skip preflight: ${this.options.skipPreflight}`);
 
-    // Create token pool client
-    // Create token pool manager using SDK
-    const tokenPoolManager = TokenPoolManager.create(
-      config.connection,
-      walletKeypair,
-      {
-        burnMint: burnMintPoolProgramId,
-         // Using same program for both
-      },
-      {
-        ccipRouterProgramId: config.routerProgramId.toString(),
-        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
-        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
-        linkTokenMint: config.linkTokenMint.toString(),
-        receiverProgramId: config.receiverProgramId.toString(),
-      },
-      { logLevel: options.logLevel || LogLevel.INFO }
-    );
-
-    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
-
-    // Check if pool exists
-    logger.info("Checking if pool exists...");
-    logger.debug(`Checking pool existence for mint: ${tokenMint.toString()}`);
-    const poolExists = await tokenPoolClient.hasPool(tokenMint);
-    logger.debug(`Pool exists: ${poolExists}`);
-
-    if (!poolExists) {
-      logger.error("Pool does not exist for this token mint");
-      logger.info("Initialize the pool first using 'yarn svm:pool:initialize'");
-      logger.debug(
-        `To initialize: yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
+    try {
+      // Create token pool manager using SDK
+      const tokenPoolManager = TokenPoolManager.create(
+        config.connection,
+        walletKeypair,
+        {
+          burnMint: burnMintPoolProgramId,
+        },
+        {
+          ccipRouterProgramId: config.routerProgramId.toString(),
+          feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+          rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+          linkTokenMint: config.linkTokenMint.toString(),
+          receiverProgramId: config.receiverProgramId.toString(),
+        },
+        { logLevel: this.options.logLevel ?? LogLevel.INFO }
       );
-      process.exit(1);
-    }
 
-    // Get current pool info to show current router
-    logger.info("Fetching current pool configuration...");
-    try {
-      const poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
-      const currentRouter = poolInfo.config.config.router.toString();
-      logger.info(`Current router: ${currentRouter}`);
-      logger.info(`Pool owner: ${poolInfo.config.config.owner.toString()}`);
+      const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
 
-      if (currentRouter === newRouter.toString()) {
-        logger.info("✅ Router is already set to the configured CCIP router");
-        logger.info("No changes needed");
-        return;
-      }
+      // Check if pool exists
+      this.logger.info("");
+      this.logger.info("🔍 VERIFYING POOL EXISTENCE");
+      this.logger.info("==========================================");
+      
+      const poolExists = await tokenPoolClient.hasPool(tokenMint);
+      this.logger.debug(`Pool exists: ${poolExists}`);
 
-      logger.debug("Current pool details:", {
-        poolType: poolInfo.poolType,
-        owner: poolInfo.config.config.owner.toString(),
-        version: poolInfo.config.version,
-        decimals: poolInfo.config.config.decimals,
-        currentRouter: currentRouter,
-      });
-    } catch (error) {
-      logger.warn(`Could not fetch current pool info: ${error}`);
-      logger.debug("Pool info fetch error:", error);
-    }
-
-    // Set the new router
-    logger.info("Setting router to configured CCIP router...");
-    const signature = await tokenPoolClient.setRouter(tokenMint, {
-      newRouter: newRouter,
-      skipPreflight: options.skipPreflight,
-    });
-
-    logger.info(`Router updated successfully!`);
-    logger.info(`Transaction signature: ${signature}`);
-    logger.info(`Solana Explorer: ${getExplorerUrl(config.id, signature)}`);
-
-    // Verify the router update
-    logger.info("Verifying router update...");
-    logger.debug("Attempting to fetch pool info to verify router update...");
-    try {
-      const updatedPoolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
-      const updatedRouter = updatedPoolInfo.config.config.router.toString();
-
-      if (updatedRouter === newRouter.toString()) {
-        logger.info("✅ Router update verified successfully!");
-        logger.info(`Updated router: ${updatedRouter}`);
-        logger.debug("Router update verification details:", {
-          previousRouter: "N/A", // We could store this from before if needed
-          newRouter: updatedRouter,
-          owner: updatedPoolInfo.config.config.owner.toString(),
-        });
-      } else {
-        logger.warn(
-          "Router update completed but verification shows different router"
+      if (!poolExists) {
+        throw new Error(
+          "Pool does not exist for this token mint.\n" +
+          "Initialize the pool first using 'yarn svm:pool:initialize'\n" +
+          `To initialize: yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
         );
-        logger.warn(`Expected: ${newRouter.toString()}`);
-        logger.warn(`Actual: ${updatedRouter}`);
       }
 
-      logger.trace("Complete verification info:", updatedPoolInfo);
-      logger.info(
-        `💡 View details: yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
-      );
+      this.logger.info("✅ Pool exists");
+
+      // Get current pool info to show current router
+      this.logger.info("");
+      this.logger.info("🔍 CHECKING CURRENT ROUTER");
+      this.logger.info("==========================================");
+      
+      try {
+        const poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+        const currentRouter = poolInfo.config.config.router.toString();
+        this.logger.info(`Current router: ${currentRouter}`);
+        this.logger.info(`Pool owner: ${poolInfo.config.config.owner.toString()}`);
+
+        if (currentRouter === newRouter.toString()) {
+          this.logger.info("");
+          this.logger.info("✅ ROUTER ALREADY SET CORRECTLY");
+          this.logger.info("==========================================");
+          this.logger.info("Router is already set to the configured CCIP router");
+          this.logger.info("No changes needed");
+          return;
+        }
+
+        this.logger.debug("Current pool details:", {
+          poolType: poolInfo.poolType,
+          owner: poolInfo.config.config.owner.toString(),
+          version: poolInfo.config.version,
+          decimals: poolInfo.config.config.decimals,
+          currentRouter: currentRouter,
+        });
+      } catch (error) {
+        this.logger.warn(`Could not fetch current pool info: ${error}`);
+        this.logger.debug("Pool info fetch error:", error);
+      }
+
+      // Set the new router
+      this.logger.info("");
+      this.logger.info("🔧 SETTING ROUTER");
+      this.logger.info("==========================================");
+      this.logger.info("Setting router to configured CCIP router...");
+
+      const signature = await tokenPoolClient.setRouter(tokenMint, {
+        newRouter: newRouter,
+        skipPreflight: this.options.skipPreflight,
+      });
+
+      // Display results
+      this.logger.info("");
+      this.logger.info("✅ ROUTER UPDATED SUCCESSFULLY");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction Signature: ${signature}`);
+
+      // Display explorer URL
+      this.logger.info("");
+      this.logger.info("🔍 EXPLORER URLS");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction: ${getExplorerUrl(config.id, signature)}`);
+
+      // Verify the router update
+      this.logger.info("");
+      this.logger.info("🔍 VERIFYING ROUTER UPDATE");
+      this.logger.info("==========================================");
+      
+      try {
+        const updatedPoolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+        const updatedRouter = updatedPoolInfo.config.config.router.toString();
+
+        if (updatedRouter === newRouter.toString()) {
+          this.logger.info("✅ Router update verified successfully!");
+          this.logger.info(`Updated router: ${updatedRouter}`);
+          
+          this.logger.debug("Router update verification details:", {
+            newRouter: updatedRouter,
+            owner: updatedPoolInfo.config.config.owner.toString(),
+          });
+        } else {
+          this.logger.warn("Router update completed but verification shows different router");
+          this.logger.warn(`Expected: ${newRouter.toString()}`);
+          this.logger.warn(`Actual: ${updatedRouter}`);
+        }
+      } catch (error) {
+        this.logger.warn(`Router transaction succeeded but verification failed: ${error}`);
+        this.logger.debug("Verification error details:", error);
+        this.logger.info("This may be due to network delays - the router should be updated shortly");
+      }
+
+      this.logger.info("");
+      this.logger.info("📋 NEXT STEPS");
+      this.logger.info("==========================================");
+      this.logger.info("View updated pool details:");
+      this.logger.info(`  yarn svm:pool:get-info --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`);
+
+      this.logger.info("");
+      this.logger.info("🎉 Router Update Complete!");
+      this.logger.info("✅ Pool router successfully updated to configured CCIP router");
+      
     } catch (error) {
-      logger.warn(
-        `Router transaction succeeded but verification failed: ${error}`
+      this.logger.error(
+        `❌ Failed to set router: ${error instanceof Error ? error.message : String(error)}`
       );
-      logger.debug("Verification error details:", error);
-      logger.info(
-        "This may be due to network delays - the router should be updated shortly"
-      );
+
+      if (error instanceof Error && error.stack) {
+        this.logger.debug("\nError stack:");
+        this.logger.debug(error.stack);
+      }
+
+      throw error;
     }
-  } catch (error) {
-    logger.error("Router update failed:", error);
-    process.exit(1);
   }
 }
 
-function printUsage() {
-  console.log(`
-🔄 CCIP Token Pool Router Setter
-
-Usage: yarn svm:pool:set-router [options]
-
-Required Options:
-  --token-mint <address>           Token mint address of the pool
-  --burn-mint-pool-program <id>    Burn-mint token pool program ID
-
-Optional Options:
-  --keypair <path>                 Path to wallet keypair file
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight                 Skip transaction preflight checks
-  --help, -h                       Show this help message
-
-Examples:
-  yarn svm:pool:set-router \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh
-
-  yarn svm:pool:set-router \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --log-level DEBUG
-
-Notes:
-  • Only the pool owner can set a router
-  • The pool must already exist before setting a router
-  • Router address is automatically loaded from CCIP configuration
-  • Router change requires SOL for transaction fees
-  • Use 'yarn svm:pool:get-info' to view current pool configuration
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new SetRouterCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

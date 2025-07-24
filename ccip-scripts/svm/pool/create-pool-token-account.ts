@@ -1,25 +1,8 @@
 /**
- * Pool Token Account Creation Script
+ * Pool Token Account Creation Script (CLI Framework Version)
  *
  * This script creates the Associated Token Account (ATA) for the pool signer PDA.
  * This account is required for the pool to hold tokens during cross-chain operations.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
- * 2. Pool must already be initialized before running this script
- * 3. Run the script with: yarn svm:pool:create-token-account
- *
- * Required arguments:
- * --token-mint              : Token mint address for the pool
- * --burn-mint-pool-program  : Burn-mint token pool program ID
- *
- * Optional arguments:
- * --keypair                 : Path to your keypair file
- * --log-level               : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight          : Skip transaction preflight checks
- *
- * Example usage:
- * yarn svm:pool:create-token-account --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
  */
 
 import {
@@ -34,375 +17,327 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
-import { TokenPoolType } from "../../../ccip-lib/svm";
+import { TokenPoolType, LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { BurnMintTokenPoolInfo } from "../../../ccip-lib/svm/tokenpools/burnmint/accounts";
-import { ChainId, getCCIPSVMConfig, resolveNetworkConfig, getExplorerUrl } from "../../config";
-import { loadKeypair, parseCommonArgs, getKeypairPath } from "../utils";
+import { resolveNetworkConfig, getExplorerUrl } from "../../config";
+import { getKeypairPath, loadKeypair } from "../utils";
 import { detectTokenProgram } from "../../../ccip-lib/svm";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
 import { findPoolSignerPDA } from "../../../ccip-lib/svm/utils/pdas/tokenpool";
-
-// ========== CONFIGURATION ==========
-const MIN_SOL_REQUIRED = 0.01; // Minimum SOL needed for transaction fees
-// ========== END CONFIGURATION ==========
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
 /**
- * Parse command line arguments specific to pool token account creation
- * 
- * Extends the base common arguments with pool-specific parameters required
- * for creating Associated Token Accounts (ATAs) for token pool operations.
- * 
- * @returns Object containing parsed arguments including tokenMint and burnMintPoolProgram
- * 
- * Required arguments:
- * - --token-mint: The mint address of the token for which to create pool ATA
- * - --burn-mint-pool-program: Program ID of the burn-mint token pool program
+ * Configuration for create pool token account operations
  */
-function parsePoolTokenAccountArgs() {
-  const commonArgs = parseCommonArgs();
-  const args = process.argv.slice(2);
+const CREATE_POOL_ACCOUNT_CONFIG = {
+  minSolRequired: 0.01,
+  defaultLogLevel: LogLevel.INFO,
+};
 
-  let tokenMint: string | undefined;
-  let burnMintPoolProgram: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--token-mint":
-        if (i + 1 < args.length) {
-          tokenMint = args[i + 1];
-          i++;
-        }
-        break;
-      case "--burn-mint-pool-program":
-        if (i + 1 < args.length) {
-          burnMintPoolProgram = args[i + 1];
-          i++;
-        }
-        break;
-    }
-  }
-
-  return {
-    ...commonArgs,
-    tokenMint,
-    burnMintPoolProgram,
-  };
+/**
+ * Options specific to the create-pool-token-account command
+ */
+interface CreatePoolTokenAccountOptions extends BaseCommandOptions {
+  tokenMint: string;
+  burnMintPoolProgram: string;
 }
 
 /**
- * Main function for pool token account creation
- * 
- * Orchestrates the complete process of creating an Associated Token Account (ATA)
- * for a token pool's signer PDA. This account is essential for the pool to hold
- * tokens during cross-chain operations.
- * 
- * Process:
- * 1. Validates arguments and loads wallet configuration
- * 2. Verifies the token pool exists and gets pool information
- * 3. Derives the pool signer PDA using the library function
- * 4. Creates the ATA for the pool signer if it doesn't exist
- * 5. Verifies successful creation
- * 
- * @throws Error if pool doesn't exist, insufficient SOL, or ATA creation fails
+ * Create Pool Token Account Command
  */
-async function main() {
-  // Parse arguments
-  const options = parsePoolTokenAccountArgs();
-
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+class CreatePoolTokenAccountCommand extends CCIPCommand<CreatePoolTokenAccountOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "create-pool-token-account",
+      description: "🏊 Pool Token Account Creator\n\nCreates the Associated Token Account (ATA) for the pool signer PDA. This account is required for the pool to hold tokens during cross-chain operations.",
+      examples: [
+        "# Create pool token account",
+        "yarn svm:pool:create-token-account --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz",
+        "",
+        "# Create with debug logging",
+        "yarn svm:pool:create-token-account --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz --log-level DEBUG"
+      ],
+      notes: [
+        `Minimum ${CREATE_POOL_ACCOUNT_CONFIG.minSolRequired} SOL required for transaction fees`,
+        "Pool must be initialized first (yarn svm:pool:initialize)",
+        "Wallet must have sufficient SOL for transaction fees",
+        "Token mint must exist and be valid",
+        "Verifies the pool exists and gets configuration",
+        "Calculates the pool signer PDA address",
+        "Creates the Associated Token Account for the pool signer",
+        "After running: pool can hold tokens during cross-chain operations",
+        "Prevents 'AccountNotInitialized' errors in cross-chain transfers"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Validate required arguments
-  if (!options.tokenMint) {
-    console.error("Error: --token-mint is required");
-    printUsage();
-    process.exit(1);
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "token-mint",
+        required: true,
+        type: "string",
+        description: "Token mint address for the pool",
+        example: "4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY"
+      },
+      {
+        name: "burn-mint-pool-program",
+        required: true,
+        type: "string",
+        description: "Burn-mint token pool program ID",
+        example: "4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz"
+      }
+    ];
   }
 
-  if (!options.burnMintPoolProgram) {
-    console.error("Error: --burn-mint-pool-program is required");
-    printUsage();
-    process.exit(1);
-  }
+  protected async execute(): Promise<void> {
+    this.logger.info("🏊 CCIP Pool Token Account Creation");
+    this.logger.info("==========================================");
 
-  // Create logger
-  const logger = createLogger("pool-token-account", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
-
-  logger.info("CCIP Pool Token Account Creation");
-
-  // Load configuration
-  // Resolve network configuration based on options
-  const config = resolveNetworkConfig(options);
-
-  // Get keypair path and load wallet
-  const keypairPath = getKeypairPath(options);
-  logger.info(`Loading keypair from ${keypairPath}...`);
-
-  try {
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet
+    const keypairPath = getKeypairPath(this.options);
     const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
 
-    // Check balance
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("==========================================");
     const balance = await config.connection.getBalance(walletKeypair.publicKey);
     const solBalance = balance / LAMPORTS_PER_SOL;
-    logger.info(`Wallet balance: ${solBalance} SOL`);
+    this.logger.info(`SOL Balance: ${balance} lamports (${solBalance.toFixed(9)} SOL)`);
 
-    if (solBalance < MIN_SOL_REQUIRED) {
-      logger.error(
-        `Insufficient balance. Need at least ${MIN_SOL_REQUIRED} SOL for transaction fees.`
-      );
-      logger.info(
-        "Request airdrop from Solana devnet faucet before proceeding."
-      );
-      logger.info(
+    if (solBalance < CREATE_POOL_ACCOUNT_CONFIG.minSolRequired) {
+      throw new Error(
+        `Insufficient balance. Need at least ${CREATE_POOL_ACCOUNT_CONFIG.minSolRequired} SOL for transaction fees.\n` +
+        `Current balance: ${solBalance.toFixed(9)} SOL\n\n` +
+        `Request airdrop with:\n` +
         `solana airdrop 1 ${walletKeypair.publicKey.toString()} --url devnet`
       );
-      process.exit(1);
     }
 
-    // Parse addresses
-    const tokenMint = new PublicKey(options.tokenMint);
-    const burnMintPoolProgramId = new PublicKey(options.burnMintPoolProgram);
-
-    logger.info(`Token Mint: ${tokenMint.toString()}`);
-    logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
-
-    // Create token pool manager using SDK
-    const tokenPoolManager = TokenPoolManager.create(
-      config.connection,
-      walletKeypair,
-      {
-        burnMint: burnMintPoolProgramId,
-      },
-      {
-        ccipRouterProgramId: config.routerProgramId.toString(),
-        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
-        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
-        linkTokenMint: config.linkTokenMint.toString(),
-        receiverProgramId: config.receiverProgramId.toString(),
-      },
-      { logLevel: options.logLevel || LogLevel.INFO }
-    );
-
-    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
-
-    // Verify pool exists
-    logger.info("Verifying pool exists...");
-    let poolInfo: BurnMintTokenPoolInfo;
+    // Parse and validate addresses
+    let tokenMint: PublicKey;
+    let burnMintPoolProgramId: PublicKey;
+    
     try {
-      poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+      tokenMint = new PublicKey(this.options.tokenMint);
+    } catch {
+      throw new Error(`Invalid token mint address: ${this.options.tokenMint}`);
+    }
+    
+    try {
+      burnMintPoolProgramId = new PublicKey(this.options.burnMintPoolProgram);
+    } catch {
+      throw new Error(`Invalid burn-mint pool program ID: ${this.options.burnMintPoolProgram}`);
+    }
+
+    // Display configuration
+    this.logger.info("");
+    this.logger.info("📋 ACCOUNT CREATION CONFIGURATION");
+    this.logger.info("==========================================");
+    this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+    this.logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
+
+    try {
+      // Create token pool manager using SDK
+      const tokenPoolManager = TokenPoolManager.create(
+        config.connection,
+        walletKeypair,
+        {
+          burnMint: burnMintPoolProgramId,
+        },
+        {
+          ccipRouterProgramId: config.routerProgramId.toString(),
+          feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+          rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+          linkTokenMint: config.linkTokenMint.toString(),
+          receiverProgramId: config.receiverProgramId.toString(),
+        },
+        { logLevel: this.options.logLevel ?? LogLevel.INFO }
+      );
+
+      const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+      // Verify pool exists
+      this.logger.info("");
+      this.logger.info("🔍 VERIFYING POOL EXISTENCE");
+      this.logger.info("==========================================");
+      
+      let poolInfo: BurnMintTokenPoolInfo;
+      try {
+        poolInfo = await tokenPoolClient.getPoolInfo(tokenMint) as BurnMintTokenPoolInfo;
+        this.logger.info("✅ Pool exists");
+      } catch (error) {
+        throw new Error(
+          "Pool does not exist for this token mint.\n" +
+          "Initialize the pool first:\n" +
+          `yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
+        );
+      }
+
+      // Get pool info
+      const currentPoolTokenAccount = poolInfo.config.config.poolTokenAccount;
+      this.logger.info(`Current pool token account: ${currentPoolTokenAccount.toString()}`);
+
+      // Determine token program ID
+      const tokenProgramId = await detectTokenProgram(tokenMint, config.connection, this.logger);
+
+      // Derive pool signer PDA
+      const [poolSigner, poolSignerBump] = findPoolSignerPDA(tokenMint, burnMintPoolProgramId);
+      this.logger.info(`Pool signer PDA: ${poolSigner.toString()}`);
+      this.logger.debug(`Pool signer bump: ${poolSignerBump}`);
+
+      // Check if pool signer matches what's in the pool config
+      const configPoolSigner = poolInfo.config.config.poolSigner;
+      if (!poolSigner.equals(configPoolSigner)) {
+        this.logger.warn("Pool signer mismatch!");
+        this.logger.warn(`  Calculated: ${poolSigner.toString()}`);
+        this.logger.warn(`  In config:  ${configPoolSigner.toString()}`);
+        this.logger.info("Using pool signer from configuration...");
+      }
+
+      // Use the pool signer from the configuration
+      const actualPoolSigner = configPoolSigner;
+
+      // Calculate the expected ATA
+      const expectedATA = await getAssociatedTokenAddress(
+        tokenMint,
+        actualPoolSigner,
+        true, // allowOwnerOffCurve
+        tokenProgramId,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+
+      this.logger.info(`Expected pool token account (ATA): ${expectedATA.toString()}`);
+
+      // Check if the expected ATA matches the current pool token account
+      if (!expectedATA.equals(currentPoolTokenAccount)) {
+        this.logger.warn("Pool token account mismatch!");
+        this.logger.warn(`  Expected: ${expectedATA.toString()}`);
+        this.logger.warn(`  Current:  ${currentPoolTokenAccount.toString()}`);
+        this.logger.info("This script will create the expected ATA...");
+      }
+
+      // Check if the ATA already exists
+      this.logger.info("");
+      this.logger.info("🔍 CHECKING EXISTING ACCOUNT");
+      this.logger.info("==========================================");
+      
+      const existingAccount = await config.connection.getAccountInfo(expectedATA);
+
+      if (existingAccount) {
+        this.logger.info("");
+        this.logger.info("✅ ACCOUNT ALREADY EXISTS");
+        this.logger.info("==========================================");
+        this.logger.info("Pool token account already exists!");
+        this.logger.info(`Account address: ${expectedATA.toString()}`);
+        this.logger.info(`Owner: ${actualPoolSigner.toString()}`);
+        this.logger.info("No action needed.");
+        return;
+      }
+
+      // Create the ATA
+      this.logger.info("");
+      this.logger.info("🔧 CREATING POOL TOKEN ACCOUNT");
+      this.logger.info("==========================================");
+      this.logger.info("Creating pool token account (ATA)...");
+      
+      this.logger.debug("Creating ATA for:");
+      this.logger.debug(`  Mint: ${tokenMint.toString()}`);
+      this.logger.debug(`  Owner (Pool Signer): ${actualPoolSigner.toString()}`);
+      this.logger.debug(`  Payer: ${walletKeypair.publicKey.toString()}`);
+      this.logger.debug(`  Token Program: ${tokenProgramId.toString()}`);
+
+      const createATAInstruction = createAssociatedTokenAccountInstruction(
+        walletKeypair.publicKey, // payer
+        expectedATA, // ata address
+        actualPoolSigner, // owner of the ATA (pool signer)
+        tokenMint, // token mint
+        tokenProgramId, // token program
+        ASSOCIATED_TOKEN_PROGRAM_ID // ATA program
+      );
+
+      // Create and send transaction
+      const transaction = new Transaction().add(createATAInstruction);
+
+      this.logger.debug("Sending transaction...");
+      const signature = await sendAndConfirmTransaction(
+        config.connection,
+        transaction,
+        [walletKeypair],
+        {
+          skipPreflight: this.options.skipPreflight,
+          commitment: config.connection.commitment,
+        }
+      );
+
+      // Display results
+      this.logger.info("");
+      this.logger.info("✅ POOL TOKEN ACCOUNT CREATED SUCCESSFULLY");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction Signature: ${signature}`);
+      this.logger.info(`Pool Token Account Address: ${expectedATA.toString()}`);
+
+      // Display explorer URL
+      this.logger.info("");
+      this.logger.info("🔍 EXPLORER URLS");
+      this.logger.info("==========================================");
+      this.logger.info(`Transaction: ${getExplorerUrl(config.id, signature)}`);
+
+      // Verify creation
+      this.logger.info("");
+      this.logger.info("🔍 VERIFYING ACCOUNT CREATION");
+      this.logger.info("==========================================");
+      
+      const verificationAccount = await config.connection.getAccountInfo(expectedATA);
+
+      if (verificationAccount) {
+        this.logger.info("✅ Account creation verified!");
+        this.logger.debug(`Account owner: ${verificationAccount.owner.toString()}`);
+        this.logger.debug(`Account lamports: ${verificationAccount.lamports}`);
+      } else {
+        this.logger.warn("⚠️ Account verification failed - this may be due to network delays");
+      }
+
+      this.logger.info("");
+      this.logger.info("🎉 Pool Token Account Setup Complete!");
+      this.logger.info(`✅ ATA Address: ${expectedATA.toString()}`);
+      this.logger.info(`✅ Owner: ${actualPoolSigner.toString()} (Pool Signer PDA)`);
+      this.logger.info(`✅ Ready for cross-chain token operations`);
+      
     } catch (error) {
-      logger.error("Pool does not exist for this token mint");
-      logger.info("Initialize the pool first:");
-      logger.info(
-        `yarn svm:pool:initialize --token-mint ${tokenMint.toString()} --burn-mint-pool-program ${burnMintPoolProgramId.toString()}`
-      );
-      process.exit(1);
-    }
-
-    // Get pool info to verify current state
-    logger.info("Getting pool information...");
-    const currentPoolTokenAccount = poolInfo.config.config.poolTokenAccount;
-
-    logger.info(
-      `Current pool token account: ${currentPoolTokenAccount.toString()}`
-    );
-
-    // Determine token program ID
-    const tokenProgramId = await detectTokenProgram(
-      tokenMint,
-      config.connection,
-      logger
-    );
-
-    // Derive pool signer PDA using the library function
-    const [poolSigner, poolSignerBump] = findPoolSignerPDA(
-      tokenMint,
-      burnMintPoolProgramId
-    );
-    logger.info(`Pool signer PDA: ${poolSigner.toString()}`);
-    logger.debug(`Pool signer bump: ${poolSignerBump}`);
-
-    // Check if pool signer matches what's in the pool config
-    const configPoolSigner = poolInfo.config.config.poolSigner;
-    if (!poolSigner.equals(configPoolSigner)) {
-      logger.warn(`Pool signer mismatch!`);
-      logger.warn(`  Calculated: ${poolSigner.toString()}`);
-      logger.warn(`  In config:  ${configPoolSigner.toString()}`);
-      logger.info("Using pool signer from configuration...");
-    }
-
-    // Use the pool signer from the configuration (in case of any discrepancy)
-    const actualPoolSigner = configPoolSigner;
-
-    // Calculate the expected ATA
-    const expectedATA = await getAssociatedTokenAddress(
-      tokenMint,
-      actualPoolSigner,
-      true, // allowOwnerOffCurve
-      tokenProgramId,
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-
-    logger.info(`Expected pool token account (ATA): ${expectedATA.toString()}`);
-
-    // Check if the expected ATA matches the current pool token account
-    if (!expectedATA.equals(currentPoolTokenAccount)) {
-      logger.warn(`Pool token account mismatch!`);
-      logger.warn(`  Expected: ${expectedATA.toString()}`);
-      logger.warn(`  Current:  ${currentPoolTokenAccount.toString()}`);
-      logger.info("This script will create the expected ATA...");
-    }
-
-    // Check if the ATA already exists
-    logger.info("Checking if pool token account already exists...");
-    const existingAccount = await config.connection.getAccountInfo(expectedATA);
-
-    if (existingAccount) {
-      logger.info("✅ Pool token account already exists!");
-      logger.info(`Account address: ${expectedATA.toString()}`);
-      logger.info(`Owner: ${actualPoolSigner.toString()}`);
-      logger.info("No action needed.");
-      return;
-    }
-
-    // Create the ATA
-    logger.info("Creating pool token account (ATA)...");
-    logger.debug(`Creating ATA for:`);
-    logger.debug(`  Mint: ${tokenMint.toString()}`);
-    logger.debug(`  Owner (Pool Signer): ${actualPoolSigner.toString()}`);
-    logger.debug(`  Payer: ${walletKeypair.publicKey.toString()}`);
-    logger.debug(`  Token Program: ${tokenProgramId.toString()}`);
-
-    const createATAInstruction = createAssociatedTokenAccountInstruction(
-      walletKeypair.publicKey, // payer
-      expectedATA, // ata address
-      actualPoolSigner, // owner of the ATA (pool signer)
-      tokenMint, // token mint
-      tokenProgramId, // token program
-      ASSOCIATED_TOKEN_PROGRAM_ID // ATA program
-    );
-
-    // Create and send transaction
-    const transaction = new Transaction().add(createATAInstruction);
-
-    logger.debug("Sending transaction...");
-    const signature = await sendAndConfirmTransaction(
-      config.connection,
-      transaction,
-      [walletKeypair],
-      {
-        skipPreflight: options.skipPreflight,
-        commitment: config.connection.commitment,
+      if (error instanceof Error) {
+        if (error.message.includes("insufficient funds")) {
+          this.logger.error("Insufficient SOL for transaction fees");
+          this.logger.info("Request more SOL from the devnet faucet");
+        } else if (error.message.includes("already in use")) {
+          this.logger.info("Account may already exist - check with get-pool-info");
+        }
       }
-    );
 
-    logger.info("✅ Pool token account created successfully!");
-    logger.info(`Transaction signature: ${signature}`);
-    logger.info(`Solana Explorer: ${getExplorerUrl(config.id, signature)}`);
-    logger.info(`Pool token account address: ${expectedATA.toString()}`);
-
-    // Verify creation
-    logger.info("Verifying account creation...");
-    const verificationAccount = await config.connection.getAccountInfo(
-      expectedATA
-    );
-
-    if (verificationAccount) {
-      logger.info("✅ Account creation verified!");
-      logger.debug(`Account owner: ${verificationAccount.owner.toString()}`);
-      logger.debug(`Account lamports: ${verificationAccount.lamports}`);
-    } else {
-      logger.warn(
-        "⚠️ Account verification failed - this may be due to network delays"
+      this.logger.error(
+        `❌ Failed to create pool token account: ${error instanceof Error ? error.message : String(error)}`
       );
-    }
 
-    logger.info("\n🎉 Pool Token Account Setup Complete!");
-    logger.info(`   ✅ ATA Address: ${expectedATA.toString()}`);
-    logger.info(
-      `   ✅ Owner: ${actualPoolSigner.toString()} (Pool Signer PDA)`
-    );
-    logger.info(`   ✅ Ready for cross-chain token operations`);
-  } catch (error) {
-    logger.error("Pool token account creation failed:", error);
-
-    if (error instanceof Error) {
-      if (error.message.includes("insufficient funds")) {
-        logger.info("Insufficient SOL for transaction fees");
-        logger.info("Request more SOL from the devnet faucet");
-      } else if (error.message.includes("already in use")) {
-        logger.info("Account may already exist - check with get-pool-info");
+      if (error instanceof Error && error.stack) {
+        this.logger.debug("\nError stack:");
+        this.logger.debug(error.stack);
       }
-    }
 
-    process.exit(1);
+      throw error;
+    }
   }
 }
 
-/**
- * Print comprehensive usage information for the pool token account creation script
- * 
- * Displays detailed help including:
- * - Script purpose and prerequisites
- * - Required and optional command line arguments
- * - Usage examples with real addresses
- * - What the script accomplishes
- * - Next steps after successful execution
- */
-function printUsage() {
-  console.log(`
-🏊 CCIP Pool Token Account Creator
-
-This script creates the Associated Token Account (ATA) for the pool signer PDA.
-This account is required for the pool to hold tokens during cross-chain operations.
-
-Usage: yarn svm:pool:create-token-account [options]
-
-Required Options:
-  --token-mint <address>           Token mint address for the pool
-  --burn-mint-pool-program <id>    Burn-mint token pool program ID
-
-Optional Options:
-  --keypair <path>                 Path to wallet keypair file
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight                 Skip transaction preflight checks
-  --help, -h                       Show this help message
-
-Examples:
-  yarn svm:pool:create-token-account \\
-    --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \\
-    --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz
-
-  yarn svm:pool:create-token-account \\
-    --token-mint 4yT122YQdx7mdVvoArRgWJpnDbxxWadZpRFHRz2G9SnY \\
-    --burn-mint-pool-program 4rtU5pVwtQaAfLhd1AkAsL1VopCJciBZewiPgjudeahz \\
-    --log-level DEBUG
-
-Prerequisites:
-  • Pool must be initialized first (yarn svm:pool:initialize)
-  • Wallet must have sufficient SOL for transaction fees
-  • Token mint must exist and be valid
-
-What this script does:
-  • Verifies the pool exists and gets configuration
-  • Calculates the pool signer PDA address
-  • Creates the Associated Token Account for the pool signer
-  • Verifies the account was created successfully
-
-After running this script:
-  • The pool will be able to hold tokens during cross-chain operations
-  • Cross-chain transfers should work without "AccountNotInitialized" errors
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new CreatePoolTokenAccountCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

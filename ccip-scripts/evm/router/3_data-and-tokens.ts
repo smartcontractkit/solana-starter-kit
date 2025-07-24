@@ -47,6 +47,7 @@ import {
 } from "../../config";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { detectTokenProgram } from "../../../ccip-lib/svm";
 
 // Create initial logger for startup errors
 const initialLogger = createLogger("data-and-tokens", {
@@ -97,48 +98,6 @@ function deriveReceiverPDAs(receiverProgramIdStr: string) {
   };
 }
 
-/**
- * Utility function to determine the token program ID from a mint account
- *
- * @param mintPubkey - The public key of the mint account
- * @param connection - The Solana connection to use for querying
- * @param logger - The logger to use for logging
- * @returns Promise<PublicKey> - The token program ID that owns the mint
- */
-async function determineTokenProgramId(
-  mintPubkey: PublicKey,
-  connection: any,
-  logger = initialLogger
-): Promise<PublicKey> {
-  try {
-    logger.info(
-      `Getting mint account info for ${mintPubkey.toString()} to determine token program ID...`
-    );
-    const mintInfo = await connection.getAccountInfo(mintPubkey);
-
-    if (!mintInfo) {
-      throw new Error(`Mint account ${mintPubkey.toString()} not found`);
-    }
-
-    // The owner of the mint account is the token program (either TOKEN_PROGRAM_ID or TOKEN_2022_PROGRAM_ID)
-    const tokenProgramId = mintInfo.owner;
-
-    // Log which token program is being used
-    const usingToken2022 =
-      tokenProgramId.toString() === TOKEN_2022_PROGRAM_ID.toString()
-        ? "Yes"
-        : "No";
-    logger.info(`Token program ID: ${tokenProgramId.toString()}`);
-    logger.info(`Using Token-2022 Program: ${usingToken2022}`);
-
-    return tokenProgramId;
-  } catch (error) {
-    logger.warn(
-      `Failed to determine token program from mint, falling back to TOKEN_2022_PROGRAM_ID: ${error}`
-    );
-    return TOKEN_2022_PROGRAM_ID;
-  }
-}
 
 // =================================================================
 // COMBINED DATA AND TOKEN TRANSFER CONFIGURATION
@@ -226,7 +185,7 @@ const createMessageConfig = async () => {
 
         // Determine the token program ID for the mint
         // This uses our utility function to get the correct program ID
-        const tokenProgramId = await determineTokenProgramId(
+        const tokenProgramId = await detectTokenProgram(
           mintPubkey,
           connection,
           configLogger
@@ -276,7 +235,7 @@ const createMessageConfig = async () => {
           // [5] recipient_token_account - Where tokens will be transferred to
           recipientATA.toString(),
 
-          // [6] token_program - Determined dynamically using determineTokenProgramId
+          // [6] token_program - Determined dynamically using detectTokenProgram
           tokenProgramId.toString(),
         ];
       })(),
@@ -361,7 +320,7 @@ async function dataAndTokenTransfer(): Promise<void> {
     validateTokenAmounts(context, tokenDetails);
 
     // Token program ID is already correctly set in the accounts array
-    // No need to update it here as we already used determineTokenProgramId during initialization
+    // No need to update it here as we already used detectTokenProgram during initialization
 
     // STEP 4: Create the CCIP message request
     const messageRequest = createCCIPMessageRequest(config, options, logger);

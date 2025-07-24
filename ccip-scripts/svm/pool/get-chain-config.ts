@@ -1,249 +1,280 @@
 /**
- * Chain Configuration Retrieval Script
+ * Chain Configuration Retrieval Script (CLI Framework Version)
  *
  * This script retrieves and displays the chain remote configuration for a burn-mint token pool,
  * showing the configuration details for cross-chain token transfers to a specific remote chain.
- *
- * INSTRUCTIONS:
- * 1. The token pool and chain configuration must already exist
- * 2. Provide the token mint and remote chain details
- * 3. Run the script with: yarn svm:pool:get-chain-config
- *
- * Required arguments:
- * --token-mint              : Token mint address of existing pool
- * --burn-mint-pool-program  : Burn-mint token pool program ID
- * --remote-chain            : Remote chain to query (chain-id)
- *
- * Optional arguments:
- * --log-level               : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- *
- * NOTE: This is a READ-ONLY operation that does not require a wallet or keypair.
- *
- * Example usage:
- * yarn svm:pool:get-chain-config \
- *   --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
- *   --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \
- *   --remote-chain ethereum-sepolia
  */
 
 import { PublicKey } from "@solana/web3.js";
 import { TokenPoolManager } from "../../../ccip-lib/svm/core/client/tokenpools";
-import { TokenPoolType } from "../../../ccip-lib/svm";
-import { ChainId, getCCIPSVMConfig, resolveNetworkConfig } from "../../config";
-import { LogLevel, createLogger } from "../../../ccip-lib/svm";
-import { parseArgs, displayAvailableRemoteChains } from "../utils/args-parser";
+import { TokenPoolType, LogLevel, createLogger } from "../../../ccip-lib/svm";
+import { ChainId, CHAIN_SELECTORS, resolveNetworkConfig } from "../../config";
 import { loadKeypair } from "../utils";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
-const SCRIPT_ARGS = [
-  {
-    name: "token-mint",
-    description: "Token mint address of existing pool",
-    required: true,
-    type: "string" as const,
-  },
-  {
-    name: "burn-mint-pool-program",
-    description: "Burn-mint token pool program ID",
-    required: true,
-    type: "string" as const,
-  },
-  {
-    name: "remote-chain",
-    description: "Remote chain to query (chain-id)",
-    required: true,
-    type: "remote-chain" as const,
-  },
-  {
-    name: "log-level",
-    description: "Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)",
-    required: false,
-    type: "string" as const,
-  },
-];
+/**
+ * Configuration for get chain config operations
+ */
+const GET_CHAIN_CONFIG_CONFIG = {
+  defaultLogLevel: LogLevel.INFO,
+};
 
-async function main() {
-  // Check for help
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    printUsage();
-    return;
+/**
+ * Options specific to the get-chain-config command
+ */
+interface GetChainConfigOptions extends BaseCommandOptions {
+  tokenMint: string;
+  burnMintPoolProgram: string;
+  remoteChain: string;
+}
+
+/**
+ * Get Chain Configuration Command
+ */
+class GetChainConfigCommand extends CCIPCommand<GetChainConfigOptions> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "get-chain-config",
+      description: "🔍 Chain Configuration Reader\n\nRetrieves and displays the chain remote configuration for a burn-mint token pool, showing the configuration details for cross-chain token transfers to a specific remote chain.",
+      examples: [
+        "# Get chain config for Ethereum Sepolia",
+        "yarn svm:pool:get-chain-config --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --remote-chain ethereum-sepolia",
+        "",
+        "# Get chain config with debug logging",
+        "yarn svm:pool:get-chain-config --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh --remote-chain base-sepolia --log-level DEBUG"
+      ],
+      notes: [
+        "This is a READ-ONLY operation that doesn't require a wallet/keypair",
+        "No transaction fees or signatures needed",
+        "The token pool and chain configuration must already exist",
+        "Shows detailed configuration including rate limits and current usage",
+        "Remote chains: ethereum-sepolia, avalanche-fuji, base-sepolia, etc.",
+        "Use this before editing configurations to see current values",
+        "Shows token address, decimals, pool addresses, and rate limits"
+      ]
+    };
+    
+    super(metadata);
   }
 
-  // Parse arguments
-  const options = parseArgs(SCRIPT_ARGS);
-
-  // Create logger
-  const logger = createLogger("get-chain-config", {
-    level: options.logLevel ?? LogLevel.INFO,
-  });
-
-  logger.info("CCIP Chain Configuration Reader (Read-Only)");
-
-  // Load configuration
-  // Resolve network configuration based on options
-  const config = resolveNetworkConfig(options);
-
-  try {
-    // Parse addresses
-    const tokenMint = new PublicKey(options["token-mint"]);
-    const burnMintPoolProgramId = new PublicKey(
-      options["burn-mint-pool-program"]
-    );
-    const remoteChainSelector = options["remote-chain"] as bigint;
-
-    logger.info(`Token Mint: ${tokenMint.toString()}`);
-    logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
-    logger.info(`Remote Chain Selector: ${remoteChainSelector.toString()}`);
-
-    logger.debug(`Configuration details:`);
-    logger.debug(`  Network: ${config.id}`);
-    logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
-    logger.debug(`  Commitment level: ${config.connection.commitment}`);
-    logger.debug(`  Log level: ${options["log-level"]}`);
-
-    // Create token pool manager using SDK (using dummy wallet for read operations)
-    const walletKeypair = loadKeypair(`${process.env.HOME}/.config/solana/id.json`);
-    const tokenPoolManager = TokenPoolManager.create(
-      config.connection,
-      walletKeypair,
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
       {
-        burnMint: burnMintPoolProgramId,
-         // Using same program for both
+        name: "token-mint",
+        required: true,
+        type: "string",
+        description: "Token mint address of existing pool",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
       },
       {
-        ccipRouterProgramId: config.routerProgramId.toString(),
-        feeQuoterProgramId: config.feeQuoterProgramId.toString(),
-        rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
-        linkTokenMint: config.linkTokenMint.toString(),
-        receiverProgramId: config.receiverProgramId.toString(),
+        name: "burn-mint-pool-program",
+        required: true,
+        type: "string",
+        description: "Burn-mint token pool program ID",
+        example: "2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh"
       },
-      { logLevel: (options["log-level"] as LogLevel) || LogLevel.INFO }
-    );
+      {
+        name: "remote-chain",
+        required: true,
+        type: "string",
+        description: "Remote chain to query (chain-id)",
+        example: "ethereum-sepolia"
+      }
+    ];
+  }
 
-    const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+  /**
+   * Resolve remote chain selector from chain ID
+   */
+  private resolveRemoteChainSelector(remoteChain: string): bigint {
+    const chainSelector = CHAIN_SELECTORS[remoteChain as ChainId];
+    if (!chainSelector) {
+      throw new Error(
+        `Unknown remote chain: ${remoteChain}\n` +
+        `Available chains: ${Object.keys(CHAIN_SELECTORS).join(", ")}`
+      );
+    }
+    return chainSelector;
+  }
 
-    // Get the chain config
-    logger.info("Retrieving chain configuration...");
-    const chainConfig = await tokenPoolClient.getChainConfig(tokenMint, remoteChainSelector);
-
-    // Display the configuration
-    logger.info(`Chain configuration retrieved successfully! 🎉`);
-    console.log("");
-    console.log("📋 Chain Configuration Details:");
-    console.log("================================");
-    console.log(`Account Address: ${chainConfig.address}`);
-    console.log("");
-
-    console.log("🔗 Remote Chain Information:");
-    console.log(`  Decimals: ${chainConfig.base.decimals}`);
-    console.log(`  Token Address: 0x${chainConfig.base.tokenAddress.address}`);
-    console.log("");
-
-    console.log("🏊 Pool Addresses:");
-    chainConfig.base.poolAddresses.forEach((pool: any, index: number) => {
-      console.log(`  ${index + 1}. 0x${pool.address}`);
+  /**
+   * Display available remote chains
+   */
+  private displayAvailableChains(): void {
+    this.logger.info("");
+    this.logger.info("📋 AVAILABLE REMOTE CHAINS");
+    this.logger.info("==========================================");
+    Object.entries(CHAIN_SELECTORS).forEach(([chainId, selector]) => {
+      this.logger.info(`  ${chainId}: ${selector.toString()}`);
     });
-    console.log("");
+  }
 
-    console.log("⬇️  Inbound Rate Limit:");
-    console.log(`  Enabled: ${chainConfig.base.inboundRateLimit.isEnabled}`);
-    console.log(
-      `  Capacity: ${chainConfig.base.inboundRateLimit.capacity.toString()}`
-    );
-    console.log(
-      `  Rate: ${chainConfig.base.inboundRateLimit.rate.toString()} tokens/second`
-    );
-    console.log(
-      `  Current Bucket Value: ${chainConfig.base.inboundRateLimit.currentBucketValue.toString()}`
-    );
-    console.log(
-      `  Last Updated: ${new Date(
-        Number(chainConfig.base.inboundRateLimit.lastTxTimestamp) * 1000
-      ).toISOString()}`
-    );
-    console.log("");
+  /**
+   * Display chain configuration details
+   */
+  private displayChainConfig(chainConfig: any): void {
+    this.logger.info("");
+    this.logger.info("📋 CHAIN CONFIGURATION DETAILS");
+    this.logger.info("==========================================");
+    this.logger.info(`Account Address: ${chainConfig.address}`);
+    
+    this.logger.info("");
+    this.logger.info("🔗 REMOTE CHAIN INFORMATION");
+    this.logger.info("------------------------------------------");
+    this.logger.info(`Decimals: ${chainConfig.base.decimals}`);
+    this.logger.info(`Token Address: 0x${chainConfig.base.tokenAddress.address}`);
+    
+    this.logger.info("");
+    this.logger.info("🏊 POOL ADDRESSES");
+    this.logger.info("------------------------------------------");
+    if (chainConfig.base.poolAddresses.length === 0) {
+      this.logger.info("No pool addresses configured");
+    } else {
+      chainConfig.base.poolAddresses.forEach((pool: any, index: number) => {
+        this.logger.info(`${index + 1}. 0x${pool.address}`);
+      });
+    }
+    
+    this.logger.info("");
+    this.logger.info("⬇️  INBOUND RATE LIMIT");
+    this.logger.info("------------------------------------------");
+    this.logger.info(`Enabled: ${chainConfig.base.inboundRateLimit.isEnabled}`);
+    this.logger.info(`Capacity: ${chainConfig.base.inboundRateLimit.capacity.toString()}`);
+    this.logger.info(`Rate: ${chainConfig.base.inboundRateLimit.rate.toString()} tokens/second`);
+    this.logger.info(`Current Bucket Value: ${chainConfig.base.inboundRateLimit.currentBucketValue.toString()}`);
+    this.logger.info(`Last Updated: ${new Date(
+      Number(chainConfig.base.inboundRateLimit.lastTxTimestamp) * 1000
+    ).toISOString()}`);
+    
+    this.logger.info("");
+    this.logger.info("⬆️  OUTBOUND RATE LIMIT");
+    this.logger.info("------------------------------------------");
+    this.logger.info(`Enabled: ${chainConfig.base.outboundRateLimit.isEnabled}`);
+    this.logger.info(`Capacity: ${chainConfig.base.outboundRateLimit.capacity.toString()}`);
+    this.logger.info(`Rate: ${chainConfig.base.outboundRateLimit.rate.toString()} tokens/second`);
+    this.logger.info(`Current Bucket Value: ${chainConfig.base.outboundRateLimit.currentBucketValue.toString()}`);
+    this.logger.info(`Last Updated: ${new Date(
+      Number(chainConfig.base.outboundRateLimit.lastTxTimestamp) * 1000
+    ).toISOString()}`);
+  }
 
-    console.log("⬆️  Outbound Rate Limit:");
-    console.log(`  Enabled: ${chainConfig.base.outboundRateLimit.isEnabled}`);
-    console.log(
-      `  Capacity: ${chainConfig.base.outboundRateLimit.capacity.toString()}`
-    );
-    console.log(
-      `  Rate: ${chainConfig.base.outboundRateLimit.rate.toString()} tokens/second`
-    );
-    console.log(
-      `  Current Bucket Value: ${chainConfig.base.outboundRateLimit.currentBucketValue.toString()}`
-    );
-    console.log(
-      `  Last Updated: ${new Date(
-        Number(chainConfig.base.outboundRateLimit.lastTxTimestamp) * 1000
-      ).toISOString()}`
-    );
-    console.log("");
+  protected async execute(): Promise<void> {
+    this.logger.info("🔍 CCIP Chain Configuration Reader (Read-Only)");
+    this.logger.info("==========================================");
 
-    logger.info("💡 Use edit-chain-remote-config to update this configuration");
-    logger.info("💡 Use set-rate-limit to update rate limits separately");
-  } catch (error) {
-    logger.error("Failed to retrieve chain configuration:", error);
-    console.log("");
-    console.log("❌ Common Issues:");
-    console.log("  • Chain configuration does not exist for this remote chain");
-    console.log("  • Token pool does not exist for this mint");
-    console.log("  • Invalid remote chain selector");
-    console.log("");
-    console.log("💡 Solutions:");
-    console.log(
-      "  • Use init-chain-remote-config to create the configuration first"
-    );
-    console.log("  • Use get-pool-info to verify the pool exists");
-    console.log("  • Check available chains with --help");
-    process.exit(1);
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Parse and validate addresses
+    let tokenMint: PublicKey;
+    let burnMintPoolProgramId: PublicKey;
+    
+    try {
+      tokenMint = new PublicKey(this.options.tokenMint);
+    } catch {
+      throw new Error(`Invalid token mint address: ${this.options.tokenMint}`);
+    }
+    
+    try {
+      burnMintPoolProgramId = new PublicKey(this.options.burnMintPoolProgram);
+    } catch {
+      throw new Error(`Invalid burn-mint pool program ID: ${this.options.burnMintPoolProgram}`);
+    }
+
+    // Resolve remote chain selector
+    let remoteChainSelector: bigint;
+    try {
+      remoteChainSelector = this.resolveRemoteChainSelector(this.options.remoteChain);
+    } catch (error) {
+      this.displayAvailableChains();
+      throw error;
+    }
+
+    // Display query parameters
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Token Mint: ${tokenMint.toString()}`);
+    this.logger.info(`Burn-Mint Pool Program: ${burnMintPoolProgramId.toString()}`);
+    this.logger.info(`Remote Chain: ${this.options.remoteChain}`);
+    this.logger.info(`Remote Chain Selector: ${remoteChainSelector.toString()}`);
+
+    this.logger.debug("Configuration details:");
+    this.logger.debug(`  Network: ${config.id}`);
+    this.logger.debug(`  Connection endpoint: ${config.connection.rpcEndpoint}`);
+    this.logger.debug(`  Commitment level: ${config.connection.commitment}`);
+
+    try {
+      // Create token pool manager using SDK (using dummy wallet for read operations)
+      const walletKeypair = loadKeypair(`${process.env.HOME}/.config/solana/id.json`);
+      const tokenPoolManager = TokenPoolManager.create(
+        config.connection,
+        walletKeypair,
+        {
+          burnMint: burnMintPoolProgramId,
+        },
+        {
+          ccipRouterProgramId: config.routerProgramId.toString(),
+          feeQuoterProgramId: config.feeQuoterProgramId.toString(),
+          rmnRemoteProgramId: config.rmnRemoteProgramId.toString(),
+          linkTokenMint: config.linkTokenMint.toString(),
+          receiverProgramId: config.receiverProgramId.toString(),
+        },
+        { logLevel: this.options.logLevel ?? LogLevel.INFO }
+      );
+
+      const tokenPoolClient = tokenPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+      // Get the chain config
+      this.logger.info("");
+      this.logger.info("🔄 RETRIEVING CHAIN CONFIGURATION");
+      this.logger.info("==========================================");
+      this.logger.info("Fetching chain configuration...");
+      
+      const chainConfig = await tokenPoolClient.getChainConfig(tokenMint, remoteChainSelector);
+
+      // Display the configuration
+      this.displayChainConfig(chainConfig);
+
+      this.logger.info("");
+      this.logger.info("📋 NEXT STEPS");
+      this.logger.info("==========================================");
+      this.logger.info("• Use edit-chain-remote-config to update this configuration");
+      this.logger.info("• Use set-rate-limit to update rate limits separately");
+      this.logger.info("• Use get-pool-info to see all chain configurations");
+
+      this.logger.info("");
+      this.logger.info("🎉 Chain Configuration Retrieved Successfully!");
+      
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to retrieve chain configuration: ${error instanceof Error ? error.message : String(error)}`
+      );
+
+      this.logger.info("");
+      this.logger.info("❌ COMMON ISSUES");
+      this.logger.info("==========================================");
+      this.logger.info("• Chain configuration does not exist for this remote chain");
+      this.logger.info("• Token pool does not exist for this mint");
+      this.logger.info("• Invalid remote chain selector");
+
+      this.logger.info("");
+      this.logger.info("💡 SOLUTIONS");
+      this.logger.info("==========================================");
+      this.logger.info("• Use init-chain-remote-config to create the configuration first");
+      this.logger.info("• Use get-pool-info to verify the pool exists");
+      this.logger.info("• Check available chains with --help");
+
+      if (error instanceof Error && error.stack) {
+        this.logger.debug("\nError stack:");
+        this.logger.debug(error.stack);
+      }
+
+      throw error;
+    }
   }
 }
 
-function printUsage() {
-  console.log(`
-🔍 CCIP Chain Configuration Reader
-
-Usage: yarn svm:pool:get-chain-config [options]
-
-Required Options:
-  --token-mint <address>           Token mint address of existing pool
-  --burn-mint-pool-program <id>    Burn-mint token pool program ID
-  --remote-chain <chain-id>        Remote chain (chain-id)
-
-Optional Options:
-  --log-level <level>              Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --help, -h                       Show this help message
-
-Examples:
-  yarn svm:pool:get-chain-config \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --remote-chain ethereum-sepolia
-
-  yarn svm:pool:get-chain-config \\
-    --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \\
-    --burn-mint-pool-program 2YzPLhHBpRMwxCN7yLpHJGHg2AXBzQ5VPuKt51BDKxqh \\
-    --remote-chain base-sepolia \\
-    --log-level DEBUG
-
-Remote Chain Options:
-`);
-
-  displayAvailableRemoteChains();
-
-  console.log(`
-Notes:
-  • This is a READ-ONLY operation that doesn't require a wallet/keypair
-  • No transaction fees or signatures needed
-  • The token pool and chain configuration must already exist
-  • Shows detailed configuration including rate limits and current usage
-  • Use this before editing configurations to see current values
-  `);
-}
-
-// Run the script
-main().catch((error) => {
-  console.error("Unhandled error:", error);
+// Create and run the command
+const command = new GetChainConfigCommand();
+command.run().catch((error) => {
   process.exit(1);
 });

@@ -1,50 +1,9 @@
 /**
- * SPL Token-2022 Creation Script with Metaplex Metadata
+ * SPL Token-2022 Creation Script (CLI Framework Version)
  *
  * This script creates a new SPL Token-2022 token with Metaplex metadata support.
  * Token-2022 is the newer token standard that provides enhanced functionality
  * including native metadata support.
- *
- * INSTRUCTIONS:
- * 1. Ensure you have a Solana wallet with SOL for transaction fees (at least 0.01 SOL)
- * 2. Provide at minimum a token name and symbol
- * 3. Run the script with: yarn svm:token:create
- *
- * ALL arguments are optional with defaults:
- * --name            : Token name (max 32 characters, default: "AEM")
- * --symbol          : Token symbol (max 10 characters, default: "CCIP-AEM")
- * --uri             : Metadata URI (uses sample URI if not provided)
- * --decimals        : Number of decimal places (0-9, default: 9)
- * --initial-supply  : Initial token supply to mint (default: 1,000,000)
- * --fee-basis-points: Seller fee basis points (0-10000, default: 0)
- * --keypair         : Path to your keypair file
- * --log-level       : Logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
- * --skip-preflight  : Skip transaction preflight checks
- *
- * Example usage:
- * # Minimal (uses all defaults)
- * yarn svm:token:create
- *
- * # With custom name and symbol
- * yarn svm:token:create --name "My Token" --symbol "MTK"
- *
- * # With all custom settings
- * yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --decimals 6 --initial-supply 5000000
- *
- * Example metadata JSON structure (should be hosted at your URI):
- * {
- *   "name": "My Token",
- *   "symbol": "MTK",
- *   "description": "A sample SPL Token-2022",
- *   "image": "https://example.com/image.png",
- *   "external_url": "https://example.com",
- *   "attributes": [
- *     {
- *       "trait_type": "Type",
- *       "value": "Utility"
- *     }
- *   ]
- * }
  */
 
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -55,12 +14,7 @@ import {
   LogLevel,
   createLogger,
 } from "../../../ccip-lib/svm";
-import {
-  loadKeypair,
-  parseTokenArgs,
-  printUsage,
-  getKeypairPath,
-} from "../utils";
+import { loadKeypair, getKeypairPath } from "../utils";
 import {
   ChainId,
   getCCIPSVMConfig,
@@ -68,291 +22,223 @@ import {
   getExplorerUrl,
   getExplorerAddressUrl,
 } from "../../config";
+import { CCIPCommand, ArgumentDefinition, CommandMetadata, BaseCommandOptions } from "../utils/cli-framework";
 
-// Configuration will be resolved from options at runtime
-
-// =================================================================
-// TOKEN CREATION CONFIGURATION
-// Default parameters for token creation
-// =================================================================
+/**
+ * Configuration for token creation operations
+ */
 const TOKEN_CREATION_CONFIG = {
-  // Default values
   defaultName: "AEM",
   defaultSymbol: "CCIP-AEM",
   defaultDecimals: 9,
   defaultSellerFeeBasisPoints: 0,
-  defaultInitialSupply: "1000000000000", // Default initial supply (10^12 tokens)
+  defaultInitialSupply: "1000000000000",
   defaultLogLevel: LogLevel.INFO,
-
-  // Requirements
-  minSolRequired: 0.01, // Minimum SOL needed for transaction fees
-
-  // Default metadata URI (users should override this)
-  // This serves as a placeholder that forces users to be intentional about their metadata
-  defaultMetadataUri:
-    "https://cyan-pleasant-anteater-613.mypinata.cloud/ipfs/bafkreieirlwjqbtzniqsgcjebzexlcspcmvd4woh3ajvf2p4fuivkenw6i",
+  minSolRequired: 0.01,
+  defaultMetadataUri: "https://cyan-pleasant-anteater-613.mypinata.cloud/ipfs/bafkreieirlwjqbtzniqsgcjebzexlcspcmvd4woh3ajvf2p4fuivkenw6i",
 };
 
 /**
- * Extended options for token creation operations
+ * Options specific to the create-token-2022 command
  */
-interface CreateTokenOptions extends ReturnType<typeof parseTokenArgs> {
+interface CreateToken2022Options extends BaseCommandOptions {
   name?: string;
   symbol?: string;
   uri?: string;
   decimals?: number;
   initialSupply?: string;
   feeBasisPoints?: number;
-
-  logLevel?: LogLevel;
 }
 
 /**
- * Parse command line arguments for token creation
+ * SPL Token-2022 Creation Command
  */
-function parseCreateTokenArgs(): CreateTokenOptions {
-  const tokenOptions = parseTokenArgs();
-  const args = process.argv.slice(2);
-  const options: CreateTokenOptions = {
-    ...tokenOptions,
-  };
+class CreateToken2022Command extends CCIPCommand<CreateToken2022Options> {
+  constructor() {
+    const metadata: CommandMetadata = {
+      name: "create-token-2022",
+      description: "🪙 SPL Token-2022 Creator with Metadata\n\nCreates a new SPL Token-2022 token with Metaplex metadata support. Token-2022 provides enhanced functionality including native metadata support.",
+      examples: [
+        "# Minimal token creation (uses all defaults)",
+        "yarn svm:token:create",
+        "",
+        "# Token with custom name and symbol",
+        "yarn svm:token:create --name \"My Token\" --symbol \"MTK\"",
+        "",
+        "# Token with custom metadata and supply",
+        "yarn svm:token:create --name \"My Token\" --symbol \"MTK\" --uri \"https://example.com/metadata.json\" --initial-supply 5000000",
+        "",
+        "# Token with all custom parameters",
+        "yarn svm:token:create --name \"My Token\" --symbol \"MTK\" --decimals 6 --initial-supply 1000000 --fee-basis-points 250"
+      ],
+      notes: [
+        `Default name: "${TOKEN_CREATION_CONFIG.defaultName}", symbol: "${TOKEN_CREATION_CONFIG.defaultSymbol}"`,
+        `Default decimals: ${TOKEN_CREATION_CONFIG.defaultDecimals}, initial supply: ${TOKEN_CREATION_CONFIG.defaultInitialSupply}`,
+        "Uses sample metadata URI by default - override with --uri for production",
+        "Token name max 32 characters, symbol max 10 characters",
+        "Decimals range: 0-9, fee basis points range: 0-10000",
+        "Minimum 0.01 SOL required for transaction fees",
+        "Creates both mint account and initial token supply"
+      ]
+    };
+    
+    super(metadata);
+  }
 
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--name":
-        if (i + 1 < args.length) {
-          options.name = args[i + 1];
-          i++;
-        }
-        break;
-      case "--symbol":
-        if (i + 1 < args.length) {
-          options.symbol = args[i + 1];
-          i++;
-        }
-        break;
-      case "--uri":
-        if (i + 1 < args.length) {
-          options.uri = args[i + 1];
-          i++;
-        }
-        break;
-      case "--decimals":
-        if (i + 1 < args.length) {
-          const decimals = parseInt(args[i + 1]);
-          if (!isNaN(decimals) && decimals >= 0 && decimals <= 9) {
-            options.decimals = decimals;
-          }
-          i++;
-        }
-        break;
-      case "--initial-supply":
-        if (i + 1 < args.length) {
-          options.initialSupply = args[i + 1];
-          i++;
-        }
-        break;
-      case "--fee-basis-points":
-        if (i + 1 < args.length) {
-          const points = parseInt(args[i + 1]);
-          if (!isNaN(points) && points >= 0 && points <= 10000) {
-            options.feeBasisPoints = points;
-          }
-          i++;
-        }
-        break;
+  protected defineArguments(): ArgumentDefinition[] {
+    return [
+      {
+        name: "name",
+        required: false,
+        type: "string",
+        description: `Token name (max 32 characters, default: "${TOKEN_CREATION_CONFIG.defaultName}")`,
+        example: "My Token"
+      },
+      {
+        name: "symbol",
+        required: false,
+        type: "string",
+        description: `Token symbol (max 10 characters, default: "${TOKEN_CREATION_CONFIG.defaultSymbol}")`,
+        example: "MTK"
+      },
+      {
+        name: "uri",
+        required: false,
+        type: "string",
+        description: "Metadata URI (uses sample URI if not provided - override recommended for production)",
+        example: "https://example.com/metadata.json"
+      },
+      {
+        name: "decimals",
+        required: false,
+        type: "number",
+        description: `Number of decimal places (0-9, default: ${TOKEN_CREATION_CONFIG.defaultDecimals})`,
+        example: "6"
+      },
+      {
+        name: "initial-supply",
+        required: false,
+        type: "string",
+        description: `Initial token supply to mint (default: ${TOKEN_CREATION_CONFIG.defaultInitialSupply})`,
+        example: "1000000"
+      },
+      {
+        name: "fee-basis-points",
+        required: false,
+        type: "number",
+        description: `Seller fee basis points (0-10000, default: ${TOKEN_CREATION_CONFIG.defaultSellerFeeBasisPoints})`,
+        example: "250"
+      }
+    ];
+  }
 
-      case "--log-level":
-        if (i + 1 < args.length) {
-          const level = args[i + 1].toUpperCase();
-          switch (level) {
-            case "TRACE":
-              options.logLevel = LogLevel.TRACE;
-              break;
-            case "DEBUG":
-              options.logLevel = LogLevel.DEBUG;
-              break;
-            case "INFO":
-              options.logLevel = LogLevel.INFO;
-              break;
-            case "WARN":
-              options.logLevel = LogLevel.WARN;
-              break;
-            case "ERROR":
-              options.logLevel = LogLevel.ERROR;
-              break;
-            case "SILENT":
-              options.logLevel = LogLevel.SILENT;
-              break;
-            default:
-              console.warn(`Unknown log level: ${level}, using INFO`);
-              options.logLevel = LogLevel.INFO;
-          }
-          i++;
-        }
-        break;
+  /**
+   * Validate token creation configuration
+   */
+  private validateConfig(): void {
+    const errors: string[] = [];
+
+    if (this.options.name && this.options.name.length > 32) {
+      errors.push("Token name must be 32 characters or less");
+    }
+
+    if (this.options.symbol && this.options.symbol.length > 10) {
+      errors.push("Token symbol must be 10 characters or less");
+    }
+
+    if (this.options.decimals !== undefined && 
+        (this.options.decimals < 0 || this.options.decimals > 9)) {
+      errors.push("Decimals must be between 0 and 9");
+    }
+
+    if (this.options.feeBasisPoints !== undefined && 
+        (this.options.feeBasisPoints < 0 || this.options.feeBasisPoints > 10000)) {
+      errors.push("Fee basis points must be between 0 and 10000");
+    }
+
+    if (errors.length > 0) {
+      throw new Error(
+        `Configuration validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`
+      );
     }
   }
 
-  return options;
-}
+  /**
+   * Create token configuration from command line options
+   */
+  private createTokenConfig(): Token2022Config {
+    const name = this.options.name || TOKEN_CREATION_CONFIG.defaultName;
+    const symbol = this.options.symbol || TOKEN_CREATION_CONFIG.defaultSymbol;
+    const uri = this.options.uri || TOKEN_CREATION_CONFIG.defaultMetadataUri;
+    
+    const initialSupply = this.options.initialSupply
+      ? BigInt(this.options.initialSupply)
+      : BigInt(TOKEN_CREATION_CONFIG.defaultInitialSupply);
 
-/**
- * Validate token creation configuration
- */
-function validateCreateTokenConfig(options: CreateTokenOptions): void {
-  const errors: string[] = [];
-
-  // Validate name if provided (will use default if not provided)
-  if (options.name && options.name.length > 32) {
-    errors.push("Token name must be 32 characters or less");
+    return {
+      name: name,
+      symbol: symbol,
+      uri: uri,
+      decimals: this.options.decimals ?? TOKEN_CREATION_CONFIG.defaultDecimals,
+      initialSupply: initialSupply,
+      sellerFeeBasisPoints: this.options.feeBasisPoints ?? TOKEN_CREATION_CONFIG.defaultSellerFeeBasisPoints,
+      tokenProgram: TokenProgram.TOKEN_2022,
+    };
   }
 
-  // Validate symbol if provided (will use default if not provided)
-  if (options.symbol && options.symbol.length > 10) {
-    errors.push("Token symbol must be 10 characters or less");
-  }
+  protected async execute(): Promise<void> {
+    this.logger.info("SPL Token-2022 Creator with Metadata");
+    this.logger.info("=======================================");
 
-  // Note: URI validation is now handled in createTokenConfigFromOptions
-  // where we apply the default if not provided
-  // Note: Name and symbol are now optional as we have defaults
-
-  // Validate optional fields
-  if (
-    options.decimals !== undefined &&
-    (options.decimals < 0 || options.decimals > 9)
-  ) {
-    errors.push("Decimals must be between 0 and 9");
-  }
-
-  if (
-    options.feeBasisPoints !== undefined &&
-    (options.feeBasisPoints < 0 || options.feeBasisPoints > 10000)
-  ) {
-    errors.push("Fee basis points must be between 0 and 10000");
-  }
-
-  if (errors.length > 0) {
-    throw new Error(
-      `Configuration validation failed:\n${errors
-        .map((e) => `  - ${e}`)
-        .join("\n")}`
-    );
-  }
-}
-
-/**
- * Create token configuration from command line options
- */
-function createTokenConfigFromOptions(
-  options: CreateTokenOptions
-): Token2022Config {
-  // Use provided values or fall back to defaults
-  const name = options.name || TOKEN_CREATION_CONFIG.defaultName;
-  const symbol = options.symbol || TOKEN_CREATION_CONFIG.defaultSymbol;
-  const uri = options.uri || TOKEN_CREATION_CONFIG.defaultMetadataUri;
-
-  // Use provided initial supply or fall back to default
-  const initialSupply = options.initialSupply
-    ? BigInt(options.initialSupply)
-    : BigInt(TOKEN_CREATION_CONFIG.defaultInitialSupply);
-
-  return {
-    name: name,
-    symbol: symbol,
-    uri: uri,
-    decimals: options.decimals ?? TOKEN_CREATION_CONFIG.defaultDecimals,
-    initialSupply: initialSupply,
-    sellerFeeBasisPoints:
-      options.feeBasisPoints ??
-      TOKEN_CREATION_CONFIG.defaultSellerFeeBasisPoints,
-    tokenProgram: TokenProgram.TOKEN_2022,
-  };
-}
-
-/**
- * Main token creation function
- */
-async function createTokenEntrypoint(): Promise<void> {
-  try {
-    // Parse command line arguments
-    const cmdOptions = parseCreateTokenArgs();
-
-    // Create logger with appropriate level
-    const logger = createLogger("create-token-2022", {
-      level: cmdOptions.logLevel ?? TOKEN_CREATION_CONFIG.defaultLogLevel,
-    });
-
-    // Display environment information
-    logger.info("\n==== Environment Information ====");
-    logger.info(`Solana Cluster: ${cmdOptions.network || "devnet"}`);
-
-    // Get appropriate keypair path
-    const keypairPath = getKeypairPath(cmdOptions);
-    logger.info(`Keypair Path: ${keypairPath}`);
-
-    // Load wallet keypair
+    // Resolve network configuration
+    const config = resolveNetworkConfig(this.options);
+    
+    // Load wallet
+    const keypairPath = getKeypairPath(this.options);
     const walletKeypair = loadKeypair(keypairPath);
-    logger.info(`Wallet public key: ${walletKeypair.publicKey.toString()}`);
+    
+    this.logger.info(`Network: ${config.id}`);
+    this.logger.info(`Wallet: ${walletKeypair.publicKey.toString()}`);
 
-    // Resolve network configuration based on options
-    const config = resolveNetworkConfig(cmdOptions);
-
-    // Check wallet SOL balance
-    logger.info("\n==== Wallet Balance Information ====");
+    // Check SOL balance
+    this.logger.info("");
+    this.logger.info("💰 WALLET BALANCE");
+    this.logger.info("=======================================");
     const balance = await config.connection.getBalance(walletKeypair.publicKey);
     const solBalanceDisplay = balance / LAMPORTS_PER_SOL;
-    logger.info(
-      `SOL Balance: ${balance} lamports (${solBalanceDisplay.toFixed(9)} SOL)`
-    );
+    this.logger.info(`SOL Balance: ${balance} lamports (${solBalanceDisplay.toFixed(9)} SOL)`);
 
     if (solBalanceDisplay < TOKEN_CREATION_CONFIG.minSolRequired) {
       throw new Error(
         `Insufficient SOL balance. Need at least ${TOKEN_CREATION_CONFIG.minSolRequired} SOL for transaction fees. ` +
-          `Current balance: ${solBalanceDisplay.toFixed(9)} SOL`
+        `Current balance: ${solBalanceDisplay.toFixed(9)} SOL`
       );
     }
 
     // Validate configuration
-    validateCreateTokenConfig(cmdOptions);
+    this.validateConfig();
 
     // Create token configuration
-    const tokenConfig = createTokenConfigFromOptions(cmdOptions);
+    const tokenConfig = this.createTokenConfig();
 
-    logger.info("\n==== Token Configuration ====");
-    logger.info(
-      `Name: ${tokenConfig.name}${!cmdOptions.name ? " (default)" : ""}`
-    );
-    logger.info(
-      `Symbol: ${tokenConfig.symbol}${!cmdOptions.symbol ? " (default)" : ""}`
-    );
-    logger.info(
-      `Decimals: ${tokenConfig.decimals}${
-        cmdOptions.decimals === undefined ? " (default)" : ""
-      }`
-    );
-    logger.info(
-      `URI: ${tokenConfig.uri}${!cmdOptions.uri ? " (default)" : ""}`
-    );
-    logger.info(
-      `Initial Supply: ${tokenConfig.initialSupply?.toString() || "0"}${
-        !cmdOptions.initialSupply ? " (default)" : ""
-      }`
-    );
-    logger.info(
-      `Seller Fee Basis Points: ${tokenConfig.sellerFeeBasisPoints || 0}${
-        cmdOptions.feeBasisPoints === undefined ? " (default)" : ""
-      }`
-    );
+    this.logger.info("");
+    this.logger.info("⚙️  TOKEN CONFIGURATION");
+    this.logger.info("=======================================");
+    this.logger.info(`Name: ${tokenConfig.name}${!this.options.name ? " (default)" : ""}`);
+    this.logger.info(`Symbol: ${tokenConfig.symbol}${!this.options.symbol ? " (default)" : ""}`);
+    this.logger.info(`Decimals: ${tokenConfig.decimals}${this.options.decimals === undefined ? " (default)" : ""}`);
+    this.logger.info(`URI: ${tokenConfig.uri}${!this.options.uri ? " (default)" : ""}`);
+    this.logger.info(`Initial Supply: ${tokenConfig.initialSupply?.toString() || "0"}${!this.options.initialSupply ? " (default)" : ""}`);
+    this.logger.info(`Seller Fee Basis Points: ${tokenConfig.sellerFeeBasisPoints || 0}${this.options.feeBasisPoints === undefined ? " (default)" : ""}`);
 
     // Warn if using defaults
-    if (!cmdOptions.name || !cmdOptions.symbol) {
-      logger.warn(
+    if (!this.options.name || !this.options.symbol) {
+      this.logger.warn(
         "\n⚠️  Using default token name/symbol. Consider providing your own with --name and --symbol for production tokens."
       );
     }
-    if (!cmdOptions.uri) {
-      logger.warn(
+    if (!this.options.uri) {
+      this.logger.warn(
         "\n⚠️  Using default metadata URI. Consider providing your own with --uri for production tokens."
       );
     }
@@ -361,117 +247,50 @@ async function createTokenEntrypoint(): Promise<void> {
     const tokenUtils = new TokenCreationUtils(
       config.connection,
       walletKeypair,
-      cmdOptions.logLevel ?? TOKEN_CREATION_CONFIG.defaultLogLevel
+      this.options.logLevel ?? TOKEN_CREATION_CONFIG.defaultLogLevel
     );
 
     // Create the token
-    logger.info("\n==== Creating Token ====");
+    this.logger.info("");
+    this.logger.info("🏭 CREATING TOKEN");
+    this.logger.info("=======================================");
     const result = await tokenUtils.createTokenWithMetadata(tokenConfig, {
-      skipPreflight: cmdOptions.skipPreflight,
+      skipPreflight: this.options.skipPreflight,
       commitment: "finalized",
     });
 
     // Display results
-    logger.info("\n==== Token Created Successfully ====");
-    logger.info(`Mint Address: ${result.mint.toString()}`);
-    logger.info(`Transaction Signature: ${result.signature}`);
+    this.logger.info("");
+    this.logger.info("✅ TOKEN CREATED SUCCESSFULLY");
+    this.logger.info("=======================================");
+    this.logger.info(`Mint Address: ${result.mint.toString()}`);
+    this.logger.info(`Transaction Signature: ${result.signature}`);
     if (result.tokenAccount) {
-      logger.info(`Token Account: ${result.tokenAccount.toString()}`);
+      this.logger.info(`Token Account: ${result.tokenAccount.toString()}`);
     }
 
     // Display explorer URLs
-    logger.info("\n==== Explorer URLs ====");
-    logger.info(
-      `Mint: ${getExplorerAddressUrl(config.id, result.mint.toString())}`
-    );
-    logger.info(`Transaction: ${getExplorerUrl(config.id, result.signature)}`);
+    this.logger.info("");
+    this.logger.info("🔍 EXPLORER URLS");
+    this.logger.info("=======================================");
+    this.logger.info(`Mint: ${getExplorerAddressUrl(config.id, result.mint.toString())}`);
+    this.logger.info(`Transaction: ${getExplorerUrl(config.id, result.signature)}`);
     if (result.tokenAccount) {
-      logger.info(
-        `Token Account: ${getExplorerAddressUrl(
-          config.id,
-          result.tokenAccount.toString()
-        )}`
+      this.logger.info(
+        `Token Account: ${getExplorerAddressUrl(config.id, result.tokenAccount.toString())}`
       );
     }
 
-    logger.info("\n🎉 Token creation completed successfully!");
-    logger.info("\n💡 You can now use this mint address for token operations:");
-    logger.info(`   Mint Address: ${result.mint.toString()}`);
-  } catch (error) {
-    console.error(
-      `❌ Failed to create token:`,
-      error instanceof Error ? error.message : String(error)
-    );
-
-    if (error instanceof Error && error.stack) {
-      console.debug("Error stack:");
-      console.debug(error.stack);
-    }
-
-    printUsage("svm:token:create");
-    process.exit(1);
+    this.logger.info("");
+    this.logger.info("🎉 Token creation completed successfully!");
+    this.logger.info("");
+    this.logger.info("💡 You can now use this mint address for token operations:");
+    this.logger.info(`   Mint Address: ${result.mint.toString()}`);
   }
 }
 
-/**
- * Print usage information
- */
-function printCreateTokenUsage(): void {
-  console.log(`
-🪙 SPL Token-2022 Creator with Metadata
-
-Usage: yarn svm:token:create [options]
-
-Options:
-  --name <string>              Token name (max 32 characters, default: "${TOKEN_CREATION_CONFIG.defaultName}")
-  --symbol <string>            Token symbol (max 10 characters, default: "${TOKEN_CREATION_CONFIG.defaultSymbol}")
-  --uri <string>               Metadata URI (default: sample URI - override recommended)
-  --decimals <number>          Number of decimal places (0-9, default: ${TOKEN_CREATION_CONFIG.defaultDecimals})
-  --initial-supply <number>    Initial token supply to mint (default: ${TOKEN_CREATION_CONFIG.defaultInitialSupply})
-  --fee-basis-points <number>  Seller fee basis points (0-10000, default: ${TOKEN_CREATION_CONFIG.defaultSellerFeeBasisPoints})
-
-  --keypair <path>             Path to wallet keypair file
-  --log-level <level>          Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
-  --skip-preflight             Skip transaction preflight checks
-  --help, -h                   Show this help message
-
-Examples:
-  # Minimal token creation (uses all defaults)
-  yarn svm:token:create
-
-  # Token with custom name and symbol
-  yarn svm:token:create --name "My Token" --symbol "MTK"
-
-  # Token with custom metadata and supply
-  yarn svm:token:create --name "My Token" --symbol "MTK" --uri "https://example.com/metadata.json" --initial-supply 5000000
-
-Metadata JSON Example:
-{
-  "name": "My Token",
-  "symbol": "MTK",
-  "description": "A sample SPL Token-2022",
-  "image": "https://example.com/image.png",
-  "external_url": "https://example.com",
-  "attributes": [
-    {
-      "trait_type": "Type",
-      "value": "Utility"
-    }
-  ]
-}
-  `);
-}
-
-// Check if help is requested
-if (process.argv.includes("--help") || process.argv.includes("-h")) {
-  printCreateTokenUsage();
-  process.exit(0);
-}
-
-// Run the script if it's executed directly
-if (require.main === module) {
-  createTokenEntrypoint().catch((error) => {
-    console.error("Unhandled error:", error);
-    process.exit(1);
-  });
-}
+// Create and run the command
+const command = new CreateToken2022Command();
+command.run().catch((error) => {
+  process.exit(1);
+});

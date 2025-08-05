@@ -95,6 +95,7 @@ export interface CreateTokenPoolLookupTableOptions
   tokenMint: PublicKey;
   poolProgramId: PublicKey;
   feeQuoterProgramId: PublicKey;
+  additionalAddresses?: PublicKey[];
   // tokenProgramId is now auto-detected, removed from interface
 }
 
@@ -935,7 +936,7 @@ export class TokenRegistryClient {
       );
 
       // Build the addresses array for the lookup table
-      const addresses = [
+      const baseAddresses = [
         lookupTableAddress, // Index 0: The lookup table itself
         tokenAdminRegistryPDA, // Index 1: Token admin registry
         options.poolProgramId, // Index 2: Pool program
@@ -948,9 +949,16 @@ export class TokenRegistryClient {
         ccipRouterPoolSignerPDA, // Index 9: CCIP router pool signer
       ];
 
-      this.logger.debug(`ALT will contain ${addresses.length} addresses:`);
+      // Append additional addresses if provided
+      const addresses = options.additionalAddresses 
+        ? [...baseAddresses, ...options.additionalAddresses]
+        : baseAddresses;
+
+      this.logger.debug(`ALT will contain ${addresses.length} addresses (${baseAddresses.length} base + ${options.additionalAddresses?.length || 0} additional):`);
       addresses.forEach((addr, index) => {
-        this.logger.trace(`  [${index}]: ${addr.toString()}`);
+        const isAdditional = index >= baseAddresses.length;
+        const description = isAdditional ? "additional" : "base";
+        this.logger.trace(`  [${index}]: ${addr.toString()} (${description})`);
       });
 
       // Step 2: Extend the lookup table with addresses

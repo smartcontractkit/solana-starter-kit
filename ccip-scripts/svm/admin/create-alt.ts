@@ -29,6 +29,7 @@ const ALT_CREATION_CONFIG = {
 interface CreateAltOptions extends BaseCommandOptions {
   tokenMint: string;
   poolProgram: string;
+  additionalAddresses?: string;
 }
 
 /**
@@ -67,9 +68,13 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
         "Fee quoter program ID is automatically loaded from CCIP configuration",
         "Router program ID is automatically loaded from CCIP configuration",
         `The created ALT contains all ${ALT_CREATION_CONFIG.altAddressCount} addresses needed for token pool operations`,
+        "Additional custom addresses can be specified with --additional-addresses (comma-separated)",
+        "All addresses (base + additional) are created in a single transaction",
+        "ALT capacity is limited to 256 total addresses (246 max additional after base 10)",
         "After creation, use 'yarn svm:admin:set-pool' to register the ALT",
         "Writable indices are typically [3, 4, 7] for pool_config, pool_token_account, pool_signer",
         "ALT addresses are ordered exactly as required by the CCIP router program",
+        "Additional addresses are appended after the base CCIP addresses",
         `Minimum ${ALT_CREATION_CONFIG.minSolRequired} SOL required for transaction fees`
       ]
     };
@@ -92,6 +97,13 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
         type: "string",
         description: "Pool program ID (e.g., burn-mint pool program)",
         example: "BurnMintTokenPoolProgram111111111111111111"
+      },
+      {
+        name: "additional-addresses",
+        required: false,
+        type: "string",
+        description: "Comma-separated list of additional addresses to include in the ALT",
+        example: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU,TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
       }
     ];
   }
@@ -99,7 +111,7 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
   /**
    * Validate ALT creation configuration
    */
-  private validateConfig(): void {
+  private validateConfig(): { additionalAddresses: PublicKey[] } {
     const errors: string[] = [];
 
     // Validate token mint address
@@ -116,11 +128,41 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
       errors.push("Invalid pool program address format");
     }
 
+    // Parse and validate additional addresses
+    let additionalAddresses: PublicKey[] = [];
+    if (this.options.additionalAddresses) {
+      try {
+        const addressStrings = this.options.additionalAddresses
+          .split(",")
+          .map((addr) => addr.trim())
+          .filter((addr) => addr.length > 0);
+
+        additionalAddresses = addressStrings.map((addr) => {
+          try {
+            return new PublicKey(addr);
+          } catch {
+            errors.push(`Invalid additional address format: ${addr}`);
+            throw new Error("Invalid address format");
+          }
+        });
+
+        // Check for capacity constraints (ALT max is 256, we use 10 for default addresses)
+        const maxAdditional = 256 - ALT_CREATION_CONFIG.altAddressCount;
+        if (additionalAddresses.length > maxAdditional) {
+          errors.push(`Too many additional addresses. Maximum allowed: ${maxAdditional}, provided: ${additionalAddresses.length}`);
+        }
+      } catch {
+        errors.push("Failed to parse additional addresses");
+      }
+    }
+
     if (errors.length > 0) {
       throw new Error(
         `Configuration validation failed:\\n${errors.map((e) => `  - ${e}`).join("\\n")}`
       );
     }
+
+    return { additionalAddresses };
   }
 
   protected async execute(): Promise<void> {
@@ -152,8 +194,8 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
       );
     }
 
-    // Validate configuration
-    this.validateConfig();
+    // Validate configuration and parse additional addresses
+    const { additionalAddresses } = this.validateConfig();
 
     // Parse addresses
     const tokenMint = new PublicKey(this.options.tokenMint);
@@ -169,6 +211,10 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
     this.logger.info(`Fee Quoter Program: ${feeQuoterProgramId.toString()}`);
     this.logger.info(`Router Program: ${routerProgramId.toString()}`);
     this.logger.info(`Token Program: Auto-detected from on-chain mint data`);
+    
+    if (additionalAddresses.length > 0) {
+      this.logger.info(`Additional Addresses: ${additionalAddresses.length} addresses to be added`);
+    }
 
     this.logger.debug("");
     this.logger.debug("🔍 CONFIGURATION DETAILS");
@@ -188,7 +234,7 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
       { logLevel: this.options.logLevel }
     );
 
-    // Create the ALT
+    // Create the ALT with all addresses in one transaction
     this.logger.info("");
     this.logger.info("🏗️  CREATING ADDRESS LOOKUP TABLE");
     this.logger.info("===================================================");
@@ -196,6 +242,7 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
       tokenMint,
       poolProgramId,
       feeQuoterProgramId,
+      additionalAddresses: additionalAddresses.length > 0 ? additionalAddresses : undefined,
     });
 
     // Display results
@@ -204,15 +251,27 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
     this.logger.info("===================================================");
     this.logger.info(`ALT Address: ${result.lookupTableAddress.toString()}`);
     this.logger.info(`Transaction Signature: ${result.signature}`);
-    this.logger.info(`Addresses Count: ${result.addresses.length}`);
+    this.logger.info(`Total Addresses Count: ${result.addresses.length}`);
+    if (additionalAddresses.length > 0) {
+      this.logger.info(`Base CCIP Addresses: ${ALT_CREATION_CONFIG.altAddressCount}`);
+      this.logger.info(`Additional Custom Addresses: ${additionalAddresses.length}`);
+    }
 
     // Log ALT contents for verification
     this.logger.info("");
     this.logger.info("📋 ALT CONTENTS");
     this.logger.info("===================================================");
+    
     result.addresses.forEach((addr, index) => {
-      const description = ALT_ADDRESS_DESCRIPTIONS[index] || "Additional account";
-      this.logger.info(`[${index}]: ${addr.toString()} (${description})`);
+      if (index < ALT_CREATION_CONFIG.altAddressCount) {
+        // Base CCIP address
+        const description = ALT_ADDRESS_DESCRIPTIONS[index] || "Base CCIP account";
+        this.logger.info(`[${index}]: ${addr.toString()} (${description})`);
+      } else {
+        // Additional custom address
+        const customIndex = index - ALT_CREATION_CONFIG.altAddressCount + 1;
+        this.logger.info(`[${index}]: ${addr.toString()} (Custom address ${customIndex})`);
+      }
     });
 
     // Display explorer URL
@@ -224,7 +283,11 @@ class CreateAltCommand extends CCIPCommand<CreateAltOptions> {
     this.logger.info("");
     this.logger.info("🎉 ALT Creation Complete!");
     this.logger.info(`✅ Address Lookup Table: ${result.lookupTableAddress.toString()}`);
-    this.logger.info(`✅ Contains all ${result.addresses.length} required addresses for token pool operations`);
+    this.logger.info(`✅ Contains ${ALT_CREATION_CONFIG.altAddressCount} base CCIP addresses`);
+    if (additionalAddresses.length > 0) {
+      this.logger.info(`✅ Plus ${additionalAddresses.length} additional custom addresses`);
+    }
+    this.logger.info(`✅ Total addresses: ${result.addresses.length}`);
     this.logger.info(`✅ Ready to be registered with setPool`);
 
     this.logger.info("");

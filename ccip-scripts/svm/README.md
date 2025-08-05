@@ -930,6 +930,12 @@ yarn svm:admin:create-alt \
   --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
   --pool-program BurnMintTokenPoolProgram111111111111111111
 
+# Create ALT with additional custom addresses
+yarn svm:admin:create-alt \
+  --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
+  --pool-program BurnMintTokenPoolProgram111111111111111111 \
+  --additional-addresses "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA,11111111111111111111111111111112"
+
 # With debug logging for troubleshooting
 yarn svm:admin:create-alt \
   --token-mint 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
@@ -944,6 +950,7 @@ yarn svm:admin:create-alt \
 
 ##### Optional Options
 
+- `--additional-addresses <addresses>`: Comma-separated list of additional addresses to include in the ALT
 - `--keypair <path>`: Path to wallet keypair file
 - `--log-level <level>`: Log level (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
 - `--skip-preflight`: Skip transaction preflight checks
@@ -955,15 +962,17 @@ The script performs the following operations:
 1. **Validation**: Checks required arguments and wallet balance
 2. **Configuration Loading**: Loads fee quoter and router program IDs from configuration
 3. **Token Program Detection**: Automatically detects the token program from on-chain mint data
-4. **ALT Creation**: Creates and extends an Address Lookup Table with all required addresses
-5. **Address Population**: Includes all 10 addresses needed for token pool operations
-6. **Verification**: Logs all addresses with descriptions for verification
-7. **Next Steps**: Provides exact commands for registering the ALT with setPool
+4. **ALT Creation**: Creates an Address Lookup Table with all required addresses in a single transaction
+5. **Address Population**: Includes all 10 base addresses needed for token pool operations
+6. **Additional Addresses**: Optionally includes custom addresses specified via --additional-addresses
+7. **Verification**: Logs all addresses with descriptions for verification
+8. **Next Steps**: Provides exact commands for registering the ALT with setPool
 
 ##### ALT Address Contents
 
 The created ALT contains the following addresses in the exact order required by the CCIP router program:
 
+**Base CCIP Addresses (always included):**
 - **Index 0**: Lookup table itself
 - **Index 1**: Token admin registry PDA
 - **Index 2**: Pool program ID
@@ -974,6 +983,11 @@ The created ALT contains the following addresses in the exact order required by 
 - **Index 7**: Token mint
 - **Index 8**: Fee billing token config PDA
 - **Index 9**: CCIP router pool signer PDA
+
+**Additional Custom Addresses (optional):**
+- **Index 10+**: Custom addresses specified via --additional-addresses (appended in order)
+
+The ALT can contain up to 256 total addresses, allowing for up to 246 additional custom addresses after the 10 base CCIP addresses.
 
 ##### Example Output
 
@@ -995,7 +1009,7 @@ ALT Address: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T
 Transaction signature: 3pVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KRbu5F7173tediMcrLHUKmwu6Ust3NvnAujPTvkSk
 Solana Explorer: https://explorer.solana.com/tx/3pVb8ifuASvwB3ziqGhYtNrtoYkcqmwJVQQygaAcAP9bY94KRbu5F7173tediMcrLHUKmwu6Ust3NvnAujPTvkSk?cluster=devnet
 
-ALT contains 10 addresses:
+ALT contains 12 addresses:
   [0]: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T (Lookup table itself)
   [1]: BUGuuhPsHpk8YZrL2GctsCtXGneL1gmT5zYb7eMHZDWf (Token admin registry)
   [2]: BurnMintTokenPoolProgram111111111111111111 (Pool program)
@@ -1006,10 +1020,14 @@ ALT contains 10 addresses:
   [7]: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU (Token mint)
   [8]: FqConfigAddress1111111111111111111111111111 (Fee token config)
   [9]: RouterPoolSignerAddress11111111111111111111 (CCIP router pool signer)
+  [10]: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (Custom address 1)
+  [11]: 11111111111111111111111111111112 (Custom address 2)
 
 🎉 ALT Creation Complete!
    ✅ Address Lookup Table: 8YHhQnHe4fPvKimt3R4KrvaV9K4d4t1f3KjG2J3RzP8T
-   ✅ Contains all 10 required addresses for token pool operations
+   ✅ Contains 10 base CCIP addresses for token pool operations
+   ✅ Plus 2 additional custom addresses
+   ✅ Total addresses: 12
    ✅ Ready to be registered with setPool
 
 📋 Next Steps:
@@ -1030,17 +1048,21 @@ ALT contains 10 addresses:
 
 **Important Technical Notes:**
 
+- ⚠️ **Single Transaction**: All addresses (base + additional) are created in one atomic transaction
 - ⚠️ **Address Order**: ALT addresses are in the exact order required by the CCIP router program
 - ⚠️ **Configuration Driven**: Fee quoter and router program IDs are loaded from configuration
 - ⚠️ **Token Program**: Automatically detected from on-chain mint data (no manual specification needed)
 - ⚠️ **Writable Indices**: Typically [3, 4, 7] for burn-mint tokens (pool_config, pool_token_account, token_mint)
-- ⚠️ **Address Count**: Always contains exactly 10 addresses as required by the protocol
+- ⚠️ **Address Count**: Always contains exactly 10 base addresses + optional additional addresses
+- ⚠️ **Capacity Limits**: Maximum 256 total addresses (246 additional after base 10)
 
 **Use Cases:**
 
 - Prepare for token pool registration after becoming administrator
 - Create infrastructure needed for CCIP cross-chain operations
 - Set up efficient transaction processing for token transfers
+- Include additional custom addresses (like multisig addresses) without needing separate extension operations
+- Create comprehensive ALTs for complex applications in a single transaction
 
 **After Creating ALT:**
 

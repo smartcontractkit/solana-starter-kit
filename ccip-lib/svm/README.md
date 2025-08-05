@@ -619,6 +619,9 @@ yarn svm:admin:accept-admin-role --token-mint <TOKEN_MINT>
 # Step 3: Create ALT (anyone can pay for creation)
 yarn svm:admin:create-alt --token-mint <TOKEN_MINT> --pool-program <POOL_PROGRAM>
 
+# Step 3a: Create ALT with additional custom addresses (optional)
+yarn svm:admin:create-alt --token-mint <TOKEN_MINT> --pool-program <POOL_PROGRAM> --additional-addresses <ADDRESS1,ADDRESS2>
+
 # Step 4: Set pool (as administrator)
 yarn svm:admin:set-pool --token-mint <TOKEN_MINT> --lookup-table <ALT_ADDRESS> --writable-indices 3,4,7
 

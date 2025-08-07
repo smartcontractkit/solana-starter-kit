@@ -30,6 +30,8 @@
     "svm:pool:set-rate-limit": "ts-node ./ccip-scripts/svm/pool/set-rate-limit.ts",
     "svm:pool:configure-allowlist": "ts-node ./ccip-scripts/svm/pool/configure-allowlist.ts",
     "svm:pool:transfer-mint-authority-to-multisig": "ts-node ./ccip-scripts/svm/pool/transfer-mint-authority-to-multisig.ts",
+    "svm:pool:transfer-ownership": "ts-node ./ccip-scripts/svm/pool/transfer-ownership.ts",
+    "svm:pool:accept-ownership": "ts-node ./ccip-scripts/svm/pool/accept-ownership.ts",
     "svm:admin:propose-administrator": "ts-node ./ccip-scripts/svm/admin/propose-administrator.ts",
     "svm:admin:accept-admin-role": "ts-node ./ccip-scripts/svm/admin/accept-admin-role.ts",
     "svm:admin:create-alt": "ts-node ./ccip-scripts/svm/admin/create-alt.ts",

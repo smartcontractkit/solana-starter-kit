@@ -390,8 +390,80 @@ await pool.setRateLimit(
   new BN(100000000) // Rate: 0.1 tokens per second
 );
 
-// Transfer admin role for a token pool
-await pool.transferAdminRole(tokenMint, newAdminPublicKey);
+// Transfer admin role for a token pool (two-step process)
+// Step 1: Current owner proposes new admin
+await pool.transferAdminRole(tokenMint, { newAdmin: newAdminPublicKey });
+
+// Step 2: Proposed admin accepts the role (must be signed by newAdminPublicKey)
+await pool.acceptAdminRole(tokenMint);
+```
+
+### Pool Ownership Management
+
+Token pools use a two-step ownership transfer process for security. This ensures that ownership can only be transferred to a valid recipient who explicitly accepts the role.
+
+#### Transfer Pool Ownership
+
+```typescript
+import { 
+  TokenPoolManager, 
+  TokenPoolType,
+  TransferAdminRoleOptions,
+  AcceptAdminRoleOptions 
+} from "../path/to/ccip-lib/svm";
+
+// Create token pool manager
+const poolManager = TokenPoolManager.create(
+  connection,
+  currentOwnerKeypair,
+  { burnMint: burnMintPoolProgramId },
+  config
+);
+
+// Get the pool client
+const pool = poolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+// Step 1: Current owner proposes new administrator
+await pool.transferAdminRole(tokenMint, {
+  newAdmin: newOwnerPublicKey,
+  skipPreflight: false, // Optional transaction settings
+});
+```
+
+#### Accept Pool Ownership
+
+```typescript
+// The proposed new owner must sign this transaction
+const newOwnerPoolManager = TokenPoolManager.create(
+  connection,
+  newOwnerKeypair, // Must be the proposed owner
+  { burnMint: burnMintPoolProgramId },
+  config
+);
+
+const newOwnerPool = newOwnerPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
+
+// Step 2: Proposed owner accepts the admin role
+await newOwnerPool.acceptAdminRole(tokenMint, {
+  skipPreflight: false, // Optional transaction settings
+});
+```
+
+#### Pool Ownership Best Practices
+
+- **Two-Step Process**: Always use the two-step transfer process - never skip the acceptance step
+- **Verify Recipients**: Ensure the new owner address is correct before proposing transfer
+- **Test First**: Test the ownership transfer process on devnet before mainnet
+- **Secure Keys**: The new owner must have secure access to their keypair to accept ownership
+- **Monitor State**: Check pool configuration to verify ownership transfer completed successfully
+
+#### Checking Current Pool Owner
+
+```typescript
+// Get pool information to check current owner
+const poolInfo = await pool.getPoolInfo(tokenMint);
+console.log(`Current owner: ${poolInfo.config.config.owner.toString()}`);
+console.log(`Proposed owner: ${poolInfo.config.config.proposedOwner?.toString() || 'none'}`);
 ```
 
 ### Token Pool Factory

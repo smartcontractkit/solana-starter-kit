@@ -110,6 +110,24 @@ class GetChainConfigCommand extends CCIPCommand<GetChainConfigOptions> {
   }
 
   /**
+   * Format token amount for display
+   */
+  private formatTokenAmount(amount: bigint, decimals: number = 18): string {
+    if (amount === BigInt(0)) return "0";
+    
+    const divisor = BigInt(10 ** decimals);
+    const whole = amount / divisor;
+    const remainder = amount % divisor;
+    
+    if (remainder === BigInt(0)) {
+      return whole.toString();
+    }
+    
+    const fractional = remainder.toString().padStart(decimals, '0').replace(/0+$/, '');
+    return `${whole}.${fractional}`;
+  }
+
+  /**
    * Display chain configuration details
    */
   private displayChainConfig(chainConfig: any): void {
@@ -139,9 +157,9 @@ class GetChainConfigCommand extends CCIPCommand<GetChainConfigOptions> {
     this.logger.info("⬇️  INBOUND RATE LIMIT");
     this.logger.info("------------------------------------------");
     this.logger.info(`Enabled: ${chainConfig.base.inboundRateLimit.isEnabled}`);
-    this.logger.info(`Capacity: ${chainConfig.base.inboundRateLimit.capacity.toString()}`);
-    this.logger.info(`Rate: ${chainConfig.base.inboundRateLimit.rate.toString()} tokens/second`);
-    this.logger.info(`Current Bucket Value: ${chainConfig.base.inboundRateLimit.currentBucketValue.toString()}`);
+    this.logger.info(`Capacity: ${chainConfig.base.inboundRateLimit.capacity.toString()} (${this.formatTokenAmount(BigInt(chainConfig.base.inboundRateLimit.capacity), chainConfig.base.decimals)} tokens)`);
+    this.logger.info(`Rate: ${chainConfig.base.inboundRateLimit.rate.toString()} (${this.formatTokenAmount(BigInt(chainConfig.base.inboundRateLimit.rate), chainConfig.base.decimals)} tokens/second)`);
+    this.logger.info(`Current Bucket Value: ${chainConfig.base.inboundRateLimit.currentBucketValue.toString()} (${this.formatTokenAmount(BigInt(chainConfig.base.inboundRateLimit.currentBucketValue), chainConfig.base.decimals)} tokens)`);
     this.logger.info(`Last Updated: ${new Date(
       Number(chainConfig.base.inboundRateLimit.lastTxTimestamp) * 1000
     ).toISOString()}`);
@@ -150,9 +168,9 @@ class GetChainConfigCommand extends CCIPCommand<GetChainConfigOptions> {
     this.logger.info("⬆️  OUTBOUND RATE LIMIT");
     this.logger.info("------------------------------------------");
     this.logger.info(`Enabled: ${chainConfig.base.outboundRateLimit.isEnabled}`);
-    this.logger.info(`Capacity: ${chainConfig.base.outboundRateLimit.capacity.toString()}`);
-    this.logger.info(`Rate: ${chainConfig.base.outboundRateLimit.rate.toString()} tokens/second`);
-    this.logger.info(`Current Bucket Value: ${chainConfig.base.outboundRateLimit.currentBucketValue.toString()}`);
+    this.logger.info(`Capacity: ${chainConfig.base.outboundRateLimit.capacity.toString()} (${this.formatTokenAmount(BigInt(chainConfig.base.outboundRateLimit.capacity), chainConfig.base.decimals)} tokens)`);
+    this.logger.info(`Rate: ${chainConfig.base.outboundRateLimit.rate.toString()} (${this.formatTokenAmount(BigInt(chainConfig.base.outboundRateLimit.rate), chainConfig.base.decimals)} tokens/second)`);
+    this.logger.info(`Current Bucket Value: ${chainConfig.base.outboundRateLimit.currentBucketValue.toString()} (${this.formatTokenAmount(BigInt(chainConfig.base.outboundRateLimit.currentBucketValue), chainConfig.base.decimals)} tokens)`);
     this.logger.info(`Last Updated: ${new Date(
       Number(chainConfig.base.outboundRateLimit.lastTxTimestamp) * 1000
     ).toISOString()}`);

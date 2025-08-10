@@ -1895,14 +1895,10 @@ export class BurnMintTokenPoolClient implements TokenPoolClient {
         `Chain config PDA derivation: seeds=[${TOKEN_POOL_CHAIN_CONFIG_SEED}, ${options.remoteChainSelector.toString()}, ${mint.toString()}], program=${this.getProgramId().toString()}`
       );
 
-      // Convert hex string addresses to RemoteAddress objects
+      // Convert hex string addresses to RemoteAddress objects (raw bytes, no enforced length)
       const remoteAddresses = options.addresses.map((addr) => {
-        const buffer = Buffer.from(addr, "hex");
-        if (buffer.length !== 32) {
-          throw new Error(
-            `Pool address must be 32 bytes, got ${buffer.length} bytes for ${addr}`
-          );
-        }
+        const clean = addr.startsWith("0x") ? addr.slice(2) : addr;
+        const buffer = Buffer.from(clean, "hex");
         return new RemoteAddress({ address: buffer });
       });
       this.logger.debug(

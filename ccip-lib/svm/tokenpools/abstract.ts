@@ -277,7 +277,7 @@ export interface SetRouterOptions extends TxOptions {
 export interface AppendRemotePoolAddressesOptions extends TxOptions {
   /** The unique identifier (bigint) of the remote blockchain network */
   remoteChainSelector: bigint;
-  /** An array of remote pool addresses (as 32-byte hex strings) to add */
+  /** An array of remote pool addresses (0x-hex), stored as raw bytes */
   addresses: string[];
 }
 

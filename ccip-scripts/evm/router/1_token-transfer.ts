@@ -168,8 +168,16 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
       } else if (this.options.token && this.options.amount) {
         // Use single token from CLI arguments
         tokenAmounts = [{ token: this.options.token, amount: this.options.amount }];
+      } else if (this.options.amount && !this.options.token) {
+        // Use default BnM token with custom amount
+        const sourceChainConfig = getEVMConfig(sourceChain);
+        tokenAmounts = [{ 
+          token: sourceChainConfig.bnmTokenAddress, 
+          amount: this.options.amount 
+        }];
+        this.logger.info("Using default BnM token with custom amount");
       } else {
-        // Use default BnM token
+        // Use default BnM token with default amount
         tokenAmounts = this.getDefaultTokenAmounts();
         this.logger.info("Using default BnM token transfer");
       }

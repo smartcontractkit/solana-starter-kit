@@ -1,6 +1,6 @@
 [package]
 name = "chainlink-solana-demo"
-version = "0.1.0"
+version = "0.2.0"
 description = "Created with Anchor"
 edition = "2018"
 
@@ -18,4 +18,4 @@ idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang = "0.31.1"
-chainlink_solana = { git = "https://github.com/smartcontractkit/chainlink-solana", branch = "solana-2.1" }
+chainlink_solana = "2.0.0"

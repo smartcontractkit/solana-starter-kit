@@ -437,18 +437,18 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.23.1"
+version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c76a5792e44e4abe34d3abf15636779261d45a7450612059293d1d2cfc63422"
+checksum = "1fbdf580320f38b612e485521afda1ee26d10cc9884efaaa750d383e13e3c5f4"
 dependencies = [
  "bytemuck_derive",
 ]
 
 [[package]]
 name = "bytemuck_derive"
-version = "1.9.3"
+version = "1.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ecc273b49b3205b83d648f0690daa588925572cc5063745bfe547fe7ec8e1a1"
+checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -502,7 +502,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chainlink-solana-demo"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-lang",
  "chainlink_solana",
@@ -510,11 +510,12 @@ dependencies = [
 
 [[package]]
 name = "chainlink_solana"
-version = "1.0.0"
-source = "git+https://github.com/smartcontractkit/chainlink-solana?branch=solana-2.1#edeaa2d8d1c4c53775ec16f40095184f60647f4a"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5339e3001af6404c50dbe1eba4f8b452917435e0f0276ea2a26bc201f80bd2e0"
 dependencies = [
  "borsh 0.10.4",
- "borsh-derive 0.10.4",
+ "bytemuck",
  "solana-program",
 ]
 

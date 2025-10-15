@@ -245,7 +245,7 @@ pappas99@Pappas solana-starter-kit % yarn read-data
 301331000000
 ```
 
-### Testing
+### Testing Data Feeds Contracts
 
 You can execute the [integration test](./tests/chainlink-solana-demo-int-test.ts) with the following command
 
@@ -266,6 +266,14 @@ Price Is: 105.52
 
 ✨  Done in 10.49s.
 ```
+
+If you'd like to run the test after initial deployment of the contracts, you can run the tests directly via yarn. 
+
+```
+yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts
+```
+
+You will be asked to provide anchor environment variables. See `.env.example` for details. 
 
 ## Cross-Chain Interoperability Protocol (CCIP)
 

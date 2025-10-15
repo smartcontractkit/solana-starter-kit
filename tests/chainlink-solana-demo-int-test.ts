@@ -1,5 +1,9 @@
 import * as anchor from '@coral-xyz/anchor';
+import * as dotenv from 'dotenv';
 const assert = require("assert");
+
+// Load environment variables from .env file
+dotenv.config();
 
 const CHAINLINK_PROGRAM_ID = "HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny";
 // SOL/USD feed account
@@ -23,7 +27,6 @@ describe('chainlink-solana-demo', () => {
       .accounts({
         decimal: priceFeedAccount.publicKey,
         chainlinkFeed: CHAINLINK_FEED,
-        chainlinkProgram: CHAINLINK_PROGRAM_ID,
       })
       .signers([priceFeedAccount])
       .rpc()

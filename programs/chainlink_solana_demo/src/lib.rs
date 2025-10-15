@@ -7,32 +7,29 @@ declare_id!("CnrgKig7fjYfWkxNVWkNwNMziuarP1Aiu7MkJuXRWEY5");
 #[program]
 pub mod chainlink_solana_demo {
 
-    use chainlink_solana::Round;
+    use chainlink_solana::v2::read_feed_v2;
 
     use super::*;
     pub fn execute(
         ctx: Context<Execute>
     ) -> Result<()> {
-        let round: Round = chainlink::latest_round_data(
-            ctx.accounts.chainlink_program.to_account_info(),
-            ctx.accounts.chainlink_feed.to_account_info(),
-        )?;
+        let feed = &ctx.accounts.chainlink_feed;
+        let result = read_feed_v2(
+            feed.try_borrow_data()?, 
+            feed.owner.to_bytes()
+        ).map_err(|_| DemoError::ReadError)?;
 
-        let description: String = chainlink::description(
-            ctx.accounts.chainlink_program.to_account_info(),
-            ctx.accounts.chainlink_feed.to_account_info(),
-        )?;
-
-        let decimals: u8 = chainlink::decimals(
-            ctx.accounts.chainlink_program.to_account_info(), 
-            ctx.accounts.chainlink_feed.to_account_info())?;
+        let round = result.latest_round_data().ok_or(DemoError::RoundDataMissing)?;
+        
+        let description = result.description();
+        let decimals = result.decimals();
 
         let decimal: &mut Account<Decimal> = &mut ctx.accounts.decimal;
         decimal.value = round.answer;
         decimal.decimals = u32::from(decimals);
 
-        let decimal_print: Decimal = Decimal::new(round.answer, u32::from(decimals));
-        msg!("{} price is {}", description, decimal_print);
+        let decimal_print: Decimal = Decimal::new(round.answer, u32::from(result.decimals()));
+        msg!("price is {}", decimal_print);
         Ok(())
     }
 }
@@ -50,8 +47,6 @@ pub struct Execute<'info> {
 
     /// CHECK: We're reading data from this specified chainlink feed
     pub chainlink_feed: AccountInfo<'info>,
-    /// CHECK: This is the Chainlink program library on Devnet
-    pub chainlink_program: AccountInfo<'info>,
     /// CHECK: This is the devnet system program
     pub system_program: Program<'info, System>,
 }
@@ -82,4 +77,12 @@ impl std::fmt::Display for Decimal {
         }
         f.write_str(&scaled_val)
     }
+}
+
+#[error_code]
+pub enum DemoError {
+    #[msg("read error")]
+    ReadError,
+    #[msg("no round data")]
+    RoundDataMissing,
 }

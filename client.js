@@ -36,7 +36,7 @@ async function main() {
   // show logs for transaction
   console.log("Fetching transaction logs...");
   const txDetails = await program.provider
-    .connection.getConfirmedTransaction(transactionSignature, "confirmed");
+    .connection.getTransaction(transactionSignature, "confirmed");
 
   const txLogs = txDetails?.meta?.logMessages || null;
   console.log(txLogs)

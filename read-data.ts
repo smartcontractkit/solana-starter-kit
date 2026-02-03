@@ -15,7 +15,7 @@ async function main() {
   let dataFeed = await OCR2Feed.load(CHAINLINK_PROGRAM_ID, provider);
   let listener = null;
 
-  //listen for events agains the price feed, and grab the latest rounds price data
+  //listen for events against the price feed, and grab the latest round's price data
   listener = dataFeed.onRound(feedAddress, (event) => {
     console.log(event.answer.toNumber());
   });

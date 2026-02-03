@@ -43,7 +43,7 @@ SOLANA_RPC_URL=https://your-solana-devnet-rpc-url
 - [NodeJS 12](https://nodejs.org/en/download/) or higher
 - [Rust](https://www.rust-lang.org/tools/install) - we recommend rustc version 1.87 and above
 - [Solana CLI](https://docs.solanalabs.com/cli/install) - we recommend v0.31.1
-- [Anchor](https://book.anchor-lang.com/getting_started/installation.html) - re recommend v2.1.21 and above.
+- [Anchor](https://book.anchor-lang.com/getting_started/installation.html) - we recommend v2.1.21 and above.
 - A C compiler such as the one included in [GCC](https://gcc.gnu.org/install/).
 
 ### Building and Deploying the Consumer Program
@@ -78,13 +78,13 @@ You should see the public key in the terminal output. Alternatively, you can fin
 solana-keygen pubkey id.json
 ```
 
-Next, airdrop 5 SOL tokens into your new account. Be sure to replace both instances of <RECIPIENT_ACCOUNT_ADDRESS> with your wallet's public key from the previous step:
+Next, airdrop SOL tokens into your new account:
 
 ```
-solana airdrop $(solana address --keypair id.json) --url https://api.devnet.solana.com
+solana airdrop 5 $(solana address --keypair id.json) --url https://api.devnet.solana.com
 ```
 
-Confirm that you have received the 5 SOL by running `solana balance --keypair id.json`.
+Confirm that you have received the SOL by running `solana balance --keypair id.json`.
 
 Next, build the program:
 

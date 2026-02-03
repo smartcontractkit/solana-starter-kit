@@ -92,7 +92,7 @@ Next, build the program:
 anchor build
 ```
 
-The build process generates a keypair for your CCIP Receiver Solana program (not to be confused with your wallet keypair we generated earlier). Before you deploy the `ccip_basic_receiver` Solana program, you must update it's public key in this line in the `./programs/ccip-basic-receiver/src/lib.rs` file:
+The build process generates a keypair for your CCIP Receiver Solana program (not to be confused with your wallet keypair we generated earlier). Before you deploy the `ccip_basic_receiver` Solana program, you must update its public key in this line in the `./programs/ccip-basic-receiver/src/lib.rs` file:
 
 ```
 declare_id!("####GEg__SOME__KEY__HERE__F2TsL#####");

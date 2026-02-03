@@ -14,7 +14,7 @@ const CHAINLINK_FEED = args['feed'] || default_feed
 async function main() {
   // Create program client
   const program = anchor.workspace.ChainlinkSolanaDemo
-  console.log(`trying the interact with program: ${program.programId}`)
+  console.log(`trying to interact with program: ${program.programId}`)
 
   //create an account to store the price data
   const priceFeedAccount = anchor.web3.Keypair.generate();

@@ -1,13 +1,22 @@
 import {
   Commitment,
-  Connection,
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
 import { CCIPContext } from "../core/models";
-import { TxOptions } from "../tokenpools/abstract";
 import { createErrorEnhancer } from "./errors";
 import { Logger } from "./logger";
+
+/**
+ * Options for controlling Solana transaction execution.
+ */
+export interface TxOptions {
+  skipPreflight?: boolean;
+  preflightCommitment?: Commitment;
+  maxRetries?: number;
+  commitment?: Commitment;
+  confirmationCommitment?: Commitment;
+}
 
 /**
  * Extended options for transaction execution that includes error context

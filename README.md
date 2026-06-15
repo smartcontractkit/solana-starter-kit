@@ -40,10 +40,10 @@ SOLANA_RPC_URL=https://your-solana-devnet-rpc-url
 
 ### Requirements
 
-- [NodeJS 12](https://nodejs.org/en/download/) or higher
+- [Node.js v20+](https://nodejs.org/en/download/) (v23.11.0 recommended)
 - [Rust](https://www.rust-lang.org/tools/install) - we recommend rustc version 1.87 and above
 - [Solana CLI](https://docs.solanalabs.com/cli/install) - we recommend v0.31.1
-- [Anchor](https://book.anchor-lang.com/getting_started/installation.html) - re recommend v2.1.21 and above.
+- [Anchor](https://book.anchor-lang.com/getting_started/installation.html) - we recommend v2.1.21 and above.
 - A C compiler such as the one included in [GCC](https://gcc.gnu.org/install/).
 
 ### Building and Deploying the Consumer Program
@@ -92,7 +92,7 @@ Next, build the program:
 anchor build
 ```
 
-The build process generates a keypair for your CCIP Receiver Solana program (not to be confused with your wallet keypair we generated earlier). Before you deploy the `ccip_basic_receiver` Solana program, you must update it's public key in this line in the `./programs/ccip-basic-receiver/src/lib.rs` file:
+Before you deploy the `chainlink_solana_demo` program, you must update its public key in `./programs/chainlink_solana_demo/src/lib.rs`:
 
 ```
 declare_id!("####GEg__SOME__KEY__HERE__F2TsL#####");
@@ -108,7 +108,7 @@ anchor keys sync
 ```
 
 
-After this command, check the file `./programs/ccip-basic-receiver/src/lib.rs` again. The line will be updated and show a new program account, for eg:
+After this command, check `./programs/chainlink_solana_demo/src/lib.rs` again. The `declare_id!` line will be updated with your program address, for example:
 
 ```
 declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");
@@ -126,9 +126,9 @@ anchor build
 anchor deploy --provider.cluster devnet
 ```
 
-Once you have successfully deployed the program, the terminal output will specify the program ID of the program.   Make sure you're looking for the Program ID of the `ccip-basic-receiver` program (and not any other program that also got deployed). 
+Once you have successfully deployed the program, the terminal output will specify the program ID. Make sure you're looking for the Program ID of the `chainlink_solana_demo` program.
 
-The Program ID for your `ccip-basic-receiver` program must match the value you inserted into the `./programs/ccip-basic-receiver/src/lib.rs` file. 
+The Program ID must match the value in `./programs/chainlink_solana_demo/src/lib.rs`.
 
 
 🚨 The `declare_id!` and your deployed program ID  should be the same. If they're different, it could indicate:
@@ -277,21 +277,25 @@ You will be asked to provide anchor environment variables. See `.env.example` fo
 
 ## Cross-Chain Interoperability Protocol (CCIP)
 
-This repository also includes comprehensive scripts and libraries for **Chainlink CCIP**, enabling cross-chain communication between Solana and EVM-compatible blockchains.
+This repository also includes scripts and libraries for **Chainlink CCIP**, enabling cross-chain communication between Solana and EVM-compatible blockchains.
 
 ### CCIP Features
 
 - **Token Transfers**: Send tokens from EVM chains to Solana and vice versa
-- **Arbitrary Messaging**: Send custom data between chains  
+- **Arbitrary Messaging**: Send custom data between chains
 - **Multi-Chain Support**: Works with Ethereum, Base, Optimism, BSC, Arbitrum, and more
-- **Token Pool Management**: Configure burn-mint token pools for cross-chain transfers
-- **Admin Registry**: Manage token administration across multiple chains
+- **CCIP Receivers**: Deploy and manage programs that receive cross-chain messages
+
+> **Cross-chain token (CCT) pool setup** (burn-mint pools, admin registry, ALT management) lives in [ccip-solana-bs58-generator](https://github.com/smartcontractkit/ccip-solana-bs58-generator), not this repo.
 
 ### Quick Start with CCIP
 
 #### Send Tokens from Ethereum to Solana
 
 ```bash
+# Estimate fees (read-only, no private key required)
+yarn evm:check-fee
+
 # Get test tokens
 yarn evm:token:drip
 
@@ -302,9 +306,6 @@ yarn evm:transfer --token 0x779877A7B0D9E8603169DdbD7836e478b4624789 --amount 10
 #### Send Tokens from Solana to Ethereum
 
 ```bash
-# Create and configure a token
-yarn svm:token:create --name "MyToken" --symbol "MTK"
-
 # Delegate authority for CCIP transfers
 yarn svm:token:delegate
 

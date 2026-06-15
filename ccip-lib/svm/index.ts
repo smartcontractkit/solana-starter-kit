@@ -1,8 +1,6 @@
 // Core components
 export * from "./core/client/accounts";
 export * from "./core/client/index";
-export { TokenPoolManager } from "./core/client/tokenpools";
-export { TokenRegistryClient } from "./core/client/tokenregistry";
 
 // Export models with specific names to avoid conflicts
 export type {
@@ -32,32 +30,6 @@ export type { AccountSpec } from "./utils/accounts";
 // Bindings exports
 export * from "./bindings/types";
 export * from "./bindings/accounts";
-
-// Token Pool exports
-export * from "./tokenpools/abstract";
-export * from "./tokenpools/factory";
-export { BurnMintTokenPoolClient } from "./tokenpools/burnmint";
-export type {
-  InitChainRemoteConfigOptions,
-  EditChainRemoteConfigOptions,
-  RemoteChainConfigResult,
-} from "./tokenpools";
-
-// Token Creation exports
-export * from "./utils/token-creation";
-export * from "./core/token-manager";
-export type {
-  TokenMetadata,
-  Token2022Config,
-  TokenCreationResult,
-  MintResult,
-  TokenOperationOptions,
-} from "./utils/token-creation";
-export type {
-  TokenManagerOptions,
-  ExtendedToken2022Config,
-  TokenManagerChainConfig,
-} from "./core/token-manager";
 
 // Export version
 export const SDK_VERSION = "0.1.0";

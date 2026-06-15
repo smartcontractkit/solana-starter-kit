@@ -2,6 +2,8 @@
 
 A TypeScript SDK for interacting with the Chainlink CCIP protocol on Solana.
 
+> **Note:** Token pool setup, admin registry, and ALT management for cross-chain tokens (CCT) were removed from this repo. Use [ccip-solana-bs58-generator](https://github.com/smartcontractkit/ccip-solana-bs58-generator) for those workflows. This SDK still supports CCIP messaging, fee calculation, token transfers, and receiver operations.
+
 ## Installation
 
 This SDK is part of the CCIP library and is not published as a standalone npm package. To use it:
@@ -24,7 +26,7 @@ import { CCIPClient } from "../path/to/ccip-lib/svm";
 - Anchor-generated bindings for all CCIP accounts and instructions
 - Flexible configuration management with dependency injection
 - Structured logging throughout the SDK
-- Token pool management (burn-mint pools) for cross-chain token transfers
+- Router client for cross-chain messaging and token transfers
 
 ## Architecture
 
@@ -32,15 +34,10 @@ The SDK follows a modular architecture with clear separation of concerns:
 
 ### Core Components
 
-- **CCIPClient**: Main entry point for SDK functionality (fee calculation, message sending, token pool access)
+- **CCIPClient**: Main entry point for SDK functionality (fee calculation and message sending)
 - **CCIPAccountReader**: Handles fetching and decoding on-chain CCIP accounts
 - **Models**: Type definitions shared across all components
 
-### Token Pools
-
-- **TokenPoolClient**: Abstract interface for token pool operations
-- **BurnMintTokenPoolClient**: Implementation for burn-mint token pools
-- **TokenPoolFactory**: Factory for creating and detecting token pool types
 
 ### Bindings
 
@@ -351,163 +348,6 @@ const [tokenPoolsSigner] = await findDynamicTokenPoolsSignerPDA(
 );
 ```
 
-## Token Pool Support
-
-The SDK provides support for interacting with different types of token pools used by CCIP for cross-chain transfers.
-
-### Token Pool Types
-
-Currently, the SDK supports the following pool types:
-
-- **Burn-Mint Pools**: Tokens are burned on the source chain and minted on the destination chain.
-
-### Using Token Pools
-
-Token pools can be accessed through the `CCIPClient`:
-
-```typescript
-// Get a burn-mint token pool client
-const burnMintPool = client.getTokenPoolClient(TokenPoolType.BURN_MINT);
-
-// Or auto-detect the pool type for a specific token mint
-const pool = await client.getTokenPoolClientForMint(tokenMint);
-
-// Create a new pool for a token
-const txSignature = await pool.createPool(tokenMint);
-
-// Configure a chain for cross-chain transfers
-const chainConfig = {
-  enabled: true,
-  maxTokensPerMessage: new BN(1000000000), // 1 token with 9 decimals
-  feeBps: 10, // 0.1% fee
-};
-await pool.configureChain(tokenMint, destinationChainSelector, chainConfig);
-
-// Set rate limits for a token
-await pool.setRateLimit(
-  tokenMint,
-  new BN(1000000000), // Capacity: 1 token with 9 decimals
-  new BN(100000000) // Rate: 0.1 tokens per second
-);
-
-// Transfer admin role for a token pool (two-step process)
-// Step 1: Current owner proposes new admin
-await pool.transferAdminRole(tokenMint, { newAdmin: newAdminPublicKey });
-
-// Step 2: Proposed admin accepts the role (must be signed by newAdminPublicKey)
-await pool.acceptAdminRole(tokenMint);
-```
-
-### Pool Ownership Management
-
-Token pools use a two-step ownership transfer process for security. This ensures that ownership can only be transferred to a valid recipient who explicitly accepts the role.
-
-#### Transfer Pool Ownership
-
-```typescript
-import { 
-  TokenPoolManager, 
-  TokenPoolType,
-  TransferAdminRoleOptions,
-  AcceptAdminRoleOptions 
-} from "../path/to/ccip-lib/svm";
-
-// Create token pool manager
-const poolManager = TokenPoolManager.create(
-  connection,
-  currentOwnerKeypair,
-  { burnMint: burnMintPoolProgramId },
-  config
-);
-
-// Get the pool client
-const pool = poolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
-
-// Step 1: Current owner proposes new administrator
-await pool.transferAdminRole(tokenMint, {
-  newAdmin: newOwnerPublicKey,
-  skipPreflight: false, // Optional transaction settings
-});
-```
-
-#### Accept Pool Ownership
-
-```typescript
-// The proposed new owner must sign this transaction
-const newOwnerPoolManager = TokenPoolManager.create(
-  connection,
-  newOwnerKeypair, // Must be the proposed owner
-  { burnMint: burnMintPoolProgramId },
-  config
-);
-
-const newOwnerPool = newOwnerPoolManager.getTokenPoolClient(TokenPoolType.BURN_MINT);
-
-// Step 2: Proposed owner accepts the admin role
-await newOwnerPool.acceptAdminRole(tokenMint, {
-  skipPreflight: false, // Optional transaction settings
-});
-```
-
-#### Pool Ownership Best Practices
-
-- **Two-Step Process**: Always use the two-step transfer process - never skip the acceptance step
-- **Verify Recipients**: Ensure the new owner address is correct before proposing transfer
-- **Test First**: Test the ownership transfer process on devnet before mainnet
-- **Secure Keys**: The new owner must have secure access to their keypair to accept ownership
-- **Monitor State**: Check pool configuration to verify ownership transfer completed successfully
-
-#### Checking Current Pool Owner
-
-```typescript
-// Get pool information to check current owner
-const poolInfo = await pool.getPoolInfo(tokenMint);
-console.log(`Current owner: ${poolInfo.config.config.owner.toString()}`);
-console.log(`Proposed owner: ${poolInfo.config.config.proposedOwner?.toString() || 'none'}`);
-```
-
-### Token Pool Factory
-
-For advanced usage, you can use the `TokenPoolFactory` directly:
-
-```typescript
-import { TokenPoolFactory, TokenPoolType } from "../path/to/ccip-lib/svm";
-
-// Create a specific token pool type
-const pool = TokenPoolFactory.create(TokenPoolType.BURN_MINT, context);
-
-// Auto-detect the token pool type for a mint
-const poolType = await TokenPoolFactory.detectPoolType(tokenMint, context);
-const pool = TokenPoolFactory.create(poolType, context);
-```
-
-### PDA Utilities for Token Pools
-
-The SDK provides functions to derive all program-derived addresses used in token pools:
-
-```typescript
-import {
-  findBurnMintPoolConfigPDA,
-  findBurnMintPoolChainConfigPDA,
-  findRateLimitPDA,
-} from "../path/to/ccip-lib/svm";
-
-// Get the pool config PDA
-const [poolConfigPDA] = findBurnMintPoolConfigPDA(
-  tokenMint,
-  burnMintPoolProgramId
-);
-
-// Get the chain config PDA
-const [chainConfigPDA] = findBurnMintPoolChainConfigPDA(
-  chainSelector,
-  tokenMint,
-  burnMintPoolProgramId
-);
-
-// Get the rate limit PDA
-const [rateLimitPDA] = findRateLimitPDA(tokenMint, burnMintPoolProgramId);
-```
 
 ## Error Handling
 
@@ -661,79 +501,3 @@ const verification = SolanaAccountManager.explainBitmap(dataTokensBitmap, 7);
 console.log("Data and tokens bitmap breakdown:", verification.accounts);
 ```
 
-## Token Administration
-
-The CCIP SDK works in conjunction with command-line scripts for complete token administration and registration for cross-chain transfers.
-
-### Overview
-
-To enable a token for CCIP cross-chain transfers, you need to follow a multi-step process:
-
-1. **Propose Administrator**: Set up admin permissions for a token
-2. **Accept Admin Role**: Complete the administrator transfer
-3. **Create ALT**: Create an Address Lookup Table with required accounts
-4. **Set Pool**: Register the ALT with the token to enable CCIP
-5. **Inspect Token**: Validate configuration against existing tokens
-
-### Command-Line Scripts
-
-For detailed instructions on each step, including all options, security considerations, and examples, see the comprehensive **[CCIP Scripts Documentation](../ccip-scripts/svm/README.md#3-token-admin-registry-management)**.
-
-#### Quick Reference
-
-```bash
-# Step 1: Propose administrator (as mint authority)
-yarn svm:admin:propose-administrator --token-mint <TOKEN_MINT>
-
-# Step 2: Accept admin role (as proposed administrator)
-yarn svm:admin:accept-admin-role --token-mint <TOKEN_MINT>
-
-# Step 3: Create ALT (anyone can pay for creation)
-yarn svm:admin:create-alt --token-mint <TOKEN_MINT> --pool-program <POOL_PROGRAM>
-
-# Step 3a: Create ALT with additional custom addresses (optional)
-yarn svm:admin:create-alt --token-mint <TOKEN_MINT> --pool-program <POOL_PROGRAM> --additional-addresses <ADDRESS1,ADDRESS2>
-
-# Step 4: Set pool (as administrator)
-yarn svm:admin:set-pool --token-mint <TOKEN_MINT> --lookup-table <ALT_ADDRESS> --writable-indices 3,4,7
-
-# Step 5: Verify configuration
-yarn svm:admin:inspect-token --token-mint <TOKEN_MINT>
-```
-
-### Writable Indices Pattern
-
-The writable indices vary based on the token pool type:
-
-#### **Burn-Mint Tokens (Most Common): [3, 4, 7]**
-
-- **Index 3**: Pool Configuration PDA (sequence numbers, rate limits)
-- **Index 4**: Pool Token Account (token balance changes)
-- **Index 7**: Token Mint (supply changes during burn/mint operations)
-
-#### **Lock-Release Tokens: [3, 4, 5]**
-
-- **Index 3**: Pool Configuration PDA (sequence numbers, rate limits)
-- **Index 4**: Pool Token Account (token balance changes)
-- **Index 5**: Pool Signer PDA (authorizes transfers, may pay fees)
-
-### Programmatic Usage
-
-For programmatic token administration using the SDK, you can work with the underlying components:
-
-```typescript
-// Access token admin registry
-const registry = await client
-  .getAccountReader()
-  .getTokenAdminRegistry(tokenMint);
-
-// Get token pool for a mint
-const pool = await client.getTokenPoolClientForMint(tokenMint);
-
-// Check if token is configured for CCIP
-const isConfigured = registry.lookupTable !== PublicKey.default;
-```
-
-### Integration with Scripts
-
-The SDK complements the command-line scripts by providing the underlying functionality. While scripts handle the setup and configuration, the SDK enables programmatic interaction with configured tokens for cross-chain operations.

@@ -74,16 +74,16 @@ class GetCcipFeeCommand extends CCIPCommand<GetCcipFeeOptions> {
       description: "💰 CCIP Fee Calculator\\n\\nEstimates fees for CCIP cross-chain transactions without actually sending any messages or tokens. Useful for planning and budgeting cross-chain operations.",
       examples: [
         "# Basic fee calculation (uses all defaults)",
-        "yarn ccip:fee",
+        "yarn svm:fee",
         "",
         "# Calculate fee with LINK token as fee payment",
-        "yarn ccip:fee --fee-token link",
+        "yarn svm:fee --fee-token link",
         "",
         "# Calculate fee for custom token amount",
-        "yarn ccip:fee --token-amount 50000000 --gas-limit 300000",
+        "yarn svm:fee --token-amount 50000000 --gas-limit 300000",
         "",
         "# Calculate fee for custom receiver and message",
-        "yarn ccip:fee --receiver-address 0x1234567890123456789012345678901234567890 --message-data \"Custom message data\""
+        "yarn svm:fee --receiver-address 0x1234567890123456789012345678901234567890 --message-data \"Custom message data\""
       ],
       notes: [
         `Default destination: ${FEE_CALC_CONFIG.defaultDestinationChain}`,

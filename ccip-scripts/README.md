@@ -29,9 +29,7 @@ ccip-scripts/
 │   └── utils/                # EVM utility functions
 └── svm/                      # Solana Virtual Machine scripts
     ├── router/               # Cross-chain transfers and messaging
-    ├── token/                # Token operations (creation, delegation)
-    ├── pool/                 # Token pool management
-    ├── admin/                # Token admin registry operations
+    ├── token/                # Token delegation and fee preparation
     ├── receiver/             # CCIP message receivers
     └── utils/                # SVM utility functions
 ```
@@ -73,12 +71,10 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 ### For Solana (SVM) Development
 
 1. **Setup**: Install dependencies and fund wallet with SOL
-2. **Create Tokens**:
-   - **SPL Token (Legacy)**: `yarn svm:token:create` - Maximum compatibility
-   - **Token-2022**: `yarn svm:token:create-2022` - Advanced features & future-proof
-3. **Token Administration**: `yarn svm:admin:propose-administrator` → `yarn svm:admin:accept-admin-role`
-4. **Token Pools**: `yarn svm:pool:init-global-config` → `yarn svm:pool:initialize` → `yarn svm:pool:create-token-account`
-5. **CCIP Preparation**: `yarn svm:token:wrap` → `yarn svm:token:delegate`
+2. **CCIP Preparation**: `yarn svm:token:wrap` → `yarn svm:token:delegate` → `yarn svm:token:check`
+3. **Send messages**: `yarn svm:token-transfer` / `yarn svm:arbitrary-messaging` / `yarn svm:data-and-tokens`
+
+> **Cross-chain token (CCT) pool setup** moved to [ccip-solana-bs58-generator](https://github.com/smartcontractkit/ccip-solana-bs58-generator).
 
 ### For Ethereum (EVM) Development
 
@@ -101,41 +97,11 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 
 #### Token Operations
 
-| Script                       | Purpose                                 |
-| ---------------------------- | --------------------------------------- |
-| `yarn svm:token:create`      | Create SPL Token (legacy) with metadata |
-| `yarn svm:token:create-2022` | Create Token-2022 with metadata         |
-| `yarn svm:token:mint`        | Mint tokens to specified accounts       |
-| `yarn svm:token:wrap`        | Wrap SOL to wSOL for CCIP fees          |
-| `yarn svm:token:delegate`    | Delegate token authority to CCIP router |
-| `yarn svm:token:check`       | Verify token delegations and balances   |
-
-#### Token Pool Management
-
-| Script                                   | Purpose                                        |
-| ---------------------------------------- | ---------------------------------------------- |
-| `yarn svm:pool:init-global-config`       | Initialize global config (once per deployment) |
-| `yarn svm:pool:initialize`               | Initialize token pool (once per token)         |
-| `yarn svm:pool:create-token-account`     | Create pool token account (ATA) for transfers  |
-| `yarn svm:pool:get-info`                 | Get detailed pool configuration                |
-| `yarn svm:pool:set-router`               | Set CCIP router for pool                       |
-| `yarn svm:pool:get-pool-signer`          | Get pool signer PDA address                    |
-| `yarn svm:pool:init-chain-remote-config` | Initialize remote chain configuration          |
-| `yarn svm:pool:edit-chain-remote-config` | Edit remote chain configuration                |
-| `yarn svm:pool:get-chain-config`         | Read remote chain configuration                |
-| `yarn svm:pool:transfer-mint-authority-to-multisig` | Transfer mint authority to multisig            |
-| `yarn svm:pool:update-self-served-allowed` | Update self-served flag for pool                      |
-
-#### Token Admin Registry
-
-| Script                                 | Purpose                                      |
-| -------------------------------------- | -------------------------------------------- |
-| `yarn svm:admin:propose-administrator` | Propose token administrator (mint authority) |
-| `yarn svm:admin:accept-admin-role`     | Accept administrator role (two-step process) |
-| `yarn svm:admin:create-alt`            | Create Address Lookup Table for pool         |
-| `yarn svm:admin:extend-alt`            | Extend existing Address Lookup Table         |
-| `yarn svm:admin:set-pool`              | Register ALT with token (administrator)      |
-| `yarn svm:admin:inspect-token`         | Inspect token CCIP configuration             |
+| Script                    | Purpose                                 |
+| ------------------------- | --------------------------------------- |
+| `yarn svm:token:wrap`     | Wrap SOL to wSOL for CCIP fees          |
+| `yarn svm:token:delegate` | Delegate token authority to CCIP router |
+| `yarn svm:token:check`    | Verify token delegations and balances   |
 
 #### CCIP Receivers
 
@@ -157,6 +123,7 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 | `yarn evm:transfer`            | Transfer tokens from Ethereum to another chain  |
 | `yarn evm:arbitrary-messaging` | Send arbitrary messages through CCIP            |
 | `yarn evm:data-and-tokens`     | Send both data and tokens in single transaction |
+| `yarn evm:check-fee`           | Estimate CCIP fees without sending transactions |
 
 #### Token Operations
 

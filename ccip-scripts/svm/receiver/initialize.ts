@@ -295,9 +295,9 @@ class InitializeCommand extends CCIPCommand<InitializeOptions> {
     this.logger.info("2. Test message reception:");
     this.logger.info("   yarn svm:receiver:get-latest-message");
     this.logger.info("3. Send messages using router scripts:");
-    this.logger.info("   yarn ccip:send");
-    this.logger.info("   yarn ccip:message");
-    this.logger.info("   yarn ccip:data-tokens");
+    this.logger.info("   yarn svm:token-transfer");
+    this.logger.info("   yarn svm:arbitrary-messaging");
+    this.logger.info("   yarn svm:data-and-tokens");
 
     this.logger.info("");
     this.logger.info("🎉 Initialization Complete!");

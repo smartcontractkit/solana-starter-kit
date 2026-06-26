@@ -249,9 +249,9 @@ class GetLatestMessageCommand extends CCIPCommand<GetLatestMessageOptions> {
       this.logger.info("1. Initialize the receiver program:");
       this.logger.info("   yarn svm:receiver:initialize");
       this.logger.info("2. Send a message to trigger storage creation:");
-      this.logger.info("   yarn ccip:send");
-      this.logger.info("   yarn ccip:message");
-      this.logger.info("   yarn ccip:data-tokens");
+      this.logger.info("   yarn svm:token-transfer");
+      this.logger.info("   yarn svm:arbitrary-messaging");
+      this.logger.info("   yarn svm:data-and-tokens");
       return;
     }
 
@@ -278,9 +278,9 @@ class GetLatestMessageCommand extends CCIPCommand<GetLatestMessageOptions> {
         this.logger.info("");
         this.logger.info("📋 NEXT STEPS:");
         this.logger.info("Send a message using one of these commands:");
-        this.logger.info("• yarn ccip:send        (token transfer)");
-        this.logger.info("• yarn ccip:message     (arbitrary messaging)");
-        this.logger.info("• yarn ccip:data-tokens (data + tokens)");
+        this.logger.info("• yarn svm:token-transfer      (token transfer)");
+        this.logger.info("• yarn svm:arbitrary-messaging (arbitrary messaging)");
+        this.logger.info("• yarn svm:data-and-tokens     (data + tokens)");
         return;
       }
 

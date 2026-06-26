@@ -141,6 +141,36 @@ yarn evm:data-and-tokens \
   --token-receiver YourSolanaWalletAddress
 ```
 
+#### 4. Fee Estimation
+
+Estimate CCIP fees without sending a transaction. No private key required.
+
+```bash
+yarn evm:check-fee
+```
+
+**Supported Options:**
+
+- `--source-chain <chain>` - Source EVM chain (default: ethereum-sepolia)
+- `--destination-chain <chain>` - Destination chain (default: solana-devnet)
+- `--token <address>` / `--amount <amount>` - Simulate a token transfer
+- `--data <message>` - Simulate a data-only message
+- `--fee-token <type>` - Fee payment token (native, link, wrapped)
+- `--log-level <level>` - Logging verbosity (0-5)
+
+**Examples:**
+
+```bash
+# Default BnM transfer fee estimate (Sepolia → Solana Devnet)
+yarn evm:check-fee
+
+# Custom token amount
+yarn evm:check-fee --token 0x779877A7B0D9E8603169DdbD7836e478b4624789 --amount 1000000000000000000
+
+# Data-only message fee estimate
+yarn evm:check-fee --data "Hello Solana"
+```
+
 ### Token Scripts
 
 #### Token Faucet (Drip)

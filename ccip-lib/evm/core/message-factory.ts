@@ -5,6 +5,7 @@ import {
   CCIPMessageRequest,
   encodeSolanaAddressToBytes32,
 } from "../index";
+import { FinalityRequest, SVMTokenReceiverAtaMode } from "./models";
 import { Logger } from "../utils/logger";
 
 /**
@@ -31,6 +32,12 @@ export interface CCIPMessageOptions {
     allowOutOfOrderExecution?: boolean;
     tokenReceiver?: string;
     accounts?: string[];
+    /** Requested finality; when set, GenericExtraArgsV3 (CCIP 2.0) is used */
+    finality?: FinalityRequest;
+    /** Force the extraArgs encoding ("v1" = SVMExtraArgsV1, "v3" = GenericExtraArgsV3) */
+    extraArgsVersion?: "v1" | "v3";
+    /** Destination token account derivation (GenericExtraArgsV3 only) */
+    tokenReceiverAtaMode?: SVMTokenReceiverAtaMode;
   };
 }
 
@@ -63,6 +70,9 @@ export class CCIPMessageFactory {
       allowOutOfOrderExecution: options.solanaParams?.allowOutOfOrderExecution ?? true,
       tokenReceiver: options.solanaParams?.tokenReceiver,
       accounts: options.solanaParams?.accounts || [],
+      finality: options.solanaParams?.finality,
+      extraArgsVersion: options.solanaParams?.extraArgsVersion,
+      tokenReceiverAtaMode: options.solanaParams?.tokenReceiverAtaMode,
     };
 
     // Log accounts list before encoding for better visibility

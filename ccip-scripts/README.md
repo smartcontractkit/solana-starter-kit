@@ -95,6 +95,8 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 | `yarn svm:arbitrary-messaging` | Send arbitrary data between chains            |
 | `yarn svm:data-and-tokens`     | Send both data and tokens in one transaction  |
 
+> ⚡ **Faster-Than-Finality (CCIP 2.0 lanes only)**: add `--finality <finalized|safe|N>` to any of these scripts to request a source finality. For example, `yarn svm:token-transfer --finality 5` waits for 5 Solana block confirmations instead of full finality. The lane's verifiers, executor and token pools must allow the requested finality; CCIP 1.6 lanes always wait for full finality and reject the flag. See [ccip-lib/svm README](../ccip-lib/svm/README.md#ccip-20-faster-than-finality-ftf).
+
 #### Token Operations
 
 | Script                    | Purpose                                 |
@@ -112,6 +114,19 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 | `yarn svm:receiver:get-message` | Get latest received message               |
 | `yarn svm:receiver:close`       | Close receiver storage accounts           |
 
+#### CCIP v2 Receiver (required for Faster-Than-Finality data messages)
+
+[`programs/ccip-receiver-v2`](../programs/ccip-receiver-v2) implements the CCIP 2.0 receiver interface (`ccip_receive_v2` + `get_ccvs_and_finality_config`). It registers itself with the 2.0 Router as a v2 receiver and lets you set, per source chain, which source finality it accepts.
+
+| Command                         | Description                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
+| `yarn svm:receiver-v2:build`    | Build the program (`anchor build -p ccip_receiver_v2`)                               |
+| `yarn svm:receiver-v2:deploy`   | Deploy to devnet using `target/deploy/ccip_receiver_v2-keypair.json`                 |
+| `yarn svm:receiver-v2:setup`    | Initialize, register with the Router (v2), and set the FTF policy (`--dry-run` to simulate) |
+| `yarn svm:receiver-v2:status`   | Show deployment/registration/FTF policy and the latest received message              |
+
+`setup` options: `--source-chain` (default `ethereum-sepolia`), `--block-depth N` (accept FTF requests waiting ≥ N blocks, `0` = finalized only, default `1`), `--allow-safe` (also accept the `safe` tag). Each step is skipped if already done.
+
 > 📖 **For detailed usage, options, and troubleshooting**: See [SVM Scripts Documentation](./svm/README.md)
 
 ### Ethereum VM (EVM) Scripts
@@ -124,6 +139,8 @@ console.log("Router program ID:", svmConfig.routerProgramId);
 | `yarn evm:arbitrary-messaging` | Send arbitrary messages through CCIP            |
 | `yarn evm:data-and-tokens`     | Send both data and tokens in single transaction |
 | `yarn evm:check-fee`           | Estimate CCIP fees without sending transactions |
+
+> ⚡ **Faster-Than-Finality (CCIP 2.0 lanes only)**: add `--finality <finalized|safe|N>` to any of these scripts to request a source finality. For example, `yarn evm:transfer --finality 5` waits for 5 block confirmations instead of full finality. FTF **data** messages need a CCIP v2 receiver on Solana; the bundled `ccip-basic-receiver` is v1 and only accepts finalized messages. `yarn evm:arbitrary-messaging` defaults to the v2 receiver from config (`receiverV2ProgramId`, set up with `yarn svm:receiver-v2:setup`) when it is configured, with or without `--finality`. It falls back to `receiverProgramId` otherwise. See [ccip-lib/evm README](../ccip-lib/evm/README.md#ccip-20-faster-than-finality-ftf).
 
 #### Token Operations
 

@@ -1,0 +1,24 @@
+[package]
+name = "ccip-receiver-v2"
+version = "0.1.0"
+description = "CCIP 2.0 (v2 interface) receiver with Faster-Than-Finality support"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ccip_receiver_v2"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(target_os, values("solana"))', 'cfg(feature, values("anchor-debug", "custom-panic", "custom-heap"))']

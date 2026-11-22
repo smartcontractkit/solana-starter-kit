@@ -17,6 +17,8 @@ import {
   CCIPClient,
   AddressConversion,
   CCIPSendOptions,
+  FinalityRequest,
+  describeFinality,
 } from "../../../ccip-lib/svm";
 import {
   ChainId,
@@ -62,6 +64,7 @@ interface DataAndTokensOptions extends BaseCommandOptions {
   feeToken?: string;
   gasLimit?: number;
   allowOutOfOrder?: boolean;
+  finality?: FinalityRequest;
 }
 
 /**
@@ -82,6 +85,9 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
         "",
         "# Send to different destination with LINK fees",
         "yarn svm:data-and-tokens --destination-chain ethereum-sepolia --fee-token link",
+        "",
+        "# CCIP 2.0: Faster-Than-Finality send (wait 5 block confirmations)",
+        "yarn svm:data-and-tokens --finality 5",
       ],
       notes: [
         "Combines token transfer with arbitrary data messaging",
@@ -89,6 +95,8 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
         "Requires delegation of tokens to fee-billing PDA",
         "Default sends 0.01 BnM tokens with 'Hello from Solana!' message",
         "Gas limit determines execution cost on destination chain",
+        "--finality (CCIP 2.0 lanes only) requests a source finality; the lane's pools/verifiers must allow it",
+        "CCIP 1.6 lanes always wait for full finality and reject --finality",
       ],
     };
 
@@ -196,6 +204,7 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
     const allowOutOfOrder =
       this.options.allowOutOfOrder ??
       DATA_AND_TOKENS_CONFIG.defaultAllowOutOfOrder;
+    const finality = this.options.finality;
 
     // ABI-encode the message data for EVM compatibility (string + uint256)
     const messageData = AbiCoder.defaultAbiCoder().encode(
@@ -214,6 +223,7 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
       messageData,
       gasLimit,
       allowOutOfOrder,
+      finality,
     };
   }
 
@@ -265,6 +275,9 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
     this.logger.info(`Gas Limit: ${messageConfig.gasLimit}`);
     this.logger.info(
       `Allow Out Of Order Execution: ${messageConfig.allowOutOfOrder}`
+    );
+    this.logger.info(
+      `Requested Finality: ${describeFinality(messageConfig.finality)}`
     );
   }
 
@@ -354,10 +367,11 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
         },
       ];
 
-      // Create extra args
+      // Create extra args (GenericExtraArgsV3 with the finality request on CCIP 2.0 lanes)
       const extraArgs = ccipClient.createExtraArgs({
         gasLimit: messageConfig.gasLimit,
         allowOutOfOrderExecution: messageConfig.allowOutOfOrder,
+        finality: messageConfig.finality,
       });
 
       // Send CCIP message with both data and tokens

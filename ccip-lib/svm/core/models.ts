@@ -62,11 +62,24 @@ export interface ExtraArgsV1 {
 }
 
 /**
+ * Requested finality for CCIP 2.0 messages: "finalized", "safe", or a block depth
+ * (1-65535, Faster-Than-Finality). Mirrors the EVM SDK's FinalityRequest.
+ */
+export type FinalityRequest = "finalized" | "safe" | number;
+
+/**
  * Options for creating extra arguments
  */
 export interface ExtraArgsOptions {
   gasLimit?: number;
   allowOutOfOrderExecution?: boolean;
+  /**
+   * Requested source-chain finality (CCIP 2.0 lanes only). When set, the extraArgs are
+   * encoded as GenericExtraArgsV3 instead of EVMExtraArgsV2. "finalized" (or 0) keeps the
+   * V3 encoding but waits for full finality; a block depth or "safe" requests
+   * Faster-Than-Finality. Ignored on CCIP 1.6 lanes, which always wait for finality.
+   */
+  finality?: FinalityRequest;
 }
 
 /**

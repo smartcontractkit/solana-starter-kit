@@ -1,4 +1,9 @@
-import { LogLevel, parseLogLevel } from "../../../ccip-lib/evm";
+import {
+  LogLevel,
+  parseLogLevel,
+  parseFinality,
+  FinalityRequest,
+} from "../../../ccip-lib/evm";
 import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
@@ -113,6 +118,9 @@ export interface CommonOptions {
 
   /** Bitmap of accounts that should be made writeable */
   accountIsWritableBitmap?: string | bigint;
+
+  /** Requested source-chain finality (CCIP 2.0): "finalized", "safe" or a block depth (FTF) */
+  finality?: FinalityRequest;
 
   /** Source chain ID to use for the transaction */
   chainId?: ChainId;
@@ -237,6 +245,12 @@ export function parseCommonArgs(): CommonOptions {
   const bitmapIndex = args.indexOf("--account-is-writable-bitmap");
   if (bitmapIndex >= 0 && args.length > bitmapIndex + 1) {
     options.accountIsWritableBitmap = args[bitmapIndex + 1];
+  }
+
+  // Parse finality (CCIP 2.0 Faster-Than-Finality)
+  const finalityIndex = args.indexOf("--finality");
+  if (finalityIndex >= 0 && args.length > finalityIndex + 1) {
+    options.finality = parseFinality(args[finalityIndex + 1]);
   }
 
   // Parse log level

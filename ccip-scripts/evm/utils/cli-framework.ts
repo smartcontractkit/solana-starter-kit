@@ -11,7 +11,7 @@
  * - Consistent in help formatting and error messages
  */
 
-import { LogLevel, createLogger, Logger } from "../../../ccip-lib/evm";
+import { LogLevel, createLogger, Logger, parseFinality } from "../../../ccip-lib/evm";
 import { CommonOptions } from "./config-parser";
 
 /**
@@ -169,6 +169,9 @@ export abstract class CCIPCommand<T extends BaseCommandOptions> {
       } else if (args[i] === "--chain-id" && i + 1 < args.length) {
         options.chainId = args[i + 1] as any;
         i++;
+      } else if (args[i] === "--finality" && i + 1 < args.length) {
+        options.finality = parseFinality(args[i + 1]);
+        i++;
       }
     }
 
@@ -255,6 +258,7 @@ export abstract class CCIPCommand<T extends BaseCommandOptions> {
     console.log("  --log-level <level>           Log level (TRACE, DEBUG, INFO, WARN, ERROR)");
     console.log("  --fee-token <token>           Token to use for CCIP fees");
     console.log("  --chain-id <id>               Source chain ID");
+    console.log("  --finality <value>            CCIP 2.0 only: finalized | safe | <block depth> (FTF)");
 
     // Script-specific arguments
     const scriptArgs = this.defineArguments();

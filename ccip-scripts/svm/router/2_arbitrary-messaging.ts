@@ -13,7 +13,7 @@ import {
 } from "@solana/web3.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { AbiCoder } from "ethers";
-import { CCIPClient, AddressConversion, LogLevel } from "../../../ccip-lib/svm";
+import { CCIPClient, AddressConversion, LogLevel, FinalityRequest, describeFinality } from "../../../ccip-lib/svm";
 import {
   ChainId,
   CHAIN_SELECTORS,
@@ -64,6 +64,7 @@ interface ArbitraryMessagingOptions extends BaseCommandOptions {
   message?: string;
   gasLimit?: number;
   allowOutOfOrder?: boolean;
+  finality?: FinalityRequest;
 }
 
 /**
@@ -86,8 +87,9 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         'yarn svm:arbitrary-messaging --message \\"High gas message\\" --gas-limit 500000',
         "",
         "# Send message to custom receiver address",
-        'yarn svm:arbitrary-messaging --receiver-address 0x1234567890123456789012345678901234567890 --message \\"Hello custom receiver!\\"',
-      ],
+        'yarn svm:arbitrary-messaging --receiver-address 0x1234567890123456789012345678901234567890 --message \\"Hello custom receiver!\\"',        "",
+        "# CCIP 2.0: Faster-Than-Finality message (wait 5 block confirmations)",
+        "yarn svm:arbitrary-messaging --finality 5",      ],
       notes: [
         `Default destination: ${ARBITRARY_MESSAGING_CONFIG.defaultDestinationChain}`,
         `Default message: "${ARBITRARY_MESSAGING_CONFIG.defaultMessage}"`,
@@ -96,6 +98,8 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         "Fee tokens: native (SOL), wrapped-native (wSOL), link, or custom address",
         "Messages are ABI-encoded for EVM compatibility",
         "Gas limit determines execution cost on destination chain",
+        "--finality (CCIP 2.0 lanes only) requests a source finality; the lane's verifiers/executor must allow it",
+        "CCIP 1.6 lanes always wait for full finality and reject --finality",
         "Transaction includes comprehensive fee calculation and monitoring",
         "Use Chainlink CCIP Explorer to track cross-chain message status",
       ],
@@ -211,6 +215,7 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
     const allowOutOfOrder =
       this.options.allowOutOfOrder ??
       ARBITRARY_MESSAGING_CONFIG.defaultAllowOutOfOrder;
+    const finality = this.options.finality;
 
     // ABI-encode the message for EVM compatibility
     const messageData = AbiCoder.defaultAbiCoder().encode(
@@ -226,6 +231,7 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
       messageData,
       gasLimit,
       allowOutOfOrder,
+      finality,
     };
   }
 
@@ -255,6 +261,9 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
     this.logger.info(`Gas Limit: ${messageConfig.gasLimit}`);
     this.logger.info(
       `Allow Out Of Order Execution: ${messageConfig.allowOutOfOrder}`
+    );
+    this.logger.info(
+      `Requested Finality: ${describeFinality(messageConfig.finality)}`
     );
   }
 
@@ -336,10 +345,11 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         messageConfig.evmReceiverAddress
       );
 
-      // Create extra args
+      // Create extra args (GenericExtraArgsV3 with the finality request on CCIP 2.0 lanes)
       const extraArgs = ccipClient.createExtraArgs({
         gasLimit: messageConfig.gasLimit,
         allowOutOfOrderExecution: messageConfig.allowOutOfOrder,
+        finality: messageConfig.finality,
       });
 
       // Send CCIP message

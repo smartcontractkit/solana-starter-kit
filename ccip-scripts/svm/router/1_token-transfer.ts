@@ -12,7 +12,13 @@ import {
   ComputeBudgetProgram,
 } from "@solana/web3.js";
 import { NATIVE_MINT } from "@solana/spl-token";
-import { CCIPClient, AddressConversion, LogLevel } from "../../../ccip-lib/svm";
+import {
+  CCIPClient,
+  AddressConversion,
+  LogLevel,
+  FinalityRequest,
+  describeFinality,
+} from "../../../ccip-lib/svm";
 import {
   ChainId,
   CHAIN_SELECTORS,
@@ -63,6 +69,7 @@ interface TokenTransferOptions extends BaseCommandOptions {
   tokenAmount?: string;
   gasLimit?: number;
   allowOutOfOrder?: boolean;
+  finality?: FinalityRequest;
 }
 
 /**
@@ -86,6 +93,9 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
         "",
         "# Transfer to custom receiver address",
         "yarn svm:token-transfer --receiver-address 0x1234567890123456789012345678901234567890 --token-amount 25000000",
+        "",
+        "# CCIP 2.0: Faster-Than-Finality transfer (wait 5 block confirmations)",
+        "yarn svm:token-transfer --finality 5",
       ],
       notes: [
         `Default destination: ${TOKEN_TRANSFER_CONFIG.defaultDestinationChain}`,
@@ -94,6 +104,8 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
         "Fee tokens: native (SOL), wrapped-native (wSOL), link, or custom address",
         "Ensure you have sufficient token balance before transferring",
         "Gas limit of 0 means no execution on destination (pure token transfer)",
+        "--finality (CCIP 2.0 lanes only) requests a source finality; the lane's pools/verifiers must allow it",
+        "CCIP 1.6 lanes always wait for full finality and reject --finality",
         "Transaction includes comprehensive fee calculation and monitoring",
         "Use Chainlink CCIP Explorer to track cross-chain message status",
       ],
@@ -218,6 +230,7 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
     const allowOutOfOrder =
       this.options.allowOutOfOrder ??
       TOKEN_TRANSFER_CONFIG.defaultAllowOutOfOrder;
+    const finality = this.options.finality;
 
     return {
       destinationChain,
@@ -227,6 +240,7 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
       tokenAmount,
       gasLimit,
       allowOutOfOrder,
+      finality,
     };
   }
 
@@ -252,6 +266,9 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
     this.logger.info(`Gas Limit: ${messageConfig.gasLimit}`);
     this.logger.info(
       `Allow Out Of Order Execution: ${messageConfig.allowOutOfOrder}`
+    );
+    this.logger.info(
+      `Requested Finality: ${describeFinality(messageConfig.finality)}`
     );
   }
 
@@ -341,10 +358,11 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
         },
       ];
 
-      // Create extra args
+      // Create extra args (GenericExtraArgsV3 with the finality request on CCIP 2.0 lanes)
       const extraArgs = ccipClient.createExtraArgs({
         gasLimit: messageConfig.gasLimit,
         allowOutOfOrderExecution: messageConfig.allowOutOfOrder,
+        finality: messageConfig.finality,
       });
 
       // Send CCIP message

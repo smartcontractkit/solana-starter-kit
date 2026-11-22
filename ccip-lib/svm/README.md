@@ -239,6 +239,30 @@ const extraArgs = client.createExtraArgs({
 const defaultExtraArgs = client.createExtraArgs();
 ```
 
+#### CCIP 2.0: Faster-Than-Finality (FTF)
+
+On CCIP 2.0 lanes you can request a source finality other than full finality. Setting `finality`
+switches the encoding from `EVMExtraArgsV2` to `GenericExtraArgsV3`, which carries the requested
+finality (`FinalityConfig`: `flags`/`block_depth`) alongside the gas limit:
+
+```typescript
+const extraArgs = client.createExtraArgs({
+  gasLimit: 200000,
+  finality: 5, // "finalized" | "safe" | block depth (1-65535)
+});
+```
+
+- Leave `finality` unset to keep `EVMExtraArgsV2`, which is required for CCIP 1.6 lanes. CCIP 1.6
+  lanes always wait for full finality; `send`/`getFee` fail with a clear error if V3 args are used
+  on a destination without a 2.0 lane.
+- The lane's verifiers, executor and token pools must allow the requested finality. A v1-interface
+  token pool rejects any non-finalized request (`FinalityNotSupportedOnPoolV1`).
+- `allowOutOfOrderExecution` is ignored on 2.0 lanes (CCIP 2.0 has no ordered execution).
+
+### CCIP 2.0 Lanes
+
+`send` and `getFee` pick the router entrypoint per destination. When the router has a CCIP 2.0 lane to it (a `dest_chain_state_v2` PDA), they use `ccip_send_v2` / `get_fee_v2`; otherwise they use the 1.6 `ccip_send` / `get_fee`. The 2.0 account list is built by simulating the router's `resolve_accounts_*` stages, and EVMExtraArgsV2 is converted to `GenericExtraArgsV3` keeping only `gasLimit` (finality, CCVs and executor use lane defaults; `allowOutOfOrderExecution` is ignored, as 2.0 has no ordered execution). `getFee` returns `juels = 0` on 2.0 lanes. ExtraArgs already encoded as `GenericExtraArgsV3` (e.g. with a `finality` request from `createExtraArgs`) pass through unchanged.
+
 ### Using the Account Reader
 
 The CCIPAccountReader provides convenient methods to fetch and decode on-chain accounts:

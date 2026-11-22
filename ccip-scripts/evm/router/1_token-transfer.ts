@@ -53,6 +53,9 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
         "# Transfer BnM token with default settings",
         "yarn evm:token-transfer",
         "",
+        "# CCIP 2.0: Faster-Than-Finality token transfer (wait 5 block confirmations)",
+        "yarn evm:token-transfer --finality 5",
+        "",
         "# Transfer custom token",
         "yarn evm:token-transfer --token 0x779877A7B0D9E8603169DdbD7836e478b4624789 --amount 1000000000000000000",
         "",
@@ -202,6 +205,7 @@ class TokenTransferCommand extends CCIPCommand<TokenTransferOptions> {
         allowOutOfOrderExecution: true,
         accountIsWritableBitmap: BigInt(0),
         accounts: [],
+        finality: this.options.finality,
         
         // Chain configuration
         chainId: sourceChain,

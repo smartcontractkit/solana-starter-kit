@@ -11,8 +11,31 @@
  * - Consistent in help formatting and error messages
  */
 
-import { LogLevel, createLogger, Logger } from "../../../ccip-lib/svm";
+import {
+  LogLevel,
+  createLogger,
+  Logger,
+  FinalityRequest,
+  encodeFinalityConfig,
+} from "../../../ccip-lib/svm";
 import { CommonOptions } from "./config-parser";
+
+/**
+ * Parses a user-supplied finality string ("finalized", "safe" or a block depth)
+ */
+export function parseFinality(value: string): FinalityRequest {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "finalized" || normalized === "finality") return "finalized";
+  if (normalized === "safe") return "safe";
+  if (!/^\d+$/.test(normalized)) {
+    throw new Error(
+      `Invalid finality "${value}". Use "finalized", "safe" or a block depth (e.g. 5)`
+    );
+  }
+  const depth = parseInt(normalized, 10);
+  encodeFinalityConfig(depth); // validates the range
+  return depth === 0 ? "finalized" : depth;
+}
 
 /**
  * Base interface for all CLI command options
@@ -136,6 +159,9 @@ export abstract class CCIPCommand<TOptions extends BaseCommandOptions = BaseComm
         options.useTestKeypair = true;
       } else if (args[i] === "--skip-preflight") {
         options.skipPreflight = true;
+      } else if (args[i] === "--finality" && i + 1 < args.length) {
+        options.finality = parseFinality(args[i + 1]);
+        i++; // Skip the next argument
       }
     }
 
@@ -241,6 +267,7 @@ export abstract class CCIPCommand<TOptions extends BaseCommandOptions = BaseComm
     console.log("  --use-test-keypair            Use test keypair at ~/.config/solana/keytest.json");
     console.log("  --log-level <level>           Log level: TRACE, DEBUG, INFO, WARN, ERROR, SILENT (default: INFO)");
     console.log("  --skip-preflight              Skip preflight transaction checks");
+    console.log("  --finality <finalized|safe|N> Requested source finality (CCIP 2.0 lanes only; N = block depth for Faster-Than-Finality)");
     console.log("  --help, -h                    Show this help message");
     
     // Command-specific options

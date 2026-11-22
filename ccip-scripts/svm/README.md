@@ -210,6 +210,7 @@ yarn ts-node ccip-scripts/svm/router/get-ccip-fee.ts [options]
 - `--use-test-keypair`: Use test keypair at ~/.config/solana/keytest.json
 - `--log-level <level>`: Set logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
 - `--skip-preflight`: Skip preflight transaction checks
+- `--finality <finalized|safe|N>`: Requested source finality (CCIP 2.0 lanes only; N = block depth for Faster-Than-Finality)
 - `--help` or `-h`: Show usage information
 
 #### Examples
@@ -280,6 +281,9 @@ yarn svm:token-transfer -- --use-test-keypair
 
 # Skip preflight checks (add to any script)
 yarn svm:token-transfer -- --skip-preflight
+
+# CCIP 2.0: Faster-Than-Finality (wait 5 block confirmations instead of full finality)
+yarn svm:token-transfer -- --finality 5
 ```
 
 Or you can use ts-node directly:
@@ -302,6 +306,10 @@ yarn ts-node ccip-scripts/svm/router/3_data-and-tokens.ts [options]
   - `<ADDRESS>`: Custom token address
 - `--log-level <level>`: Set logging verbosity (TRACE, DEBUG, INFO, WARN, ERROR, SILENT)
 - `--skip-preflight`: Skip the preflight transaction check (useful for complex transactions)
+- `--finality <finalized|safe|N>`: Requested source finality (CCIP 2.0 lanes only). `N` is a block
+  depth for Faster-Than-Finality (e.g. `--finality 5` waits for 5 block confirmations instead of
+  full finality). The lane's verifiers, executor and token pools must allow the requested finality;
+  CCIP 1.6 lanes always wait for full finality and reject this flag.
 - `--help` or `-h`: Show usage information
 
 #### Examples

@@ -270,6 +270,24 @@ const extraArgs = createSolanaExtraArgs({
 const encodedAddress = encodeSolanaAddressToBytes32("8UJgxaiQx9LHvAYV3nFecLy83dLECKSTt9Y82MuJFSWH");
 ```
 
+#### CCIP 2.0: Faster-Than-Finality (FTF)
+
+On CCIP 2.0 lanes you can ask for a source-chain finality other than full finality. Setting `finality` switches the encoding from `SVMExtraArgsV1` to `GenericExtraArgsV3`. The Solana-specific fields (accounts, bitmap, ATA mode) are carried as `SVMExecutorArgsV1`. The lane's default verifiers (CCVs) and executor are used.
+
+```typescript
+const extraArgs = createSolanaExtraArgs({
+  computeUnits: 200000,
+  finality: 5, // "finalized" | "safe" | block depth (1-65535)
+  accounts: [statePda, messagesStoragePda],
+  accountIsWritableBitmap: BigInt(2),
+});
+```
+
+- Leave `finality` unset to keep `SVMExtraArgsV1`, which is required for CCIP 1.6 lanes. CCIP 1.6 OnRamps reject the V3 tag.
+- The executor, verifiers and token pools on the lane must allow the requested finality. Otherwise `ccipSend` reverts with `InvalidRequestedFinality`. For example, Sepolia → Solana Devnet allows a block depth of 1 or more but not `safe`.
+- **Data messages** with FTF are executed on Solana only if the receiver is a CCIP v2 receiver. It must implement `ccip_receive_v2` / `get_ccvs_and_finality_config` and its finality config must allow the request. A v1 receiver (`ccip_receive` only) fails execution with `RequestedFinalityNotAllowed`, even though the send on the EVM side succeeds. Token-only transfers don't consult the receiver. See [`programs/ccip-receiver-v2`](../../programs/ccip-receiver-v2) for a v2 receiver and `yarn svm:receiver-v2:setup` to configure its finality policy.
+- `allowOutOfOrderExecution` is ignored on 2.0 lanes, which have no ordered execution.
+
 ### Transaction Batching
 
 For complex operations, the SDK provides batch transaction execution:

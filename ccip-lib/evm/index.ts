@@ -13,12 +13,13 @@ export type {
   FeeResult,
   TokenAmount,
   SolanaExtraArgsOptions,
+  FinalityRequest,
   CCIPMessageRequest,
   CCIPMessageResult,
 } from "./core/models";
 
 // Export MessageStatus enum
-export { MessageStatus } from "./core/models";
+export { MessageStatus, SVMTokenReceiverAtaMode } from "./core/models";
 
 // Export factory functions removed - use direct class instantiation instead
 
@@ -54,7 +55,16 @@ export {
   encodeSolanaExtraArgs,
   hexToSolanaAddress,
   createSolanaExtraArgs,
+  encodeFinality,
+  parseFinality,
+  describeFinality,
+  isFasterThanFinality,
+  encodeSVMExecutorArgsV1,
+  encodeSolanaGenericExtraArgsV3,
   SVM_EXTRA_ARGS_V1_TAG,
+  GENERIC_EXTRA_ARGS_V3_TAG,
+  SVM_EXECUTOR_ARGS_V1_TAG,
+  FINALITY_SAFE_FLAG,
 } from "./utils/solana";
 
 // Utility functions for CCIP

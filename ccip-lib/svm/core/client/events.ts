@@ -50,10 +50,10 @@ export async function parseCCIPMessageSentEvent(
     // Log messages in TRACE mode
     logger.trace("Transaction logs:", tx.meta.logMessages);
 
-    // Look for the program return log from the CCIP Router program
-    const programReturnLog = tx.meta.logMessages.find((log) =>
-      log.includes(`Program return: ${routerProgramId}`)
-    );
+    // The router's top-level return (the messageId) is logged last; nested router CPIs may log earlier
+    const programReturnLog = [...tx.meta.logMessages]
+      .reverse()
+      .find((log) => log.includes(`Program return: ${routerProgramId}`));
 
     if (programReturnLog) {
       logger.debug(`Found CCIP program return log`);

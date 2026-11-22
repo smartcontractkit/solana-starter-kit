@@ -1,4 +1,4 @@
-import { LogLevel } from "../../../ccip-lib/svm";
+import { LogLevel, FinalityRequest } from "../../../ccip-lib/svm";
 import { resolve } from "path";
 
 /**
@@ -34,6 +34,8 @@ export interface CommonOptions {
   useTestKeypair?: boolean;
   /** Skip transaction preflight checks */
   skipPreflight?: boolean;
+  /** Requested source-chain finality (CCIP 2.0): "finalized", "safe" or a block depth (FTF) */
+  finality?: FinalityRequest;
 }
 
 /**

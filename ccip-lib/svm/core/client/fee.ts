@@ -22,6 +22,13 @@ import {
   GetFeeAccounts,
   GetFeeArgs,
 } from "../../bindings/instructions/getFee";
+import { BN } from "@coral-xyz/anchor";
+import {
+  GENERIC_EXTRA_ARGS_V3_TAG,
+  getFeeV2,
+  hasDestChainV2,
+  toGenericExtraArgsV3,
+} from "./send-v2";
 
 /**
  * Calculates the fee for a CCIP message
@@ -63,6 +70,46 @@ export async function calculateFee(
   );
 
   // Build the accounts needed for the getFee instruction
+  const extraArgsBuf = Buffer.from(request.message.extraArgs);
+  const extraArgsV3 = toGenericExtraArgsV3(extraArgsBuf);
+  const destHasV2Lane = await hasDestChainV2(
+    connection,
+    config.ccipRouterProgramId,
+    selectorBigInt
+  );
+
+  // GenericExtraArgsV3 (e.g. a finality request) can only be decoded by a 2.0 lane; fail with a
+  // clear message instead of an opaque on-chain decode error
+  if (
+    !destHasV2Lane &&
+    extraArgsBuf.subarray(0, 4).equals(GENERIC_EXTRA_ARGS_V3_TAG)
+  ) {
+    throw new Error(
+      "The extraArgs are GenericExtraArgsV3 (CCIP 2.0), but the router has no CCIP 2.0 lane " +
+        `to destination chain ${selectorBigInt}. Custom finality requires a CCIP 2.0 lane; ` +
+        "CCIP 1.6 lanes always wait for full finality"
+    );
+  }
+
+  if (extraArgsV3 && destHasV2Lane) {
+    logger.info("Destination has a CCIP 2.0 lane: quoting via get_fee_v2");
+    const fee = await getFeeV2(
+      connection,
+      config.ccipRouterProgramId,
+      signerPublicKey,
+      selectorBigInt,
+      request.message,
+      extraArgsV3,
+      logger
+    );
+    // get_fee_v2 doesn't return a LINK-denominated (juels) value
+    return new GetFeeResult({
+      amount: new BN(fee.amount.toString()),
+      juels: new BN(0),
+      token: fee.token,
+    });
+  }
+
   logger.debug(`Building accounts for getFee instruction`);
   const accounts = await buildGetFeeAccounts(
     config,

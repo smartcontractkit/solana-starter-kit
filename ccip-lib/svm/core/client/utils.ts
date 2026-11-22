@@ -1,9 +1,28 @@
 import { Logger } from "../../utils/logger";
 import { ExtraArgsOptions } from "../models";
 import { BN } from "@coral-xyz/anchor";
+import {
+  encodeFinalityConfig,
+  encodeGenericExtraArgsV3,
+} from "./send-v2";
+
+/**
+ * Human-readable description of a finality request
+ */
+export function describeFinality(finality?: ExtraArgsOptions["finality"]): string {
+  if (finality === undefined) return "unset (lane default)";
+  const { flags, blockDepth } = encodeFinalityConfig(finality);
+  if (flags === 0 && blockDepth === 0) return "finalized (wait for full finality)";
+  if (flags !== 0) return "safe (source chain `safe` block tag)";
+  return `${blockDepth} block confirmation${blockDepth === 1 ? "" : "s"} (Faster-Than-Finality)`;
+}
 
 /**
  * Creates extra arguments for CCIP send
+ *
+ * When `options.finality` is set (CCIP 2.0), the args are encoded as GenericExtraArgsV3 carrying
+ * the requested finality; otherwise they are encoded as EVMExtraArgsV2 (CCIP 1.6 lanes).
+ *
  * @param options Extra args options
  * @param logger Optional logger instance
  * @returns Buffer with encoded extra args
@@ -14,6 +33,19 @@ export function createExtraArgs(
 ): Buffer {
   if (logger) {
     logger.debug(`Creating extraArgs buffer for CCIP message`);
+  }
+
+  // CCIP 2.0: a finality request (even "finalized") selects the GenericExtraArgsV3 encoding
+  if (options?.finality !== undefined) {
+    if (logger) {
+      logger.debug(
+        `Encoding GenericExtraArgsV3 with finality: ${describeFinality(options.finality)}`
+      );
+    }
+    return encodeGenericExtraArgsV3({
+      gasLimit: options.gasLimit,
+      finality: options.finality,
+    });
   }
 
   // If no options provided, create a default buffer with allowOutOfOrderExecution=true

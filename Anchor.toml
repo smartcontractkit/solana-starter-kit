@@ -8,6 +8,7 @@ skip-lint = false
 
 [programs.devnet]
 ccip-basic-receiver = "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"
+ccip-receiver-v2 = "7pBjzkVarMXGck8qTz1ot4sJrcqmatMernGGRzgcmRaE"
 chainlink-solana-demo = "Gwdjt5fAZfhUyxXSrCKE5uGiHnbfx5ZhueEbnZToMRNJ"
 
 [programs.localnet]

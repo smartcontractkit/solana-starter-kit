@@ -146,6 +146,8 @@ export interface SVMChainConfig {
   nativeSol: PublicKey;
   systemProgramId: PublicKey;
   receiverProgramId: PublicKey;
+    /** CCIP 2.0 (v2 interface) receiver; required for Faster-Than-Finality data messages */
+  receiverV2ProgramId?: PublicKey;
 }
 
 const DEFAULT_SOLANA_DEVNET_RPC_URL = "https://api.devnet.solana.com";
@@ -290,6 +292,9 @@ const SVM_CONFIGS: Record<ChainId.SOLANA_DEVNET | ChainId.SOLANA_MAINNET, SVMCha
     receiverProgramId: new PublicKey(
       "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"
     ), // CCIP Basic Receiver (see programs/ccip-basic-receiver/src/lib.rs)
+    receiverV2ProgramId: new PublicKey(
+      "7pBjzkVarMXGck8qTz1ot4sJrcqmatMernGGRzgcmRaE"
+    ), // CCIP Basic Receiver v2 (see programs/ccip-receiver-v2/src/lib.rs)
   },
   [ChainId.SOLANA_MAINNET]: {
     id: ChainId.SOLANA_MAINNET,

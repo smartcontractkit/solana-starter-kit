@@ -15,6 +15,8 @@ import {
   LogLevel,
   createLogger,
   CCIPClient,
+  FinalityRequest,
+  describeFinality,
 } from "../../../ccip-lib/svm";
 import {
   ChainId,
@@ -62,6 +64,7 @@ interface GetCcipFeeOptions extends BaseCommandOptions {
   gasLimit?: number;
   allowOutOfOrder?: boolean;
   messageData?: string;
+  finality?: FinalityRequest;
 }
 
 /**
@@ -83,7 +86,10 @@ class GetCcipFeeCommand extends CCIPCommand<GetCcipFeeOptions> {
         "yarn svm:fee --token-amount 50000000 --gas-limit 300000",
         "",
         "# Calculate fee for custom receiver and message",
-        "yarn svm:fee --receiver-address 0x1234567890123456789012345678901234567890 --message-data \"Custom message data\""
+        "yarn svm:fee --receiver-address 0x1234567890123456789012345678901234567890 --message-data \"Custom message data\"",
+        "",
+        "# CCIP 2.0: quote a Faster-Than-Finality send (wait 5 block confirmations)",
+        "yarn svm:fee --finality 5"
       ],
       notes: [
         `Default destination: ${FEE_CALC_CONFIG.defaultDestinationChain}`,
@@ -91,6 +97,7 @@ class GetCcipFeeCommand extends CCIPCommand<GetCcipFeeOptions> {
         `Default gas limit: ${FEE_CALC_CONFIG.defaultGasLimit}`,
         "Fee tokens: native (SOL), wrapped-native (wSOL), link, or custom address",
         "No actual transactions are sent - this is estimation only",
+        "--finality (CCIP 2.0 lanes only) quotes with a requested source finality",
         "Results show both raw amounts and formatted values",
         "Useful for budgeting and planning cross-chain operations"
       ]
@@ -194,6 +201,7 @@ class GetCcipFeeCommand extends CCIPCommand<GetCcipFeeOptions> {
     const tokenAmount = this.options.tokenAmount || FEE_CALC_CONFIG.defaultTokenAmount;
     const gasLimit = this.options.gasLimit ?? FEE_CALC_CONFIG.defaultGasLimit;
     const allowOutOfOrder = this.options.allowOutOfOrder ?? FEE_CALC_CONFIG.defaultAllowOutOfOrder;
+    const finality = this.options.finality;
     
     // Resolve message data
     let messageData: string;
@@ -211,6 +219,7 @@ class GetCcipFeeCommand extends CCIPCommand<GetCcipFeeOptions> {
       messageData,
       gasLimit,
       allowOutOfOrder,
+      finality,
     };
   }
 
@@ -228,6 +237,7 @@ class GetCcipFeeCommand extends CCIPCommand<GetCcipFeeOptions> {
     this.logger.info(`Message Data Length: ${Buffer.from(messageConfig.messageData).length} bytes`);
     this.logger.info(`Gas Limit: ${messageConfig.gasLimit}`);
     this.logger.info(`Allow Out Of Order Execution: ${messageConfig.allowOutOfOrder}`);
+    this.logger.info(`Requested Finality: ${describeFinality(messageConfig.finality)}`);
   }
 
   /**
@@ -327,6 +337,7 @@ class GetCcipFeeCommand extends CCIPCommand<GetCcipFeeOptions> {
       const extraArgsConfig = {
         gasLimit: messageConfig.gasLimit,
         allowOutOfOrderExecution: true, // Force to true to avoid FeeQuoter error 8030
+        finality: messageConfig.finality,
       };
 
       if (!messageConfig.allowOutOfOrder) {

@@ -194,6 +194,7 @@ class CheckFeeCommand extends CCIPCommand<CheckFeeOptions> {
         allowOutOfOrderExecution: true,
         accountIsWritableBitmap: BigInt(0),
         accounts: [],
+        finality: this.options.finality,
         chainId: sourceChain,
       };
 

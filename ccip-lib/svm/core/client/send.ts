@@ -44,6 +44,13 @@ import {
   findRMNRemoteCursesPDA,
   findTokenPoolChainConfigPDA,
 } from "../../utils/pdas";
+import {
+  GENERIC_EXTRA_ARGS_V3_TAG,
+  hasDestChainV2,
+  requestHeapFrameInstruction,
+  resolveCcipSendV2,
+  toGenericExtraArgsV3,
+} from "./send-v2";
 
 /**
  * Sends a CCIP message
@@ -100,49 +107,54 @@ export async function sendCCIPMessage(
   const selectorBigInt = BigInt(request.destChainSelector.toString());
   const signerPublicKey = context.provider.getAddress();
 
-  // Build the accounts for the ccipSend instruction
-  const accounts = await buildCCIPSendAccounts(
-    config,
-    selectorBigInt,
-    request,
-    feeTokenMint,
-    feeTokenProgramId,
-    isNativeSol,
-    signerPublicKey,
-    logger
+  // Prefer the CCIP 2.0 entrypoint when the router has a 2.0 lane to the destination
+  const extraArgsBuf = Buffer.from(request.extraArgs);
+  const extraArgsV3 = toGenericExtraArgsV3(extraArgsBuf);
+  let instruction: TransactionInstruction;
+  let lookupTableList: AddressLookupTableAccount[];
+  const destHasV2Lane = await hasDestChainV2(
+    connection,
+    config.ccipRouterProgramId,
+    selectorBigInt
   );
+  const useV2 = !!extraArgsV3 && destHasV2Lane;
 
-  // Build token indexes and accounts
-  const { tokenIndexes, remainingAccounts, lookupTableList } =
-    await buildTokenAccountsForSend(
-      request,
-      connection,
-      feeTokenProgramId,
-      accountReader,
-      logger,
-      config,
-      signerPublicKey
+  // GenericExtraArgsV3 (e.g. a finality request) can only be decoded by a 2.0 lane; fail with a
+  // clear message instead of an opaque on-chain decode error
+  if (!destHasV2Lane && extraArgsBuf.subarray(0, 4).equals(GENERIC_EXTRA_ARGS_V3_TAG)) {
+    throw new Error(
+      "The extraArgs are GenericExtraArgsV3 (CCIP 2.0), but the router has no CCIP 2.0 lane " +
+        `to destination chain ${selectorBigInt}. Custom finality requires a CCIP 2.0 lane; ` +
+        "CCIP 1.6 lanes always wait for full finality"
     );
+  }
 
-  // Create the args for the ccipSend instruction
-  const args: CcipSendArgs = {
-    destChainSelector: request.destChainSelector,
-    message: {
-      receiver: request.receiver,
-      data: request.data,
-      tokenAmounts: request.tokenAmounts,
-      feeToken: request.feeToken,
-      extraArgs: request.extraArgs,
-    },
-    tokenIndexes: new Uint8Array(tokenIndexes),
-  };
-
-  // Create the ccipSend instruction
-  const instruction = ccipSend(args, accounts, config.ccipRouterProgramId);
-
-  // Add remaining accounts to the instruction
-  if (remainingAccounts.length > 0) {
-    instruction.keys.push(...remainingAccounts);
+  if (useV2) {
+    logger.info(
+      "Destination has a CCIP 2.0 lane: sending via ccip_send_v2 (allowOutOfOrderExecution is ignored)"
+    );
+    const resolved = await resolveCcipSendV2(
+      connection,
+      config.ccipRouterProgramId,
+      signerPublicKey,
+      selectorBigInt,
+      request,
+      extraArgsV3!,
+      logger
+    );
+    instruction = resolved.instruction;
+    lookupTableList = resolved.lookupTables;
+  } else {
+    ({ instruction, lookupTableList } = await buildCcipSendV1Instruction(
+      context,
+      request,
+      accountReader,
+      feeTokenMint,
+      feeTokenProgramId,
+      isNativeSol,
+      selectorBigInt,
+      signerPublicKey
+    ));
   }
 
   // Log complete instruction accounts in TRACE mode
@@ -168,6 +180,11 @@ export async function sendCCIPMessage(
   // Add compute budget instruction if provided
   if (computeBudgetInstruction) {
     instructions.push(computeBudgetInstruction);
+  }
+
+  // The 2.0 router runs on a custom heap and needs the largest heap frame
+  if (useV2) {
+    instructions.push(requestHeapFrameInstruction());
   }
 
   // Add the ccipSend instruction
@@ -226,6 +243,74 @@ export async function sendCCIPMessage(
   }
 
   return signature;
+}
+
+/**
+ * Builds the CCIP 1.6 `ccip_send` instruction and the lookup tables it needs
+ */
+async function buildCcipSendV1Instruction(
+  context: CCIPContext,
+  request: CCIPSendRequest,
+  accountReader: CCIPAccountReader,
+  feeTokenMint: PublicKey,
+  feeTokenProgramId: PublicKey,
+  isNativeSol: boolean,
+  selectorBigInt: bigint,
+  signerPublicKey: PublicKey
+): Promise<{
+  instruction: TransactionInstruction;
+  lookupTableList: AddressLookupTableAccount[];
+}> {
+  const logger = context.logger!;
+  const config = context.config;
+  const connection = context.provider.connection;
+
+  // Build the accounts for the ccipSend instruction
+  const accounts = await buildCCIPSendAccounts(
+    config,
+    selectorBigInt,
+    request,
+    feeTokenMint,
+    feeTokenProgramId,
+    isNativeSol,
+    signerPublicKey,
+    logger
+  );
+
+  // Build token indexes and accounts
+  const { tokenIndexes, remainingAccounts, lookupTableList } =
+    await buildTokenAccountsForSend(
+      request,
+      connection,
+      feeTokenProgramId,
+      accountReader,
+      logger,
+      config,
+      signerPublicKey
+    );
+
+  // Create the args for the ccipSend instruction
+  const args: CcipSendArgs = {
+    destChainSelector: request.destChainSelector,
+    message: {
+      receiver: request.receiver,
+      data: request.data,
+      tokenAmounts: request.tokenAmounts,
+      feeToken: request.feeToken,
+      extraArgs: request.extraArgs,
+    },
+    tokenIndexes: new Uint8Array(tokenIndexes),
+  };
+
+  // Create the ccipSend instruction
+  const instruction = ccipSend(args, accounts, config.ccipRouterProgramId);
+
+  // Add remaining accounts to the instruction
+  if (remainingAccounts.length > 0) {
+    instruction.keys.push(...remainingAccounts);
+  }
+
+  return { instruction, lookupTableList };
 }
 
 /**

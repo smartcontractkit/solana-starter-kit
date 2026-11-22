@@ -4,6 +4,10 @@ import {
   CCIPMessageRequest,
   CCIPMessageFactory,
   CCIPMessageOptions,
+  FinalityRequest,
+  GENERIC_EXTRA_ARGS_V3_TAG,
+  describeFinality,
+  isFasterThanFinality,
 } from "../../../ccip-lib/evm";
 import { parseCommonArgs } from "./config-parser";
 import { getCCIPExplorerUrl } from "./ccip";
@@ -32,6 +36,7 @@ export interface CCIPScriptOptions {
   accountIsWritableBitmap?: bigint;
   tokenReceiver?: string;
   accounts?: string[];
+  finality?: FinalityRequest;
   tokenAmounts?: Array<{
     token: string;
     amount: string;
@@ -73,8 +78,22 @@ export function createCCIPMessageRequest(
       allowOutOfOrderExecution: options.allowOutOfOrderExecution,
       tokenReceiver: options.tokenReceiver,
       accounts: options.accounts,
+      finality: options.finality,
     },
   };
+
+  if (options.finality !== undefined) {
+    logger.info(`Requested finality: ${describeFinality(options.finality)}`);
+  }
+  const hasData = !!options.data && options.data !== "0x";
+  if (hasData && isFasterThanFinality(options.finality)) {
+    logger.warn(
+      "⚠️  FTF data messages are only executed on Solana if the receiver program is a CCIP v2 receiver " +
+        "(ccip_receive_v2 + get_ccvs_and_finality_config) whose finality config allows this request. " +
+        "A v1 receiver (e.g. ccip-basic-receiver) will fail execution with RequestedFinalityNotAllowed. " +
+        "Check the receiver with: yarn svm:receiver-v2:status"
+    );
+  }
 
   // Use SDK factory to create the message
   return CCIPMessageFactory.createSolanaMessage(messageOptions, logger);
@@ -187,9 +206,15 @@ export function displayTransferSummary(
   }
 
   // Display extra args info
+  const isV3 = messageRequest.extraArgs
+    ?.toLowerCase()
+    .startsWith(GENERIC_EXTRA_ARGS_V3_TAG);
   logger.info(
-    `\nExtra Args: Solana-specific, ${getHexByteLength(messageRequest.extraArgs)} bytes`
+    `\nExtra Args: ${isV3 ? "GenericExtraArgsV3 (CCIP 2.0)" : "SVMExtraArgsV1"}, ${getHexByteLength(messageRequest.extraArgs)} bytes`
   );
+  if (isV3) {
+    logger.info(`Finality: ${describeFinality(options.finality)}`);
+  }
 
   // Display accounts if any
   if (options.accounts && options.accounts.length > 0) {

@@ -90,6 +90,9 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         "# Use different fee token",
         'yarn evm:arbitrary-message --data "Hello!" --fee-token native --log-level DEBUG',
         "",
+        "# CCIP 2.0: Faster-Than-Finality (wait 5 block confirmations; receiver must be a CCIP v2 receiver)",
+        'yarn evm:arbitrary-messaging --data "Hello FTF" --finality 5',
+        "",
         "# Send to custom receiver",
         'yarn evm:arbitrary-message --data "Custom receiver" --receiver 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
       ],
@@ -101,6 +104,7 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         "Receiver address specifies where message is delivered on Solana",
         "Compute units determine execution complexity on Solana",
         "Higher compute units needed for complex message processing",
+        "--finality (CCIP 2.0 lanes only) switches to GenericExtraArgsV3; FTF data messages need a CCIP v2 receiver on Solana",
       ],
     };
 
@@ -147,12 +151,11 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
    * Get default receiver based on destination chain
    */
   private getDefaultReceiver(): string {
-    // Get the Solana CCIP configuration to derive a reasonable default receiver
     const solanaConfig = getCCIPSVMConfig(ChainId.SOLANA_DEVNET);
-    
-    // For messaging, use the receiver program ID as the default
-    // This is the program that will receive and process the message
-    return solanaConfig.receiverProgramId.toString();
+
+    // Prefer the v2 receiver when configured: it is bound to the CCIP 2.0 Router and
+    // accepts both finalized and FTF messages. The v1 receiver is for CCIP 1.6 lanes.
+    return (solanaConfig.receiverV2ProgramId ?? solanaConfig.receiverProgramId).toString();
   }
 
   protected async execute(): Promise<void> {
@@ -172,7 +175,10 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         ? messageData 
         : "0x" + Buffer.from(messageData).toString("hex");
 
+      const receiver = this.options.receiver || this.getDefaultReceiver();
+
       this.logger.info(`Source Chain: ${sourceChain}`);
+      this.logger.info(`Receiver Program: ${receiver}`);
       this.logger.info(`Message Data: "${messageData}"`);
       this.logger.info(`Hex Encoded: ${hexData}`);
 
@@ -186,7 +192,7 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         
         // Message configuration
         data: hexData,
-        receiver: this.options.receiver || this.getDefaultReceiver(),
+        receiver,
         
         // Token receiver - for arbitrary messages, this is usually the default PublicKey
         tokenReceiver: PublicKey.default.toString(),
@@ -195,6 +201,7 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         // Higher compute units needed because message processing requires compute units
         computeUnits: this.options.computeUnits || 200000,
         allowOutOfOrderExecution: true,
+        finality: this.options.finality,
         
         // ACCOUNT WRITABLE BITMAP EXPLANATION:
         // The accounts array below contains PDAs that the CCIP receiver program needs.
@@ -215,13 +222,8 @@ class ArbitraryMessagingCommand extends CCIPCommand<ArbitraryMessagingOptions> {
         
         // Accounts array - Program Derived Addresses (PDAs) for the CCIP receiver
         accounts: (() => {
-          // Get the receiver program ID from config
-          const receiverProgramId = getCCIPSVMConfig(
-            ChainId.SOLANA_DEVNET
-          ).receiverProgramId.toString();
-          
           // Derive the PDAs using the same seeds as the Rust program
-          const pdas = deriveReceiverPDAs(receiverProgramId);
+          const pdas = deriveReceiverPDAs(receiver);
           
           // Return accounts in the order that matches the bitmap above
           return [

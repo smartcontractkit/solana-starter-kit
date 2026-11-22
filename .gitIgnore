@@ -4,6 +4,7 @@ target/*
 !target/idl
 target/idl/*
 !target/idl/ccip_basic_receiver.json
+!target/idl/ccip_receiver_v2.json
 **/*.rs.bk
 node_modules
 test-ledger

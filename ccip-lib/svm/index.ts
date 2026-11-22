@@ -1,6 +1,8 @@
 // Core components
 export * from "./core/client/accounts";
 export * from "./core/client/index";
+export * from "./core/client/send-v2";
+export * from "./core/client/utils";
 
 // Export models with specific names to avoid conflicts
 export type {
@@ -11,6 +13,7 @@ export type {
   CCIPSendResult,
   ExtraArgsOptions,
   ExtraArgsV1,
+  FinalityRequest,
   CCIPProvider,
   CCIPCoreConfig,
   CCIPContext,

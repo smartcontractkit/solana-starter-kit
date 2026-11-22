@@ -302,6 +302,7 @@ class DataAndTokensCommand extends CCIPCommand<DataAndTokensOptions> {
         // Higher compute units needed because combined message and token processing requires more compute
         computeUnits: this.options.computeUnits || 200000,
         allowOutOfOrderExecution: true,
+        finality: this.options.finality,
         
         // ACCOUNT WRITABLE BITMAP EXPLANATION FOR DATA + TOKENS:
         // The accounts array contains PDAs and token accounts needed for both message and token processing.

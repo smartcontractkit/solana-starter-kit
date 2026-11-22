@@ -93,6 +93,46 @@ export interface SolanaExtraArgsOptions {
 
   /** Additional Solana accounts to include */
   accounts?: string[];
+
+  /**
+   * Requested source-chain finality (CCIP 2.0 lanes only).
+   * - `"finalized"` (or 0): wait for full finality (default)
+   * - `"safe"`: wait for the source chain's `safe` block tag
+   * - `N` (1-65535): Faster-Than-Finality, wait for N block confirmations
+   *
+   * Setting this switches the encoding to GenericExtraArgsV3, which only
+   * CCIP 2.0 OnRamps accept.
+   */
+  finality?: FinalityRequest;
+
+  /**
+   * Force a specific extraArgs encoding. Defaults to "v3" when `finality` is
+   * set, otherwise "v1" (SVMExtraArgsV1, accepted by CCIP 1.6 lanes).
+   */
+  extraArgsVersion?: "v1" | "v3";
+
+  /**
+   * How the destination token account is derived (GenericExtraArgsV3 only).
+   * Defaults to DERIVE_ATA_AND_CREATE.
+   */
+  tokenReceiverAtaMode?: SVMTokenReceiverAtaMode;
+}
+
+/**
+ * Requested finality for CCIP 2.0 messages: "finalized", "safe", or a block depth
+ */
+export type FinalityRequest = "finalized" | "safe" | number;
+
+/**
+ * Token receiver handling for SVMExecutorArgsV1 (`useATA` field)
+ */
+export enum SVMTokenReceiverAtaMode {
+  /** Derive the receiver's ATA and create it if missing */
+  DERIVE_ATA_AND_CREATE = 0,
+  /** Derive the receiver's ATA; it must already exist */
+  DERIVE_ATA_DONT_CREATE = 1,
+  /** Use the tokenReceiver as the token account itself */
+  USE_AS_IS = 2,
 }
 
 /**

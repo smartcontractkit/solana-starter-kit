@@ -1,0 +1,14 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["node_modules"]
+solc_version = "0.8.39"
+optimizer = true
+optimizer_runs = 10_000
+via_ir = true
+remappings = [
+  "@chainlink/contracts-ccip/=node_modules/@chainlink/contracts-ccip/",
+  "@chainlink/contracts/=node_modules/@chainlink/contracts/",
+  "@openzeppelin/contracts@5.3.0/=node_modules/@openzeppelin/contracts-5.3.0/",
+  "@openzeppelin/contracts@4.8.3/=node_modules/@openzeppelin/contracts-4.8.3/",
+]

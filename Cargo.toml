@@ -12,8 +12,10 @@ incremental = false
 codegen-units = 1
 
 [workspace.dependencies]
-solana-program = "1.18.20"
+solana-program = "3"
+anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }
+anchor-spl = "1.1.2"
+borsh = "1.6"
 
 [workspace.dependencies.chainlink_solana]
-version = "1.0.0"
-features = ["no-entrypoint"]
+version = "2.0.8"

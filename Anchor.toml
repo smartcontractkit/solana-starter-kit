@@ -8,6 +8,8 @@ skip-lint = false
 
 [programs.devnet]
 ccip-basic-receiver = "BqmcnLFSbKwyMEgi7VhVeJCis1wW26VySztF34CJrKFq"
+ccip-receiver-v2 = "BpR2B1WNYgssZwDQEDm23EoFQqJVuCrGg59uFB4afjq2"
+ccip-sender-v2 = "7zGbs3PZSrZryQqJFpcYZf8kJ8BbxavmBngcLmYy9ds5"
 chainlink-solana-demo = "Gwdjt5fAZfhUyxXSrCKE5uGiHnbfx5ZhueEbnZToMRNJ"
 
 [programs.localnet]
@@ -21,4 +23,4 @@ cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

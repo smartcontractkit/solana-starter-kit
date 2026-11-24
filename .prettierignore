@@ -1,0 +1,7 @@
+node_modules
+target
+contracts/evm/out
+contracts/evm/cache
+package-lock.json
+Cargo.lock
+.env

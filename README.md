@@ -10,321 +10,377 @@
 
 # Chainlink Solana Starter Kit
 
-The Chainlink Solana Starter Kit is an [Anchor](https://project-serum.github.io/anchor/getting-started/introduction.html) based program and client that shows developers how to use and interact with [Chainlink Price Feeds on Solana](https://docs.chain.link/solana/). The demo is configured to run on the [Devnet cluster](https://docs.solana.com/clusters#devnet), and is comprised of an on-chain program written in Rust, and an off-chain client written in JavaScript. The program takes parameters and account information from the off-chain client, retrieves the latest price data from the specified Chainlink Price Feed on Devnet, then writes the data out to the specified account, which can then be read by the off-chain client.
+An [Anchor](https://www.anchor-lang.com/) workspace showing two things on Solana Devnet:
 
-## Environment Variables
+1. **Chainlink Data Feeds** — read prices on-chain (Rust program) and off-chain (TypeScript client).
+2. **Chainlink CCIP 2.0** — cross-chain token transfers, arbitrary messaging, and programmable
+   token transfers (data + tokens) between **Solana Devnet ↔ Ethereum Sepolia** (prod-testnet),
+   built on the [`@chainlink/ccip-sdk`](https://docs.chain.link/ccip/tools/sdk/).
 
-The following environment variables must be set before running the scripts:
+## Contents
 
-| Variable          | Description                                                        | Required For                   |
-| ----------------- | ------------------------------------------------------------------ | ------------------------------ |
-| `EVM_PRIVATE_KEY` | The private key for the EVM account                                | All EVM chain operations       |
-| `EVM_RPC_URL`     | RPC URL for Ethereum Sepolia                                       | Operations on Ethereum Sepolia |
-| `AVAX_RPC_URL`    | RPC URL for Avalanche Fuji                                         | Operations on Avalanche Fuji   |
-| `SOLANA_RPC_URL`  | RPC URL for Solana Devnet (defaults to public endpoint if not set) | Operations on Solana Devnet    |
+- [Requirements](#requirements)
+- [Setup](#setup)
+- [Data Feeds](#data-feeds)
+  - [Build & deploy the demo program](#build--deploy-the-demo-program)
+  - [Run the on-chain client](#run-the-on-chain-client)
+  - [Run the read-only client](#run-the-read-only-client)
+  - [Run the integration test](#run-the-integration-test)
+- [CCIP 2.0](#ccip-20)
+  - [How it works](#how-it-works)
+  - [CCIP setup](#ccip-setup)
+  - [Command reference](#command-reference)
+  - [Fees](#fees)
+  - [Faster-Than-Finality (FTF)](#faster-than-finality-ftf)
+  - [Manual execution](#manual-execution)
+  - [CCIP programs](#ccip-programs)
+  - [Troubleshooting](#troubleshooting)
+- [Repository layout](#repository-layout)
 
-### Setting up Environment Variables
+## Requirements
 
-Create a `.env` file in the root directory with the following format:
+- [Node.js v22+](https://nodejs.org/en/download/) (required by the ccip-sdk)
+- [Rust](https://www.rust-lang.org/tools/install) (rustc 1.87+)
+- [Solana CLI](https://docs.solanalabs.com/cli/install)
+- [Anchor](https://book.anchor-lang.com/getting_started/installation.html) v1.1.2 — install via
+  avm: `avm install 1.1.2 && avm use 1.1.2`
+- A C compiler such as the one included in [GCC](https://gcc.gnu.org/install/)
 
-```
-EVM_PRIVATE_KEY=your_private_key_here
-EVM_RPC_URL=https://your-ethereum-sepolia-rpc-url
-AVAX_RPC_URL=https://your-avalanche-fuji-rpc-url
-SOLANA_RPC_URL=https://your-solana-devnet-rpc-url
-```
+> **Note:** if `anchor --version` still shows an old version after `avm use`, a standalone anchor
+> binary is shadowing avm's. Invoke `~/.avm/bin/anchor` directly.
 
-**Important**: The RPC URLs must be valid and accessible for the scripts to work. If an RPC URL is not provided for a chain, an error will be thrown when attempting to use that chain.
+## Setup
 
-## Running the example on Devnet
-
-### Requirements
-
-- [Node.js v20+](https://nodejs.org/en/download/) (v23.11.0 recommended)
-- [Rust](https://www.rust-lang.org/tools/install) - we recommend rustc version 1.87 and above
-- [Solana CLI](https://docs.solanalabs.com/cli/install) - we recommend v0.31.1
-- [Anchor](https://book.anchor-lang.com/getting_started/installation.html) - we recommend v2.1.21 and above.
-- A C compiler such as the one included in [GCC](https://gcc.gnu.org/install/).
-
-### Building and Deploying the Consumer Program
-
-First, ensure that you're in the `solana-starter-kit` directory in this repository
-
-```
-cd ./solana-starter-kit
-```
-
-Next step is to install all of the required dependencies:
-
-```
+```bash
+cd solana-starter-kit
 npm install
 ```
 
-**Note for [Apple M1](https://en.wikipedia.org/wiki/Apple_M1) chipsets**: You will need to perform an extra step to get the Anchor framework installed manually from source, as the NPM package only support x86_64 chipsets currently, please run the following command to install it manually:
+Create a wallet (or reuse your existing `~/.config/solana/id.json`):
 
-```
-cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.1 anchor-cli --locked
-```
-
-Next, generate a new wallet:
-
-```
+```bash
 solana-keygen new -o id.json
+solana airdrop 5 $(solana address --keypair id.json) --url https://api.devnet.solana.com
 ```
 
-You should see the public key in the terminal output. Alternatively, you can find the public key with the following CLI command:
+Copy `.env.example` to `.env` and fill in:
 
-```
-solana-keygen pubkey id.json
-```
+| Variable                                | Required for          | Notes                                                      |
+| --------------------------------------- | --------------------- | ---------------------------------------------------------- |
+| `EVM_PRIVATE_KEY`                       | All EVM operations    | Sepolia ETH funded                                         |
+| `EVM_RPC_URL`                           | All EVM operations    | Defaults to a public Sepolia endpoint                      |
+| `SOLANA_RPC_URL`                        | All Solana operations | Defaults to `https://api.devnet.solana.com`                |
+| `SOLANA_WALLET_PATH`                    | Solana signing        | Defaults to `~/.config/solana/id.json`                     |
+| `EVM_RECEIVER_ADDRESS`                  | All sol2evm sends     | Set after [deploying the EVM receiver](#ccip-setup)        |
+| `ANCHOR_PROVIDER_URL` / `ANCHOR_WALLET` | Integration test      | e.g. `https://api.devnet.solana.com` and your keypair path |
 
-Next, airdrop 5 SOL tokens into your new account. Be sure to replace both instances of <RECIPIENT_ACCOUNT_ADDRESS> with your wallet's public key from the previous step:
+---
 
-```
-solana airdrop $(solana address --keypair id.json) --url https://api.devnet.solana.com
-```
+## Data Feeds
 
-Confirm that you have received the 5 SOL by running `solana balance --keypair id.json`.
+The demo program (`chainlink_solana_demo`) reads the latest round from a Chainlink Price Feed
+on-chain and writes it to a user-provided account. The read-only client reads a feed directly
+from TypeScript with no transaction.
 
-Next, build the program:
+### Build & deploy the demo program
 
-```
+```bash
 anchor build
-```
-
-Before you deploy the `chainlink_solana_demo` program, you must update its public key in `./programs/chainlink_solana_demo/src/lib.rs`:
-
-```
-declare_id!("####GEg__SOME__KEY__HERE__F2TsL#####");
-```
-
-This `declare_id!` macro is used to hardcode the program's public key directly into the 
-program's bytecode. 
-
-To update this public key, you need to run the command below:
-
-```
-anchor keys sync
-```
-
-
-After this command, check `./programs/chainlink_solana_demo/src/lib.rs` again. The `declare_id!` line will be updated with your program address, for example:
-
-```
-declare_id!("JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm");
-```
-
-To avoid having to add `--keypair id.json` to future commands now is a good time to add the following in your terminal:
-
-` export ANCHOR_WALLET="./id.json" ` --> include the quotes
-
-Finally, because you updated the source code with its generated public key, you need to rebuild the program to regenerate the associated files for deployment, and then it can be deployed to devnet
-
-
-```
-anchor build
+anchor keys sync        # writes the generated program ID into declare_id!
+anchor build            # rebuild with the synced ID
 anchor deploy --provider.cluster devnet
 ```
 
-Once you have successfully deployed the program, the terminal output will specify the program ID. Make sure you're looking for the Program ID of the `chainlink_solana_demo` program.
+The deployed program ID must match `declare_id!` in
+[`programs/chainlink_solana_demo/src/lib.rs`](programs/chainlink_solana_demo/src/lib.rs).
 
-The Program ID must match the value in `./programs/chainlink_solana_demo/src/lib.rs`.
+### Run the on-chain client
 
-
-🚨 The `declare_id!` and your deployed program ID  should be the same. If they're different, it could indicate:
-
-- You didn't run anchor keys sync after the initial build
-- You didn't rebuild after syncing keys
-- There was an issue during the deployment process
-
-
-
-Once again, take note of this Program ID, as it will be required when executing the client:
-
-```
-Deploying workspace: https://api.devnet.solana.com
-Upgrade authority: ./id.json
-Deploying program "chainlink_solana_demo"...
-Program path: ./target/deploy/chainlink_solana_demo.so...
-Program Id: JC16qi56dgcLoaTVe4BvnCoDL6FhH5NtahA7jmWZFdqm
+```bash
+npm run read-data
 ```
 
-### Running the Client
+Generates a fresh account, invokes the deployed program to fetch the feed price into it, then
+prints the price. The feed address and program ID are set in [`read-data.ts`](read-data.ts).
 
-Next we set up the JavaScript client that interacts with our deployed program on Devnet.
+### Run the read-only client
 
-The first step is to set the Anchor [environment variables](https://www.twilio.com/blog/2017/01/how-to-set-environment-variables.html). These are required by the Anchor framework to determine which provider to use and which wallet to use for interacting with the deployed program:
+The same `npm run read-data` script also demonstrates the off-chain path via
+[`@chainlink/solana-sdk`](https://www.npmjs.com/package/@chainlink/solana-sdk)'s `OCR2Feed`:
+it subscribes to round updates and streams prices without sending a transaction. Edit
+`CHAINLINK_FEED_ADDRESS` in [`read-data.ts`](read-data.ts) to pick a different Devnet feed
+(see the [Solana feed list](https://docs.chain.link/solana)).
 
-```
-export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
-export ANCHOR_WALLET='./id.json'
-```
-
-Now you are ready to run the JavaScript client. Be sure to pass Chainlink data feed address that you want to query. This can be taken from the [Chainlink Solana Data Feeds page](https://docs.chain.link/docs/solana/data-feeds-solana/), and the value will be defaulted to the Devnet SOL/USD feed address if you don't specify a value. In this example, we specified the ETH/USD feed:
-
-```
-node client.js --feed	669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P
-```
-
-The client will generate a new account and pass it to the deployed program, which will then populate the account with the current price from the specified price feed. The client will then read the price from the account, and output the value to the console.
-
-```
-Running client...
-priceFeedAccount public key: DNQBqwGijKix2EmKhMMaftZgSywcbfnQZSzfDyEMEfLf
-user public key: GWKzUMdSF8Y4xQ3JANTChkaJDFE4UdkvAkHCknmJtJUX
-Fetching transaction logs...
-[
-  'Program BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY invoke [1]',
-  'Program log: Instruction: Execute',
-  'Program 11111111111111111111111111111111 invoke [2]',
-  'Program 11111111111111111111111111111111 success',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny invoke [2]',
-  'Program log: Instruction: Query',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny consumed 2551 of 1360424 compute units',
-  'Program return: HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny RZ0GABn5swcAAAAA3ltiYgAVg8dFAAAAAAAAAAAAAAA=',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny success',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny invoke [2]',
-  'Program log: Instruction: Query',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny consumed 2245 of 1328033 compute units',
-  'Program return: HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny CQAAAEVUSCAvIFVTRA==',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny success',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny invoke [2]',
-  'Program log: Instruction: Query',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny consumed 1826 of 1295650 compute units',
-  'Program return: HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny CA==',
-  'Program HEvSKofvBgfaexv23kMabbYqxasxU3mQ4ibBMEmJWHny success',
-  'Program log: ETH / USD price is 2997.00000000',
-  'Program BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY consumed 109699 of 1400000 compute units',
-  'Program return: BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY CA==',
-  'Program BrEqc6zHVR77jrP6U6WZLUV24AZ9UnHrWfDQTDV7VoDY success'
-]
-Price Is: 2997
-Success
-```
-
-### Running the Read Only Clients
-
-To facilitate the scenario of purely requiring Chainlink Price Feed data off-chain, we have also included a second `read-data` client that queries a specified price feed and returns the latest price data. This version of the client does not generate a transaction, and therefore requires no accounts created or transaction fees. To run the read-data client, first you should ensure you have set the required Anchor environment variables. You can skip this step if you already did it earlier before running the normal client:
-
-```
-export ANCHOR_PROVIDER_URL='https://api.devnet.solana.com'
-export ANCHOR_WALLET='./id.json'
-```
-
-Next, you can set the value of the `CHAINLINK_FEED_ADDRESS` static variable to the value of the [Price Feed account address](https://docs.chain.link/docs/solana/data-feeds-solana/) that you wish to query. This example queries the ETH/USD feed on Devnet:
-
-```
-const CHAINLINK_FEED_ADDRESS="669U43LNHx7LsVj95uYksnhXUfWKDsdzVqev3V4Jpw3P"
-```
-
-Once you save your file, you can then execute the client. There is a [Typescript](https://github.com/smartcontractkit/solana-starter-kit/blob/main/read-data.ts) and a [JavaScript](https://github.com/smartcontractkit/solana-starter-kit/blob/main/read-data.js) version:
-
-Typescript:
-
-```
-yarn read-data
-```
-
-JavaScript:
-
-```
-node read-data.js
-```
-
-The client will query the specified price feed using the published [Chainlink Solana NPM package](https://www.npmjs.com/package/@chainlink/solana-sdk), and will then continuously just print the latest price to the console.
-
-```
-pappas99@Pappas solana-starter-kit % yarn read-data
-> @ read-data /Users/pappas99/GitHub/22-hackathon/solana-starter-kit
-> ts-node ./read-data.ts
-
-301296000000
-301250000000
-301215000000
-301205000000
-301331000000
-```
-
-### Testing Data Feeds Contracts
-
-You can execute the [integration test](./tests/chainlink-solana-demo-int-test.ts) with the following command
+### Run the integration test
 
 ```bash
 anchor test
 ```
 
-The integration test checks that the value of the specified price feed account (defaulted to SOL/USD) on Devnet is greater than 0.
+Runs [`tests/chainlink-solana-demo-int-test.ts`](tests/chainlink-solana-demo-int-test.ts) against
+Devnet: invokes the deployed program on the default feed and asserts the price is positive.
+Requires `ANCHOR_PROVIDER_URL` and `ANCHOR_WALLET` (see `.env.example`).
+
+---
+
+## CCIP 2.0
+
+Cross-chain messaging between **Solana Devnet and Ethereum Sepolia** over CCIP 2.0
+(prod-testnet), using the ccip-sdk for everything: message building, fee quoting, sending,
+execution-status tracking, and manual execution.
+
+### How it works
+
+- **Solana → Ethereum**: the SDK builds and signs a `ccip_send` instruction against the Solana
+  router. On Sepolia, the CCIP OffRamp executes your `BasicCCIPReceiver` contract
+  ([`contracts/evm/src/BasicCCIPReceiver.sol`](contracts/evm/src/BasicCCIPReceiver.sol)), which
+  stores the latest message and lets its owner set per-source-chain finality policy.
+- **Ethereum → Solana**: the SDK sends via the Sepolia router. On Devnet, the CCIP OffRamp
+  program invokes your `ccip-receiver-v2` program's `ccip_receive_v2` instruction, which emits a
+  `MessageReceived` event.
+- **Fees** are paid in native SOL/ETH by default, or in LINK/WSOL (Solana) or LINK/WETH (Sepolia)
+  with `--fee-token`.
+- **Gas limits** for the destination callback are estimated automatically by the SDK
+  (`estimateReceiveExecution`, +50% margin). Override with `--gas-limit` / `--compute-units`.
+  Token-only sends use gas limit 0 — CCIP 2.0 then skips the receiver call entirely and
+  delivers the tokens via the pool (the designed fast path).
+
+### CCIP setup
+
+One-time setup:
 
 ```bash
- solana-starter-kit
+# 1. Deploy the EVM receiver on Sepolia; put the printed address in .env as EVM_RECEIVER_ADDRESS
+npm run evm:receiver:deploy
 
-Price Is: 105.52
-    ✔ Query SOL/USD Price Feed! (4521ms)
+# 2. Deploy the v2 receiver program on Solana (needed to receive messages, and for FTF)
+npm run svm:program:build
+npm run svm:program:deploy -- --program ccip-receiver-v2
 
+# 3. Initialize it, register with the router, and set the finality policy (FTF-ready)
+npm run svm:receiver-v2:setup -- --block-depth 1 --allow-safe
 
-  1 passing (5s)
+# 4. Approve your EVM sender address (required for data messages to the receiver)
+npm run svm:receiver-v2:setup -- --approve-sender 0xYourEvmAddress
 
-✨  Done in 10.49s.
+# 5. (Optional) deploy + set up the v2 sender program (program-initiated sends)
+npm run svm:program:deploy -- --program ccip-sender-v2
+npm run svm:sender-v2:setup -- --recipient 0xYourEvmReceiver
+# 6. Check everything
+npm run svm:receiver-v2:status
 ```
 
-If you'd like to run the test after initial deployment of the contracts, you can run the tests directly via yarn. 
+> ⚠️ Running `svm:receiver-v2:setup` **without** `--block-depth`/`--allow-safe` sets (or
+> downgrades) the receiver's policy to finality-only.
 
-```
-yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts
-```
+### Command reference
 
-You will be asked to provide anchor environment variables. See `.env.example` for details. 
+Every send script prints a summary before sending and the message ID + explorer links after.
 
-## Cross-Chain Interoperability Protocol (CCIP)
-
-This repository also includes scripts and libraries for **Chainlink CCIP**, enabling cross-chain communication between Solana and EVM-compatible blockchains.
-
-### CCIP Features
-
-- **Token Transfers**: Send tokens from EVM chains to Solana and vice versa
-- **Arbitrary Messaging**: Send custom data between chains
-- **Multi-Chain Support**: Works with Ethereum, Base, Optimism, BSC, Arbitrum, and more
-- **CCIP Receivers**: Deploy and manage programs that receive cross-chain messages
-
-> **Cross-chain token (CCT) pool setup** (burn-mint pools, admin registry, ALT management) lives in [ccip-solana-bs58-generator](https://github.com/smartcontractkit/ccip-solana-bs58-generator), not this repo.
-
-### Quick Start with CCIP
-
-#### Send Tokens from Ethereum to Solana
+#### Send data (arbitrary messaging)
 
 ```bash
-# Estimate fees (read-only, no private key required)
-yarn evm:check-fee
-
-# Get test tokens
-yarn evm:token:drip
-
-# Send BnM tokens to Solana
-yarn evm:transfer --token 0x779877A7B0D9E8603169DdbD7836e478b4624789 --amount 1000000000000000000
+npm run sol2evm:data -- --message "Hello from Solana"
+npm run evm2sol:data -- --message "Hello from Ethereum"
 ```
 
-#### Send Tokens from Solana to Ethereum
+Options: `--receiver <address>` (override the default receiver), `--gas-limit`/`--compute-units`
+(override the estimated callback budget).
+
+#### Send through the ccip-sender-v2 program
+
+The sol2evm scripts accept `--sender-program <programId>` to route the send through the deployed
+`ccip-sender-v2` program instead of calling the router directly — the program-initiated flow:
 
 ```bash
-# Delegate authority for CCIP transfers
-yarn svm:token:delegate
-
-# Send tokens cross-chain
-yarn svm:token-transfer --token-mint YourTokenMintAddress --token-amount 1000000
+npm run sol2evm:data -- --sender-program 7zGbs3PZSrZryQqJFpcYZf8kJ8BbxavmBngcLmYy9ds5
+npm run sol2evm:token -- --sender-program 7zGbs3PZSrZryQqJFpcYZf8kJ8BbxavmBngcLmYy9ds5 --amount 1
 ```
 
-### CCIP Documentation
+The program pulls your tokens/fees and CPIs the router. The usual flags drive the send —
+`--receiver` (default: `EVM_RECEIVER_ADDRESS`), `--gas-limit` (default: estimate + 50%),
+`--finality` (default: finalized) and `--no-exec` — while the program's stored chain config fills
+in the rest (custom CCVs, executor args). When the flag-derived values differ from the stored
+config, the script first sends an `update_chain_config` transaction (the caller must be the
+program's owner) and then the send — a stale config from a previous send is never silently
+reused. The script quotes the fee off-chain and passes it as the program's required `max_fee`
+(with 20% headroom). The script creates the program's token accounts and delegates your token
+accounts to it as needed, so any SPL/Token-2022 mint works — fund your wallet with the token and
+fee token first.
 
-For comprehensive CCIP documentation:
+Change the stored config later (e.g. to set custom CCVs or executor args) without re-running
+setup — the send scripts' flags now drive every send, so this is only needed for fields the
+flags don't cover:
 
-- **[CCIP Scripts Overview](./ccip-scripts/README.md)** - Script commands and quick start
-- **[SVM Scripts Guide](./ccip-scripts/svm/README.md)** - Detailed Solana operations  
-- **[EVM Scripts Guide](./ccip-scripts/evm/README.md)** - Detailed EVM operations
-- **[SVM SDK Documentation](./ccip-lib/svm/README.md)** - Solana SDK reference
-- **[EVM SDK Documentation](./ccip-lib/evm/README.md)** - EVM SDK reference
+```bash
+npm run svm:sender-v2:config -- --gas-limit 500000
+npm run svm:sender-v2:config -- --recipient 0xNewReceiver --finality 1
+npm run svm:sender-v2:config -- --finality finalized   # revert FTF (finality has no "unset" — finalized is the default)
+npm run svm:sender-v2:config -- --remove   # disable the Sepolia lane
+```
 
-### CCIP Explorer
+Unspecified options keep their stored values.
 
-Track your cross-chain messages on the [CCIP Explorer](https://ccip.chain.link)
+#### Send tokens
 
-Disclaimer: Please note, this repo contains community examples only  — these are not Chainlink products or services and are not supported or maintained by Chainlink. This code represents an example of using a Chainlink product or service, and is intended for demonstration and educational purposes only. It is provided “AS IS” and “AS AVAILABLE” without warranties of any kind, may not have been audited, and may omit checks or error handling. Each party intending to use this example code does so entirely at their own risk and must perform its own audits, security and code review, key management, and testing before any production deployment and ensure the operation and performance of such code matches expectations. Neither Chainlink Labs nor the Chainlink Foundation deploys, operates, monitors, maintains or endorses any deployment of this code. Note that this is not a Chainlink product, feature or service, and there are no commitments made with respect to the code, including compatibility with future Chainlink releases. You should not rely on this code without first conducting your own technical, engineering, and security review. This code is also outside the scope of any Chainlink bug bounty programs. Neither Chainlink Labs, the Chainlink Foundation, nor Chainlink node operators are responsible for outcomes due to errors in this example or how it is deployed or operated, or liable for any resulting claims or damages. Use of the Chainlink Network is subject to the Chainlink Foundation [Terms of Service](https://chain.link/terms), which provides important information and disclosures. By using this code, you acknowledge and agree to these terms.
+```bash
+# BnM has 9 decimals on Solana, 18 on Sepolia
+npm run sol2evm:token -- --amount 1                          # 1 BnM (human-readable; decimals resolved on-chain)
+npm run evm2sol:token -- --amount 1                          # 1 BnM
+npm run sol2evm:token -- --amount 1 --fee-token link         # pay the fee in LINK
+npm run evm2sol:token -- --token 0x7798...A7B0 --amount 1    # any registered token
+```
+
+Options: `--token` (mint/address, default BnM), `--fee-token native|link|wsol` (Solana) /
+`native|link|weth` (Sepolia), `--receiver`.
+
+To Solana, `--receiver` is the address whose **associated token account** receives the tokens
+(default: your Solana wallet) — there is no receiver program on a token-only send.
+
+#### Send data + tokens (programmable token transfer)
+
+```bash
+npm run sol2evm:data-and-token -- --amount 1 --message "Hello with tokens"
+npm run evm2sol:data-and-token -- --amount 1 --message "Hello with tokens"
+```
+
+To Solana, the message goes to the `ccip-receiver-v2` program while the tokens land in the
+`--token-receiver` address's associated token account (default: your Solana wallet).
+
+#### Fee quotes (read-only)
+
+```bash
+npm run sol2evm:fee
+npm run evm2sol:fee -- --finality 5
+npm run sol2evm:fee -- --token-amount 1    # quote including a token transfer
+```
+
+#### Manual execution
+
+```bash
+npm run sol2evm:manual-execute -- --message-id 0x...
+npm run evm2sol:manual-execute -- --message-id 0x...
+```
+
+The SDK fetches the execution inputs from the CCIP API by message ID. `--gas-limit`/
+`--compute-units` override the callback budget (useful to retry a message that failed with an
+insufficient budget). The script skips the SDK's post-execute buffer sweep (it scans your
+wallet's full transaction history and takes minutes on public RPC) — leftover buffers and
+lookup tables auto-close on success; to recycle any stragglers and recover their rent, run
+`npm run svm:cleanup` occasionally.
+
+### Fees
+
+- Default fee token is **native** (SOL on Solana, ETH on Sepolia). `--fee-token link` pays in
+  LINK; `--fee-token wsol` (Solana) / `--fee-token weth` (Sepolia) pays in wrapped native —
+  that bills the wrapped token account, not your wallet's SOL/ETH.
+- Token transfers cost more than data-only messages (pool fees on top of the execution fee).
+- Run the `*:fee` scripts first to see the exact cost before sending.
+- Check balances on either chain with `npm run balance -- svm <mint>` / `npm run balance -- evm <tokenAddress>`
+  (add `--owner <address>` for another owner).
+
+### Faster-Than-Finality (FTF)
+
+By default a message waits for full source finality. FTF relays it sooner:
+
+```bash
+npm run sol2evm:data -- --finality 5      # relay after 5 block confirmations
+npm run evm2sol:data -- --finality safe   # relay at the safe head
+npm run evm2sol:data -- --finality finalized   # explicit default
+```
+
+Requirements:
+
+- **To Solana**: the `ccip-receiver-v2` program must be deployed with a `ccv_config` that accepts
+  the requested finality (the setup command above sets "safe or ≥1 block").
+- **To Ethereum**: the `BasicCCIPReceiver` owner sets a per-source-chain policy with
+  `npm run evm:receiver:config`:
+
+```bash
+npm run evm:receiver:config -- --finality 1              # accept >= 1 block (FTF)
+npm run evm:receiver:config -- --finality safe           # accept safe-tagged
+npm run evm:receiver:config -- --finality 1 --allow-safe # both
+npm run evm:receiver:config -- --remove                  # revert to finality-only
+```
+
+### Manual execution
+
+Send with `--no-exec` to skip automated destination execution entirely (the executor is set to
+the no-execution sentinel). Works on every send script — data, token, and data+token, both
+directions. Execute later:
+
+```bash
+npm run sol2evm:data -- --no-exec --message "store this later"
+npm run sol2evm:manual-execute -- --message-id 0x...   # when ready
+```
+
+Also works to retry a message whose automated execution failed (e.g. insufficient gas limit).
+
+### CCIP programs
+
+| Program                 | Purpose                                                                |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `ccip-basic-receiver`   | v1 receiver (finalized messages only)                                  |
+| `ccip-receiver-v2`      | v2 receiver: `ccip_receive_v2`, per-source CCV + finality config (FTF) |
+| `ccip-sender-v2`        | v2 sender program: `ccip_send` via staged account resolution           |
+| `chainlink-solana-demo` | Data Feeds demo (unrelated to CCIP)                                    |
+
+```bash
+npm run svm:program:build                                  # anchor build (all programs)
+npm run svm:program:deploy -- --program ccip-receiver-v2   # solana program deploy
+npm run svm:receiver-v2:setup -- --block-depth 1 --allow-safe
+npm run svm:receiver-v2:setup -- --approve-sender 0xYourEvmAddr   # optional sender allowlist
+npm run svm:receiver-v2:status
+npm run svm:sender-v2:setup -- --recipient 0xYourReceiver
+```
+
+Program IDs live in [`Anchor.toml`](Anchor.toml) and
+[`ccip-scripts/utils/config.ts`](ccip-scripts/utils/config.ts); chain selectors are resolved from
+the SDK's network registry so they can never drift from the on-chain lanes.
+
+### Troubleshooting
+
+- **`ReceiverError` / execution FAILURE on Ethereum** — the receiver callback ran out of gas.
+  The scripts estimate gas automatically now; for an old stuck message, retry with
+  `npm run sol2evm:manual-execute -- --message-id 0x... --gas-limit 400000`.
+- **`NotEnoughGasForCall` on a token-only send** — a non-zero gas limit was forced on a
+  token-only message. CCIP 2.0 skips the receiver call when `data` is empty and the gas
+  limit is 0 (the designed fast path); the scripts now send 0 there. Recover an old stuck
+  message with `npm run sol2evm:manual-execute -- --message-id 0x...`.
+- **`AccountNotEnoughKeys` (3005) / execution FAILURE on Solana** — the message reached the
+  receiver without its account list. CCIP 2.0 messages to Solana carry the receiver's
+  accounts in the message itself (extraArgs `accounts` → `executorArgs`); the OffRamp only
+  supplies the three standard accounts. The evm2sol scripts embed them automatically now.
+- **`approved_sender` missing on Solana** — the EVM sender was never approved on
+  `ccip-receiver-v2`. Approve it once:
+  `npm run svm:receiver-v2:setup -- --approve-sender 0xYourEvmAddress`.
+- **FTF message to Solana not executing** — check `npm run svm:receiver-v2:status`: the
+  `ccv_config` must accept the finality you requested.
+- **Noisy SDK logs** — the scripts silence the SDK's debug traces (simulation dumps, per-RPC
+  `fetched` lines); run with `DEBUG_CCIP_SDK=1` to see them again.
+- **Track any message** on the [CCIP Explorer](https://ccip.chain.link) by its message ID.
+
+---
+
+## Repository layout
+
+```
+├── programs/                    # Anchor programs
+│   ├── chainlink_solana_demo/   #   Data Feeds demo
+│   ├── ccip-basic-receiver/     #   CCIP v1 receiver
+│   ├── ccip-receiver-v2/        #   CCIP v2 receiver (CCV + finality config)
+│   └── ccip-sender-v2/          #   CCIP v2 sender program
+├── contracts/evm/               # BasicCCIPReceiver (Solidity, forge-built)
+├── ccip-scripts/
+│   ├── sol2evm/                 # Solana → Ethereum: send-data, send-token, send-data-and-token, check-fee, manual-execute
+│   ├── evm2sol/                 # Ethereum → Solana: same five
+│   ├── program/                 # deploy, setup-receiver-v2, setup-sender-v2, update-sender-chain-config, status
+│   ├── evm/                     # deploy-receiver, set-receiver-config (BasicCCIPReceiver on Sepolia)
+│   ├── balance.ts               # chain-agnostic balance checker (svm/evm)
+│   └── utils/                   # config (addresses/selectors/defaults), chains (SDK + wallets + gas estimation), finality (shared options), pdas (PDA derivations), extra-args (Borsh V3 codec), sender-program (program-routed sends)
+├── read-data.ts                 # Data Feeds clients (on-chain + off-chain)
+├── tests/                       # Anchor integration test (Data Feeds)
+└── target/idl/                  # Generated IDLs (ccip_basic_receiver, ccip_receiver_v2, ccip_sender_v2 committed)
+```
+
+Disclaimer: Please note, this repo contains community examples only — these are not Chainlink products or services and are not supported or maintained by Chainlink. This code represents an example of using a Chainlink product or service, and is intended for demonstration and educational purposes only. It is provided "AS IS" and "AS AVAILABLE" without warranties of any kind, may not have been audited, and may omit checks or error handling. Each party intending to use this example code does so entirely at their own risk and must perform its own audits, security and code review, key management, and testing before any production deployment and ensure the operation and performance of such code matches expectations. Neither Chainlink Labs nor the Chainlink Foundation deploys, operates, monitors, maintains or endorses any deployment of this code. Note that this is not a Chainlink product, feature or service, and there are no commitments made with respect to the code, including compatibility with future Chainlink releases. You should not rely on this code without first conducting your own technical, engineering, and security review. This code is also outside the scope of any Chainlink bug bounty programs. Neither Chainlink Labs, the Chainlink Foundation, nor Chainlink node operators are responsible for outcomes due to errors in this example or how it is deployed or operated, or liable for any resulting claims or damages. Use of the Chainlink Network is subject to the Chainlink Foundation [Terms of Service](https://chain.link/terms), which provides important information and disclosures. By using this code, you acknowledge and agree to these terms.
